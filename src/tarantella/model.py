@@ -1,7 +1,10 @@
 import tensorflow as tf
+from tensorflow.python.data.ops import iterator_ops
+from tensorflow.python.keras.engine import training_utils
 
 import tarantella
 import tarantella.optimizers.synchronous_distributed_optimizer as distributed_optimizers
+import tarantella.dataset_helpers as ds_helpers
 
 class TarantellaModel(tf.keras.models.Model):
   def __init__(self, model, _fusion_threshold_bytes = 32768):
@@ -9,19 +12,26 @@ class TarantellaModel(tf.keras.models.Model):
       raise RuntimeError("""Cannot initialize a TarantellaModel before the Tarantella library.
       Please call "tarantella.init() first."
       """)
+      
+    self.rank = tarantella.get_rank()
+    self.comm_size = tarantella.get_size()
     self.model = model
     self.threshold = _fusion_threshold_bytes
 
   def __getattr__(self, name):
+    if name in ('model', 'rank', 'comm_size'):
+      return getattr(self.__dict__, name)
     return getattr(self.__dict__['model'], name)
   
   def __setattr__(self, name, value):
-    if name in ('model'):
+    if name in ('model', 'rank', 'comm_size'):
       self.__dict__[name] = value
     else:
       setattr(self.__dict__['model'], name, value)
   
   def __delattr__(self, name):
+    if name in ('model', 'rank', 'comm_size'):
+      delattr(self.__dict__, name)
     delattr(self.__dict__['model'], name)
 
   def compile(self,
@@ -43,10 +53,14 @@ class TarantellaModel(tf.keras.models.Model):
                               weighted_metrics = weighted_metrics,
                               **kwargs)
                               
-  def fit(self, *args, **kwargs):
+  def fit(self,
+          x=None,
+          *args, **kwargs):
     # Broadcast initial weights to all processes
     tarantella.broadcast_model_weights(self.model, root_rank = 0)
-    return self.model.fit(*args, **kwargs)
+    dataset = ds_helpers.distribute_dataset_across_ranks(x, self.rank, self.comm_size)
+    
+    return self.model.fit(dataset, *args, **kwargs)
     
   def evaluate(self, *args, **kwargs):
     return self.model.evaluate(*args, **kwargs)
