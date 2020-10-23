@@ -1,3 +1,5 @@
+.. _quick-start-label:
+
 Quick start
 ===========
 
@@ -7,6 +9,11 @@ Code example: LeNet-5 on MNIST
 .. todo::
 
   simple TF Keras model with lines that need to be added
+  
+.. literalinclude:: quick_start_model.py
+   :language: python
+   :linenos:
+   :emphasize-lines: 5-6,59,62-64,83-86,89
 
 Important points
 ^^^^^^^^^^^^^^^^

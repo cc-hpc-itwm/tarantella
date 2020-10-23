@@ -1,15 +1,19 @@
 Tutorials
 =========
 
-Image recognition
-------------------
+.. _resnet50-label:
+
+ResNet-50
+---------
 
 .. todo::
 
-  add ResNet-50
+   * introduce learning rate warm up
+   * introduce learning rate scaling (with #ranks)
 
-Natural Language Processing
----------------------------
+
+Transformers
+------------
 
 .. todo::
 

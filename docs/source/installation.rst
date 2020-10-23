@@ -129,7 +129,8 @@ Now, we can compile and install Tarantella:
 
 .. todo::
 
-  Mention install directory above?
+  * add install directory above
+  * what is a good default?
 
 [Optional] Building and running tests
 -------------------------------------
