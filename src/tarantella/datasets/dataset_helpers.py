@@ -7,6 +7,7 @@ from tensorflow.python.ops import gen_dataset_ops
 import logging
 
 class TarantellaParallelMapDataset(ds.UnaryDataset):
+  """A `Dataset` that maps a function over the elements in its input."""
   def __init__(self,
                input_dataset,
                map_func,
@@ -20,6 +21,7 @@ class TarantellaParallelMapDataset(ds.UnaryDataset):
         num_parallel_calls, dtype=dtypes.int32, name="num_parallel_calls")
     self._preserve_cardinality = preserve_cardinality
     self._map_func = map_func # StructuredFunctionWrapper
+
     variant_tensor = gen_dataset_ops.map_dataset(
         input_dataset._variant_tensor,  # pylint: disable=protected-access
         self._map_func.function.captured_inputs,
@@ -42,8 +44,7 @@ class TarantellaParallelMapDataset(ds.UnaryDataset):
 
 
 class TarantellaMapDataset(ds.UnaryDataset):
-  """A `Dataset` that maps a function over elements in its input."""
-
+  """A `Dataset` that maps a function over the elements in its input."""
   def __init__(self,
                input_dataset,
                map_func,
@@ -55,6 +56,7 @@ class TarantellaMapDataset(ds.UnaryDataset):
     self._use_inter_op_parallelism = use_inter_op_parallelism
     self._preserve_cardinality = preserve_cardinality
     self._map_func = map_func # StructuredFunctionWrapper
+
     variant_tensor = gen_dataset_ops.map_dataset(
         input_dataset._variant_tensor,  # pylint: disable=protected-access
         self._map_func.function.captured_inputs,
@@ -74,8 +76,10 @@ class TarantellaMapDataset(ds.UnaryDataset):
   def _transformation_name(self):
     return "Dataset.map()"
 
-
-def gen_dataset_stack(dataset):
+def gen_dataset_transformations(dataset):
+  """Generate the list of transformations that has been applied to a dataset
+     Returns: tuple(original dataset, list of transformations)
+  """
   stack = []
   while (hasattr(dataset, '_input_dataset')):
     if isinstance(dataset, ds.BatchDataset):
@@ -93,7 +97,18 @@ def gen_dataset_stack(dataset):
       or isinstance(dataset, ds.TakeDataset):
         kwargs = {"count": dataset._count}            
     elif isinstance(dataset, ds.ShuffleDataset):
-        kwargs = {"buffer_size": dataset._buffer_size}            
+        # ShuffleDataset does not save the given seed
+        # instead it has two seed properties defined as
+        # `self._seed, self._seed2 = random_seed.get_seed(seed)`
+        # with `get_seed` defined in `tensorflow/python/framework/random_seed.py`
+        if dataset._seed2 == 0:
+          # there was no seed specified by the user
+          seed = None
+        else:
+          seed = dataset._seed2
+        kwargs = {"buffer_size": dataset._buffer_size,
+                  "seed" : seed,
+                  "reshuffle_each_iteration" : dataset._reshuffle_each_iteration}
     elif isinstance(dataset, ds.CacheDataset):
         kwargs = {"filename": dataset._filename} 
     elif isinstance(dataset, ds.FilterDataset):
@@ -130,40 +145,38 @@ def gen_dataset_stack(dataset):
         # TODO raise error if unknown dataset
         kwargs = {}
     
-        if isinstance(dataset, ds.ParallelMapDataset):
-          stack.append((TarantellaParallelMapDataset, kwargs)) 
-        elif isinstance(dataset, ds.MapDataset):
-          stack.append((TarantellaMapDataset, kwargs))            
-        else:
-          stack.append((type(dataset), kwargs))            
-    dataset = dataset._input_dataset
-  return (dataset, stack)
-
-def distribute_dataset_across_ranks(dataset, rank, comm_size):
-  dataset,stack = gen_dataset_stack(dataset)
-
-  cardinality = tf.data.experimental.cardinality(dataset)
-  print(cardinality)
-  print("infinite: ", (cardinality == tf.data.experimental.INFINITE_CARDINALITY).numpy())
-  print("unknown: ", (cardinality == tf.data.experimental.UNKNOWN_CARDINALITY).numpy())
-
-  num_samples = 0
-  for d in dataset:
-    num_samples += 1
-  logging.getLogger().warn("[rank " + str(rank) + "] num_samples=" + str(num_samples))
-
-  # re-apply dataset transformations identically, except for creating batches
-  for transf,ds_kwargs in reversed(stack):
-    if isinstance(transf(dataset, **ds_kwargs), ds.BatchDataset):
-      dataset = dataset.batch(batch_size = ds_kwargs['batch_size'], drop_remainder = True)
-      dataset = dataset.unbatch()
-      # replace batches with micro-batches followed by sharding
-      batch_size = ds_kwargs['batch_size']
-      ds_kwargs['batch_size'] = int(batch_size) // int(comm_size)
-      dataset = dataset.batch(**ds_kwargs)
-      dataset = dataset.shard(num_shards=comm_size, index = rank)
-      logging.getLogger().warn("[rank " + str(rank) + "] using batch_size = " + 
-                    str(ds_kwargs['batch_size']) + "; applying sharding")
+    if isinstance(dataset, ds.ParallelMapDataset):
+      stack.append((TarantellaParallelMapDataset, kwargs))
+    elif isinstance(dataset, ds.MapDataset):
+      stack.append((TarantellaMapDataset, kwargs))
     else:
-      dataset = transf(dataset, **ds_kwargs)
-  return dataset
+      stack.append((type(dataset), kwargs))
+    dataset = dataset._input_dataset
+  return (dataset, list(reversed(stack)))
+
+def get_index_last_batch_operation(dataset_transformations):
+  last_batch_transf_index = None
+  for index, (transf, ds_kwargs) in enumerate(reversed(dataset_transformations)):
+    if transf == ds.BatchDataset:
+      last_batch_transf_index = len(dataset_transformations) - index - 1
+      break
+  return last_batch_transf_index
+
+def get_num_samples(dataset):
+  cardinality = tf.data.experimental.cardinality(dataset)
+
+  if cardinality == tf.data.experimental.INFINITE_CARDINALITY:
+    logging.getLogger().debug("Infinite dataset detected.")
+    return tf.data.experimental.INFINITE_CARDINALITY
+
+  if cardinality != tf.data.experimental.UNKNOWN_CARDINALITY:
+    logging.getLogger().debug("Dataset size is %d" % (cardinality.numpy()))
+    return cardinality.numpy()
+
+  logging.getLogger().debug("Unknown dataset size. Counting samples...")
+  dataset_size = 0
+  for d in dataset:
+    dataset_size += 1
+  logging.getLogger().debug("Dataset size is %d" % (dataset_size))
+  return dataset_size
+
