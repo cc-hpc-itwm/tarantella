@@ -4,7 +4,7 @@ from tensorflow.python.keras.engine import training_utils
 
 import tarantella
 import tarantella.optimizers.synchronous_distributed_optimizer as distributed_optimizers
-import tarantella.dataset_helpers as ds_helpers
+import tarantella.datasets.distributed_dataset as ds
 
 class TarantellaModel(tf.keras.models.Model):
   def __init__(self, model, _fusion_threshold_bytes = 32768):
@@ -58,8 +58,11 @@ class TarantellaModel(tf.keras.models.Model):
           *args, **kwargs):
     # Broadcast initial weights to all processes
     tarantella.broadcast_model_weights(self.model, root_rank = 0)
-    dataset = ds_helpers.distribute_dataset_across_ranks(x, self.rank, self.comm_size)
-    
+    distributed_dataset = ds.DistributedDataset(dataset = x,
+                                                num_ranks = self.comm_size,
+                                                rank = self.rank,
+                                                shuffle_seed=42)
+    dataset = distributed_dataset.distribute_dataset_across_ranks()
     return self.model.fit(dataset, *args, **kwargs)
     
   def evaluate(self, *args, **kwargs):
