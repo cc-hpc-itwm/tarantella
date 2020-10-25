@@ -100,7 +100,7 @@ def gen_dataset_transformations(dataset):
         # ShuffleDataset does not save the given seed
         # instead it has two seed properties defined as
         # `self._seed, self._seed2 = random_seed.get_seed(seed)`
-        # with `get_seed` defined in `tensorflow/python/framework/random_seed.py`
+        # with `get_seed` defined in `tensorflow/python/framework/random_seed.py` [TF2.2]
         if dataset._seed2 == 0:
           # there was no seed specified by the user
           seed = None

@@ -33,7 +33,7 @@ class DistributedDataset:
     return dataset
 
   def shuffle_with_seed(self, dataset, ds_kwargs):
-    if not 'seed' in ds_kwargs or ds_kwargs['seed'] == None:
+    if not 'seed' in ds_kwargs or ds_kwargs['seed'] is None:
       logging.getLogger().warn("[rank %d] Shuffling with fixed shuffle seed %d" % (
                               self.rank, self.shuffle_seed))
       ds_kwargs['seed'] = self.shuffle_seed
@@ -77,7 +77,7 @@ class DistributedDataset:
     return ds_kwargs['batch_size']
 
   def get_microbatch_size(self, batch_size):
-    if batch_size == None or batch_size == 0:
+    if batch_size is None or batch_size == 0:
       raise ValueError("[DistributedDataset]Incorrectly defined batch size")
 
     if batch_size % self.num_ranks != 0:
