@@ -27,3 +27,7 @@ tarantella_generate_python_gpi_test(NAME OptimizersDataParallelCIFAR
                                     LOCALRANKS_LIST "${localranks_list}"
                                     LABELS integration long_running disabled
                                     TIMEOUT 10000)
+
+tarantella_generate_python_test(NAME DistributedDatasets
+                                TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/datasets/distributed_dataset.py
+                                TIMEOUT 3600)
