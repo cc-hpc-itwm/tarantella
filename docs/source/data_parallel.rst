@@ -126,7 +126,7 @@ do *not* average over entire batches, such as instance normalization
 
 Averaging over *local* batches instead of global batches should in practice
 have only minor influence on the quality of the final test accuracy.
-Note however, the two extreme cases of very small and very large *local* batch sizes.
+Note however, the extreme case of very small *local* batch sizes.
 
 .. caution::
 
@@ -135,28 +135,10 @@ Note however, the two extreme cases of very small and very large *local* batch s
 
 In this case, the local batches that are used to collect statistics are
 too small to obtain meaningful results. This will likely reduce the
-benefits of batch normalization, c.f. for instance [].
+benefits of batch normalization, c.f. for instance [Yang]_ and [Uppal]_.
 Tarantella will issue a warning, when this case arises.
 If this happens, please consider to increase the global batch size,
 or reduce the number of devices used.
-
-.. todo::
-
-  [Add reference for that case]
-
-.. note::
-
-   Using local batches to agregate statistics improves performance
-   *for very large global batch sizes*.
-
-On the other hand, collecting statistics over local batches only,
-is likely to benefit the performance of batch normalization for
-very large global batch sizes, due to the regulariziing effect of the
-increased noise, c.f. for instance [].
-
-.. todo::
-
-  [Add reference for that case]
 
 Managing individual devices
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -187,6 +169,10 @@ Distributed data sets
 .. [Ulyanov] Ulyanov, Dmitry, Andrea Vedaldi, and Victor Lempitsky. "Instance normalization: The missing ingredient for fast stylization." arXiv preprint arXiv:1607.08022 (2016).
 
 .. [Goyal] Goyal, Priya, et al. "Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour." arXiv preprint arXiv:1706.02677 (2017).
+
+.. [Yang] Yang, Greg, et al. "A mean field theory of batch normalization." arXiv preprint arXiv:1902.08129 (2019).
+
+.. [Uppal] https://towardsdatascience.com/curse-of-batch-normalization-8e6dd20bc304
 
 .. rubric:: Footnotes
 
