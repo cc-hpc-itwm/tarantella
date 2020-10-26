@@ -18,7 +18,7 @@ we are ready to add distributed training support to an existing TensorFlow 2/Ker
 We will first illustrate all the necessary steps, using the well-know example of
 **LeNet-5** on the **MNIST** dataset. Although, this is not necessarily a good use case
 to take full advantage of Tarantella's capabilities, it will allow you to simply
-copy-paste the code snippets and try them out even on your laptop.
+copy-paste the code snippets and try them out, even on your laptop.
   
 **Let's get started!**
 
@@ -56,8 +56,8 @@ All the necessary steps to distribute training and datasets will now automatical
 In particular, we run ``model.compile`` on our ``model`` to generate a (distributed) compute graph,
 the same way we did with Keras before.
 
-Next, we load MNIST data for training, validation and testing, and
-create ``Dataset`` s from them. Note that we ``batch`` the dataset for training.
+Next, we load the MNIST data for training, validation and testing, and
+create ``Dataset`` s from it. Note that we ``batch`` the dataset for training.
 This will guarantee that Tarantella is able to distribute the data later on in the correct way.
 Also note that the ``batch_size`` used here, is the same as for the original model,
 that is the global batch size.  For details concerning local and global batch sizes have a look
@@ -83,14 +83,68 @@ Next, let's execute our model distributedly using ``tnt_run`` on the command lin
   * logging and how to redirect it
   * all run options
 
-Important points
-^^^^^^^^^^^^^^^^
+Model checkpointing
+^^^^^^^^^^^^^^^^^^^
+
+Storing and loading your trained ``Tarantella.Modell`` is simple.
 
 .. todo::
 
-  * when to call `tarantella.init()`
-  * only one Keras model per program
-  * no support for custom training loops
-  * all TF optimizers are supported
-  * how to store/load model
-  * datasets (again?)
+  * add more description
+
+Using distributed datasets
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This section explains what needs to be done in order to use Tarantella's distributed datasets correctly.
+
+There are essentially three distingued ways, in which you can provide your datasets to Tarantella.
+
+.. todo::
+
+  * add more description
+
+Important points
+^^^^^^^^^^^^^^^^
+
+There is a number of points you should be aware of when using Tarantella.
+
+.. note::
+
+   ``tnt.init()`` needs to be called **after** ``import tarantella as tnt``, but **before**
+   any other statement.
+
+This will make sure, GASPIs communication infrastructure is correctly initialized.
+
+.. note::
+
+   Tarantella only supports one ``Keras.Model`` to be transformed into a ``Tarantella.Model``
+   per program.
+
+This should not limit the expressibilty of your models, however. In case you want to
+use several DNNs in the same model (e.g. to build a GAN), simply construct several
+``Keras.Model`` s and combine them into one by calling them explicitely, as discribed
+`here <palce_holder>`_.
+
+.. todo::
+
+  * add link to "Keras.Models as callables"
+
+.. note::
+
+  * Tarantella does not support custom training loops.
+
+Instead of using custom training loops, please use ``Model.fit(...)``.
+
+.. note::
+
+   Tarantella supports all
+   `TensorFlow optimizers <place_holder>`_
+   with the exception of ???.
+
+Since the ``???`` optimizer does not use batches, it is not supported in Tarantella.
+How to use your custom gradient-based optimizer is explained :ref:`here <custom-optimizers-label>`.
+
+.. todo::
+
+  * add name of optimizer that is not supported
+  * add link to TF optimizers

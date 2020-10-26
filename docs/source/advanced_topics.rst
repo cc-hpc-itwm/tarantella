@@ -24,3 +24,8 @@ Setting Tensor Fusion threshold
 
 Reproducibility
 ^^^^^^^^^^^^^^^
+
+.. _custom-optimizers-label:
+
+Custom optimizers
+^^^^^^^^^^^^^^^^^
