@@ -125,11 +125,6 @@ test:gcc:8.3.0:gpi-2/1.4.0-gcc:Release:tf2.1:
     - job: build:gcc:8.3.0:gpi-2/1.4.0-gcc:Release:tf2.1
   <<: *run_tests
 
-test:llvm:7.1.0:gpi-2/1.4.0-clang:Release:tf2.1:
-  needs:
-    - job: build:llvm:7.1.0:gpi-2/1.4.0-clang:Release:tf2.1
-  <<: *run_tests
-
 test:gcc:8.3.0:gpi-2/1.4.0-gcc:Debug:tf2.0:
   needs:
     - job: build:gcc:8.3.0:gpi-2/1.4.0-gcc:Debug:tf2.0
