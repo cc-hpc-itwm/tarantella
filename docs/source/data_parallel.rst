@@ -68,6 +68,8 @@ and the user does not have to take care of it.
 Points to consider
 ------------------
 
+.. _global-vs-local-batch-size-label:
+
 Global versus local batch size
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
