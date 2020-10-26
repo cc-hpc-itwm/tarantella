@@ -97,7 +97,7 @@ Using distributed datasets
 
 This section explains what needs to be done in order to use Tarantella's distributed datasets correctly.
 
-There are essentially three distingued ways, in which you can provide your datasets to Tarantella.
+There are essentially three distinct ways, in which you can provide your datasets to Tarantella.
 
 .. todo::
 
@@ -120,14 +120,10 @@ This will make sure, GASPIs communication infrastructure is correctly initialize
    Tarantella only supports one ``Keras.Model`` to be transformed into a ``Tarantella.Model``
    per program.
 
-This should not limit the expressibilty of your models, however. In case you want to
+This should not limit the expressiveness of your models, however. In case you want to
 use several DNNs in the same model (e.g. to build a GAN), simply construct several
-``Keras.Model`` s and combine them into one by calling them explicitely, as discribed
-`here <palce_holder>`_.
-
-.. todo::
-
-  * add link to "Keras.Models as callables"
+``Keras.Model`` s and combine them into a single one by calling them explicitly, as described e.g.
+`here <https://www.tensorflow.org/guide/keras/functional#all_models_are_callable_just_like_layers>`_.
 
 .. note::
 
@@ -138,13 +134,9 @@ Instead of using custom training loops, please use ``Model.fit(...)``.
 .. note::
 
    Tarantella supports all
-   `TensorFlow optimizers <place_holder>`_
-   with the exception of ???.
+   `TensorFlow optimizers <https://www.tensorflow.org/api_docs/python/tf/keras/optimizers>`_
+   with the exception of ``tf.keras.optimizers.Ftrl``.
 
-Since the ``???`` optimizer does not use batches, it is not supported in Tarantella.
+Since the ``Ftrl`` optimizer does not use batches, it is not supported in Tarantella.
 How to use your custom gradient-based optimizer is explained :ref:`here <custom-optimizers-label>`.
 
-.. todo::
-
-  * add name of optimizer that is not supported
-  * add link to TF optimizers
