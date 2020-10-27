@@ -3,12 +3,12 @@
 Installation
 ============
 
-Tarantella needs to be build `from source <https://github.com/cc-hpc-itwm/Tarantella>`_.
-Since Tarantella is build on top of `TensorFlow 2 <https://www.tensorflow.org/>`_,
+Tarantella needs to be built `from source <https://github.com/cc-hpc-itwm/tarantella>`_.
+Since Tarantella is built on top of `TensorFlow 2 <https://www.tensorflow.org/>`_,
 you will require a recent version of it. Additionally, you will need an installation of
 the communication library `GPI-2 <http://www.gpi-site.com/>`_ which Tarantella uses
 to communicated between processes.
-Lastly you will need `pybind11 <https://github.com/pybind/pybind11>`_ which is required
+Lastly, you will need `pybind11 <https://github.com/pybind/pybind11>`_, which is required
 for Python and C++ inter-communication.
 
 In the following we will look at the required steps in detail.
@@ -28,7 +28,7 @@ Installing GPI-2
 ^^^^^^^^^^^^^^^^
 
 Next, you will need to download, compile and install the GPI-2 library.
-The currently supported version is ``v1.4.0``, which needs to be build with
+The currently supported version is ``v1.4.0``, which needs to be built with
 position independent flags (``-fPIC``).
 
 To download the required version, clone the git repository and checkout the correct ``tag``:
@@ -36,6 +36,7 @@ To download the required version, clone the git repository and checkout the corr
 .. code-block:: bash
 
   git clone https://github.com/cc-hpc-itwm/GPI-2.git
+  cd GPI-2
   git fetch --tags
   git checkout -b v1.4.0 v1.4.0
 
@@ -49,9 +50,9 @@ Now, use `autotools <https://www.gnu.org/software/automake/>`_ to configure and 
 
 where ``${YOUR_INSTALLATION_PATH}`` needs to be replaced by the path where you want to install
 GPI-2. Note the ``--with-ethernet`` option, which will use standard TCP sockets for communication.
-This is the correct option for laptops and workstations. In case you want to use Infiniband,
-replace above option with ``--with-infiniband``.
+This is the correct option for laptops and workstations.
 
+In case you want to use Infiniband, replace the above option with ``--with-infiniband``.
 Now you are ready to install GPI-2 with
 
 .. code-block:: bash
@@ -65,8 +66,8 @@ If required, GPI-2 can be removed from the target directory by using ``make unin
 Installing TensorFlow 2
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-Next you will need to install a version of TensorFlow 2.
-Tarantella supports TensorFlow versions ``2.0`` to ``2.3``.
+Next you will need to install TensorFlow 2.
+Tarantella supports TensorFlow versions ``2.0`` to ``2.2``.
 Either version can be installed in a conda environment using pip,
 as recommended on the `TensorFlow website <https://www.tensorflow.org/install>`_.
 
@@ -83,14 +84,14 @@ Now, you can install the latest supported TensorFlow version with
 .. code-block:: bash
 
   conda install python=3.7
-  pip install --upgrade tensorflow==2.3
+  pip install --upgrade tensorflow==2.2
 
 Installing pybind11
 ^^^^^^^^^^^^^^^^^^^
 
 The last dependency you will need to install is pybind11.
-pybind11 is available through pip and conda. However, the pip-package does not seem
-to include the CMake package, which is why we recommend installing pybind11 via conda:
+pybind11 is available through pip and conda.
+We recommend installing pybind11 via conda:
 
 .. code-block:: bash
 
@@ -100,7 +101,7 @@ SSH to localhost
 ----------------
 
 In order to test Tarantella on your local machine, make sure you can ssh to ``localhost``
-without password. For details, we refer to the :ref:`FAQ section <faq-label>`.
+without password. For details, refer to the :ref:`FAQ section <faq-label>`.
 
 Building Tarantella from source
 -------------------------------
@@ -110,7 +111,7 @@ To download the source code, simply clone the GitHub repository:
 
 .. code-block:: bash
 
-  git clone https://github.com/cc-hpc-itwm/Tarantella.git
+  git clone https://github.com/cc-hpc-itwm/tarantella.git
 
 Next, we need to configure the build system using CMake.
 For a standard out-of-source build, we create a separate ``build`` folder and run ``cmake``
@@ -118,7 +119,7 @@ in it:
 
 .. code-block:: bash
 
-  cd Tarantella
+  cd tarantella
   mkdir build && cd build
   cmake ..
 
@@ -159,7 +160,7 @@ To install pytest you can use pip:
 
   pip install -U pytest
 
-After having installed these libraries, make sure to configure with testing switched on:
+After having installed these libraries, make sure to configure Tarantella with testing switched on:
 
 .. code-block:: bash
 

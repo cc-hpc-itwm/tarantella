@@ -2,63 +2,62 @@ Distributed data parallel training
 ==================================
 
 The following section explains the parallelization strategy Tarantella uses to
-provide distributed training. A full understanding thereof, is, however, not required 
+provide distributed training. A full understanding thereof is, however, not required 
 to be able to use the software. Please note the :ref:`points to consider <points-to-consider-label>`
-to achieve best performance and reproducibility, though.
+to achieve best performance and reproducibility.
 
 The general idea
 ----------------
 
 In order to parallelize the training of DNNs, different, complementary strategies are available.
 The conceptually simplest and most efficient one is called *data parallelism*. This strategy
-is already in use when deploying batched optimizers, such as stochstic gradient descent (SGD)
+is already in use when deploying batched optimizers, such as stochastic gradient descent (SGD)
 or ADAM. In this case, input samples are grouped together in so-called mini-batches and
-are process in parallel.
+are processed in parallel.
 
 Distribution of mini-batches
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Tarantella extents this scheme by spliting each mini-batch into a number of micro-batches,
-which are then executed on different devices (e.g. GPUs).
+Tarantella extends this scheme by splitting each mini-batch into a number of micro-batches,
+which are then executed on different devices (e.g., GPUs).
 In order to do this, the DNN is replicated on each device,
 which then processes part of the data independently of the other devices. At the end of each
 forward pass, partial results need to be accumulated via a so-called
 `allreduce <https://en.wikipedia.org/wiki/Collective_operation#All-Reduce_%5B5%5D>`_
 collective operation.
 
-Overlap communication with computation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Overlapping communication with computation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Tarantella implements this scheme using the
 `Global Address Space Programming Interface (GASPI) <https://en.wikipedia.org/wiki/Global_Address_Space_Programming_Interface>`_.
-This allows, in particular to overlap the communication needed to execute *allreduce* operations
+This allows in particular to overlap the communication needed to execute *allreduce* operations
 with the computation done in the *backpropagation* part of the DNN training.
 This is done by starting *allreduce* operations as soon as the required local incoming gradients are
 available, while continuing with *backpropagation* calculations at the same time.
-The final, accumulated gradients are only expected, once the entire *backpropagation* is completed.
+The final, accumulated gradients are only expected once the entire *backpropagation* is completed.
 This drastically reduces the communication overhead introduced through the synchronization
 of the different devices, and achieves high scalability.
 
 Tensor Fusion
 ^^^^^^^^^^^^^
 
-The granularity in which Tarantella executes *allreduce* operations can be varied from
+The granularity at which Tarantella executes *allreduce* operations can be varied from
 one *allreduce* per layer (finest granularity) to one *allreduce* per iteration (coarsest granularity).
-Using coarser granularities, i.e. *fusing* gradient tensors, can help utilizing more
-network bandwidth, thus increasing the overlap of communication with computation.
-Tensor Fusion is set up before the first iteration of training and courses no additional
-communication overhead.
+Using coarser granularities, i.e., *fusing* gradient tensors,
+cal lead to better bandwidth utilization, thus increasing the overlap of communication with computation.
+Tensor Fusion is set up before the first iteration of training and incurs no additional communication overhead.
 The granularity of Tensor Fusion can be set by the user
 (c.f. :ref:`here <tensor-fusion-threshold-label>`),
-but already uses a resonable default value.
+but already uses a reasonable default value.
 
 Model initialization and loading
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In order to guarantee that all devices have the same copy of the DNN when starting
-training, the model needs to be communicated from one devices to all other devices.
+training, the model needs to be communicated from one device to all other devices.
 This is done in Tarantella via the use of a so-called
-`broadcast <https://en.wikipedia.org/wiki/Collective_operation#Broadcast_[3]>`_.
+`broadcast <https://en.wikipedia.org/wiki/Collective_operation#Broadcast_[3]>`_ operation.
 This scheme applies both when the weights of a DNN are initialized randomly,
 or loaded from a checkpoint. Tarantella provides this functionality automatically,
 and the user does not have to take care of it.
@@ -79,21 +78,21 @@ as well as a *micro-batch size* (also called local batch size).
 The former represents the number of samples that
 is averaged over in the loss function of the optimizer, and is equivalent to
 the (mini-)batch size used in non-distributed training. The latter is the number
-of samples that is processed by each of the devices.
+of samples that is processed locally by each of the devices.
 
 .. note::
 
    In Tarantella, the user always specifies the **global batch size**.
 
-Using a strictly synchronous optimization scheme, and careful handling of data distribution,
-**Tarantella guarantees reproducibility of DNN training results independent of the number of
+Using a strictly synchronous optimization scheme, and by carefully handling the data distribution,
+**Tarantella guarantees the reproducibility of DNN training results independent of the number of
 devices used**, as long as all hyperparameters (such as global batch size and learning rate)
 are kept constant. [#footnote_random_seeds]_
 
-However, in order to achieve the best performance for DNN operators (`Conv2D`, `Dense`, etc.)
+However, to achieve the best performance for DNN operators (`Conv2D`, `Dense`, etc.)
 it is often advisable to *keep the local batch size constant*, and scale the global
-batch size with the number of devises used. This, in turn, will force you to
-adjust other hyperparameters, such as the learning rate, as well, in order to converge
+batch size with the number of devices used. This, in turn, will force you to
+adjust other hyperparameters, such as the learning rate, in order to converge
 to a comparable test accuracy, as observed for instance in [Shallue]_.
 
 In practice, the use of a learning rate schedule with initial *warm up* and
@@ -108,7 +107,7 @@ a *linear learning rate scaling* [Goyal]_, as it is described
 Batch normalization layers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The issue of global versus local batch size particularly affects all layers,
+The issue of global versus local batch size particularly affects the layers
 that calculate (and learn) statistics over entire batches.
 A well-known example of this type of layer is
 `batch normalization <https://en.wikipedia.org/wiki/Batch_normalization>`_.
@@ -131,14 +130,14 @@ Note however, the extreme case of very small *local* batch sizes.
 .. caution::
 
    Avoid using ``BatchNormalization`` layers when the global batch size
-   devided by the number of devices used is *smaller than 16*.
+   divided by the number of devices used is *smaller than 16*.
 
 In this case, the local batches that are used to collect statistics are
 too small to obtain meaningful results. This will likely reduce the
 benefits of batch normalization, c.f. for instance [Yang]_ and [Uppal]_.
 Tarantella will issue a warning, when this case arises.
-If this happens, please consider to increase the global batch size,
-or reduce the number of devices used.
+If this happens, please consider increasing the global batch size,
+or reducing the number of devices used.
 
 Managing individual devices
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -146,8 +145,8 @@ Managing individual devices
 Although Tarantella's user interface abstracts away most of the details of
 parallel programming, it is sometimes useful to be able to orchestrate a
 single device. This can be achieved using the
-`GASPI <https://en.wikipedia.org/wiki/Global_Address_Space_Programming_Interface>`_-concept
-of a ``rank``. Details of how to do this can be found in the
+`GASPI <https://en.wikipedia.org/wiki/Global_Address_Space_Programming_Interface>`_ concept
+of a ``rank``. Details on how to do this can be found in the
 :ref:`advanced topics <ranks-label>`.
 
 Distributed data sets
