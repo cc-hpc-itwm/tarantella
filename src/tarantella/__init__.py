@@ -72,7 +72,7 @@ def broadcast_model_weights(model, root_rank = 0):
   model.set_weights(weights)
 
 class SynchCommunicator():
-  def __init__(self, global_context, _fusion_threshold_bytes = 0):
+  def __init__(self, global_context, _fusion_threshold_bytes):
     self.context = global_context
     self.weight_to_index = dict()
     self.comm = None

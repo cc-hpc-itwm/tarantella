@@ -17,6 +17,7 @@ class TarantellaModel(tf.keras.models.Model):
     self.comm_size = tarantella.get_size()
     self.model = model
     self.threshold = _fusion_threshold_bytes
+    self.default_shuffle_seed = 42
 
   def __getattr__(self, name):
     if name in ('model', 'rank', 'comm_size'):
@@ -44,7 +45,7 @@ class TarantellaModel(tf.keras.models.Model):
               **kwargs):
     
     optimizer = tarantella.distributed_optimizers.SynchDistributedOptimizer(optimizer,
-                _fusion_threshold_bytes = self.threshold)
+                                                  _fusion_threshold_bytes = self.threshold)
     return self.model.compile(optimizer = optimizer,
                               loss = loss,
                               metrics = metrics,
@@ -55,15 +56,19 @@ class TarantellaModel(tf.keras.models.Model):
                               
   def fit(self,
           x=None,
-          *args, **kwargs):
+          tnt_distribute_dataset = True,
+          **kwargs):
+
     # Broadcast initial weights to all processes
     tarantella.broadcast_model_weights(self.model, root_rank = 0)
-    distributed_dataset = ds.DistributedDataset(dataset = x,
-                                                num_ranks = self.comm_size,
-                                                rank = self.rank,
-                                                shuffle_seed=42)
-    dataset = distributed_dataset.distribute_dataset_across_ranks()
-    return self.model.fit(dataset, *args, **kwargs)
+
+    if tnt_distribute_dataset:
+      distributed_dataset = ds.DistributedDataset(dataset = x,
+                                                  num_ranks = self.comm_size,
+                                                  rank = self.rank,
+                                                  shuffle_seed = self.default_shuffle_seed)
+      x = distributed_dataset.distribute_dataset_across_ranks()
+    return self.model.fit(x, **kwargs)
     
   def evaluate(self, *args, **kwargs):
     return self.model.evaluate(*args, **kwargs)
