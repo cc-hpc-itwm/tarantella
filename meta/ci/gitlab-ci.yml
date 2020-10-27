@@ -1,0 +1,164 @@
+stages:
+  - build
+  - run_tests
+  - run_integration_tests
+  
+variables: &global_variables
+  GIT_STRATEGY: fetch
+  HPDLF_CI_DIR: ${CI_PROJECT_DIR}/meta/ci
+  HPDLF_INSTALL_DIR: ${CI_PROJECT_DIR}/.install
+  RUNNER_HOME: /home/gitlab-runner
+  BASE_ENVIRONMENT_SETUP: ${RUNNER_HOME}/workspace/setup-env.sh
+  CONDA_ENVIRONMENT_DIR: ${RUNNER_HOME}/conda_env
+
+.tarantella_before_script: &tarantella_before_script
+  - source ${BASE_ENVIRONMENT_SETUP}
+  - module load cmake
+  - module load miniconda3
+  - source `conda info --base`/etc/profile.d/conda.sh
+  - if [ -d "${HPDLF_INSTALL_DIR}" ]; then rm -r "${HPDLF_INSTALL_DIR}"; fi
+
+.tarantella_after_script: &tarantella_after_script
+  - sh ${CI_PROJECT_DIR}/cmake/cleanup.sh 
+
+.tarantella_base_script: &tarantella_base_script
+  - source ${HPDLF_CI_DIR}/setupJob.sh
+  - if [ "${COMPILER_MODULE}" != "" ]; then module load ${COMPILER_MODULE}; fi
+  - module load ${GPI_MODULE}
+  - module load onednn
+  - conda activate ${CONDA_ENVIRONMENT_DIR}/${TF_ENV}
+
+.tarantella_build_template: &build_code
+  stage: build
+  before_script:
+    - *tarantella_before_script
+    - source scl_source enable ${SCL_ENVIRONMENT} || 1
+    - module load ${BOOST_MODULE}
+    - module load binutils/2.33.1-clang-7.1.0-kgp5l
+  script:
+    - *tarantella_base_script
+    - ${HPDLF_CI_DIR}/build.sh "${CI_PROJECT_DIR}" "${HPDLF_INSTALL_DIR}" "${BUILD_TYPE}" 
+  after_script:
+    - *tarantella_after_script
+  artifacts:
+    when: always
+    expire_in: 1 day
+    paths:
+      - build
+
+.tarantella_run_tests_template: &run_tests
+  stage: run_tests
+  before_script:
+    - *tarantella_before_script
+  script: 
+    - *tarantella_base_script
+    - cd build
+    - ctest --output-on-failure -LE "disabled|integration|long_running"
+  after_script:
+    - *tarantella_after_script
+
+.tarantella_run_integration_tests_template: &run_integration_tests
+  stage: run_integration_tests
+  before_script:
+    - *tarantella_before_script
+  script: 
+    - *tarantella_base_script
+    - cd build
+    - ctest --output-on-failure -LE "disabled|long_running" -L integration
+  after_script:
+    - *tarantella_after_script
+  only:
+    - master
+
+.tarantella_run_long_integration_tests_template: &run_long_integration_tests
+  stage: run_integration_tests
+  before_script:
+    - *tarantella_before_script
+  script:
+    - *tarantella_base_script
+    - cd build
+    - ctest --output-on-failure -LE "disabled" -L long_running -V
+  after_script:
+    - *tarantella_after_script
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $NIGHTLY_PIPELINE && $NIGHTLY_PIPELINE == "true"'
+
+.build_template_gcc: &build_gcc
+  variables:
+    <<: *global_variables
+    SCL_ENVIRONMENT: devtoolset-7
+    BOOST_MODULE: boost/1.67.0-gcc-8.3.0-6rtzd 
+  <<: *build_code
+
+.build_template_clang: &build_clang
+  variables:
+    <<: *global_variables
+    SCL_ENVIRONMENT: llvm-toolset-7
+    BOOST_MODULE: boost/1.67.0-clang-7.1.0-ijsdb 
+  <<: *build_code
+
+######## Build jobs ############
+# Various GCC compiler versions
+build:gcc:7.4.0:gpi-2/1.4.0-gcc:Release:tf2.1:
+  <<: *build_gcc
+
+build:gcc:8.3.0:gpi-2/1.4.0-gcc:Release:tf2.1:
+  <<: *build_gcc
+
+build:gcc:8.3.0:gpi-2/1.4.0-gcc:Release:tf2.2:
+  <<: *build_gcc
+
+# Clang build
+build:llvm:7.1.0:gpi-2/1.4.0-clang:Release:tf2.1:
+  <<: *build_clang
+
+# Debug builds
+build:llvm:7.1.0:gpi-2/1.4.0-clang:Debug:tf2.1:
+  <<: *build_clang
+build:gcc:8.3.0:gpi-2/1.4.0-gcc:Debug:tf2.0:
+  <<: *build_gcc
+
+
+######## Unit tests ############
+test:gcc:8.3.0:gpi-2/1.4.0-gcc:Release:tf2.1:
+  needs:
+    - job: build:gcc:8.3.0:gpi-2/1.4.0-gcc:Release:tf2.1
+  <<: *run_tests
+
+test:llvm:7.1.0:gpi-2/1.4.0-clang:Release:tf2.1:
+  needs:
+    - job: build:llvm:7.1.0:gpi-2/1.4.0-clang:Release:tf2.1
+  <<: *run_tests
+
+test:gcc:8.3.0:gpi-2/1.4.0-gcc:Debug:tf2.0:
+  needs:
+    - job: build:gcc:8.3.0:gpi-2/1.4.0-gcc:Debug:tf2.0
+  <<: *run_tests
+
+test:gcc:8.3.0:gpi-2/1.4.0-gcc:Debug:tf2.2:
+  needs:
+    - job: build:gcc:8.3.0:gpi-2/1.4.0-gcc:Release:tf2.2
+  <<: *run_tests
+
+######## Integration tests ############
+integration:gcc:8.3.0:gpi-2/1.4.0-gcc:Release:tf2.2:
+  needs:
+    - job: build:gcc:8.3.0:gpi-2/1.4.0-gcc:Release:tf2.2
+  <<: *run_integration_tests
+
+
+######## Long-running tests ############
+integration:gcc:8.3.0:gpi-2/1.4.0-gcc:Release:tf2.1:
+  needs:
+    - job: build:gcc:8.3.0:gpi-2/1.4.0-gcc:Release:tf2.1
+  <<: *run_long_integration_tests
+
+integration_long:gcc:8.3.0:gpi-2/1.4.0-gcc:Release:tf2.1:
+  needs:
+    - job: build:gcc:8.3.0:gpi-2/1.4.0-gcc:Release:tf2.1
+  <<: *run_long_integration_tests
+
+integration_long:gcc:8.3.0:gpi-2/1.4.0-gcc:Release:tf2.2:
+  needs:
+    - job: build:gcc:8.3.0:gpi-2/1.4.0-gcc:Release:tf2.2
+  <<: *run_long_integration_tests
