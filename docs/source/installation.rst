@@ -86,6 +86,8 @@ Now, you can install the latest supported TensorFlow version with
   conda install python=3.7
   pip install --upgrade tensorflow==2.2
 
+.. _installation-pybind11-label:
+
 Installing pybind11
 ^^^^^^^^^^^^^^^^^^^
 
