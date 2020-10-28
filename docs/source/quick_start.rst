@@ -199,6 +199,11 @@ a ``tnt_micro_batch_size`` explicitly.
 Tarantella does not support any other way to feed data to ``fit`` at the moment.
 In particular, Numpy arrays, TensorFlow tensors and generators are not supported.
 
+Tarantella's automatic data distribution can be switched off by passing
+``tnt_distribute_dataset=False`` in ``tnt.Model.fit``.
+
+There are a few important points when using distributed datasets in Tarantella:
+
 .. note::
 
    Batch size must be a multiple of the number of devices used.
@@ -218,7 +223,7 @@ and issue a ``WARNING`` message. This behavior will be fixed in the next release
      When using ``shuffle`` without a ``seed``, Tarantella will use a fixed default ``seed``.
 
 This guarantees that the input data is shuffled the same way on all devices,
-when no ``seed`` is give, which is necessary for consistency.
+when no ``seed`` is given, which is necessary for consistency.
 However, when a random ``seed`` is provided by the user, Tarantella will use that one instead.
 
 Important points
