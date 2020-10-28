@@ -16,7 +16,7 @@ or ADAM. In this case, input samples are grouped together in so-called mini-batc
 are processed in parallel.
 
 Distribution of mini-batches
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------
 
 Tarantella extends this scheme by splitting each mini-batch into a number of micro-batches,
 which are then executed on different devices (e.g., GPUs).
@@ -27,7 +27,7 @@ forward pass, partial results need to be accumulated via a so-called
 collective operation.
 
 Overlapping communication with computation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------------------------
 
 Tarantella implements this scheme using the
 `Global Address Space Programming Interface (GASPI) <https://en.wikipedia.org/wiki/Global_Address_Space_Programming_Interface>`_.
@@ -40,19 +40,19 @@ This drastically reduces the communication overhead introduced through the synch
 of the different devices, and achieves high scalability.
 
 Tensor Fusion
-^^^^^^^^^^^^^
+-------------
 
 The granularity at which Tarantella executes *allreduce* operations can be varied from
 one *allreduce* per layer (finest granularity) to one *allreduce* per iteration (coarsest granularity).
 Using coarser granularities, i.e., *fusing* gradient tensors,
-cal lead to better bandwidth utilization, thus increasing the overlap of communication with computation.
+can lead to better bandwidth utilization, thus increasing the overlap of communication with computation.
 Tensor Fusion is set up before the first iteration of training and incurs no additional communication overhead.
 The granularity of Tensor Fusion can be set by the user
 (c.f. :ref:`here <tensor-fusion-threshold-label>`),
 but already uses a reasonable default value.
 
 Model initialization and loading
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------------
 
 In order to guarantee that all devices have the same copy of the DNN when starting
 training, the model needs to be communicated from one device to all other devices.
@@ -64,13 +64,33 @@ and the user does not have to take care of it.
 
 .. _points-to-consider-label:
 
+Distributed datasets
+=====================
+
+In order to process micro-batches independently on each device and obtain the same results
+as in serial execution, the input data of each mini-batch has to be split and distributed
+among all devices.
+
+Tarantella automatically takes care of this through the use of distributed datasets.
+The user simply provides Tarantella with a ``tf.data.Dataset`` that is batched
+with the mini-batch size. Tarantella will then automatically distribute the input data
+by sharding the mini-batch into individual micro-batches. Sharding is done at the level
+of samples (as opposed to e.g., files) to ensure :ref:`reproducibility <reproducibility-label>`
+of serial results.
+
+To guarantee reproducibility, it is also important that shuffling of samples is done
+in the same way on all devices. Tarantella does this using either the ``seed`` provided
+by the user, or a specific default seed. Please refer to the
+:ref:`quick start <using-distributed-datasets-label>`
+for more details.
+
 Points to consider
-------------------
+==================
 
 .. _global-vs-local-batch-size-label:
 
 Global versus local batch size
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------------
 
 As explained above, when using data parallelism, there exists a *mini-batch size*
 (in the following also called global batch size or simply batch size) 
@@ -105,7 +125,7 @@ a *linear learning rate scaling* [Goyal]_, as it is described
    and :ref:`adapt the learning rate schedule <resnet50-label>`.
 
 Batch normalization layers
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------
 
 The issue of global versus local batch size particularly affects the layers
 that calculate (and learn) statistics over entire batches.
@@ -140,7 +160,7 @@ If this happens, please consider increasing the global batch size,
 or reducing the number of devices used.
 
 Managing individual devices
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+---------------------------
 
 Although Tarantella's user interface abstracts away most of the details of
 parallel programming, it is sometimes useful to be able to orchestrate a
@@ -148,18 +168,6 @@ single device. This can be achieved using the
 `GASPI <https://en.wikipedia.org/wiki/Global_Address_Space_Programming_Interface>`_ concept
 of a ``rank``. Details on how to do this can be found in the
 :ref:`advanced topics <ranks-label>`.
-
-Distributed data sets
-=====================
-
-.. todo::
-
-   * general idea
-   * requirements for auto-distribution in TNT:
-
-     * batched
-     * not batched with global batch size
-     * not batched with micro batch size
 
 .. rubric:: References
 
