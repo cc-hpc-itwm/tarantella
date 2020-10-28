@@ -1,3 +1,5 @@
+.. _contact-label:
+
 Contact
 =======
 

@@ -4,7 +4,7 @@ Frequently Asked Questions (FAQ)
 ================================
 
 This is a list of frequently asked questions about Tarantella.
-Please feel free to suggest new ones!
+Please feel free to :ref:`suggest new ones <contact-label>`!
 
 .. admonition:: Question
 
