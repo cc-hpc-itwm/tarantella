@@ -145,7 +145,7 @@ explicitly with the option ``--n-per-node=<number>``:
 In this example, ``tarantella`` would execute 4 instances of TensorFlow on the CPUs
 of each node specified in ``hostfile``.
 
-.. note::
+.. caution::
 
    ``tarantella`` requires all names in the ``hostfile`` to be **unique**,
    and all nodes to be **identical** (number and type of CPUs and GPUs).
@@ -173,16 +173,53 @@ Storing and loading your trained ``Tarantella.Modell`` is simple.
 
   * add more description
 
+.. _using-distributed-datasets-label:
+
 Using distributed datasets
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This section explains what needs to be done in order to use Tarantella's distributed datasets correctly.
 
-There are essentially three distinct ways, in which you can provide your datasets to Tarantella.
+The recommended way in which to provide your dataset to Tarantella is by passing a
+batched ``tf.data.Dataset`` to ``tnt.Model.fit``.
+In order to do this, create a ``Dataset`` and apply the ``batch``
+`transformation <https://www.tensorflow.org/api_docs/python/tf/data/Dataset#batch>`_
+using the (global) batch size to it. However, do not provide a value to ``batch_size``
+in ``tnt.Model.fit``, which will lead to an error.
 
-.. todo::
+Tarantella also supports batched and unbatched ``Dataset`` s in ``tnt.Model.fit``
+when setting the ``tnt_micro_batch_size`` argument. This can be useful to obtain
+maximal performance in multi-node execution, as shown
+:ref:`here <resnet50-label>`. Keep in mind however, that Tarantella still expects
+the ``Dataset`` to be batched with the global batch size, and that the micro-batch
+size has to be consistent with the global batch size. [#footnote_consistent]_
+This is why, it is recommended to use unbatched ``Dataset`` s when setting
+a ``tnt_micro_batch_size`` explicitly.
 
-  * add more description
+Tarantella does not support any other way to feed data to ``fit`` at the moment.
+In particular, Numpy arrays, TensorFlow tensors and generators are not supported.
+
+.. note::
+
+   Batch size must be a multiple of the number of devices used.
+
+This issue is temporary, and will be fixed in the next release.
+
+.. note::
+
+   The last incomplete batch is always dropped.
+
+We recommend to use ``drop_remainder=True`` when generating a ``Dataset``.
+If ``drop_remainder`` is set to ``False``, Tarantella will ignore it
+and issue a ``WARNING`` message. This behavior will be fixed in the next release.
+
+.. note::
+
+     When using ``shuffle`` without a ``seed``, Tarantella will use a fixed default ``seed``.
+
+This guarantees that the input data is shuffled the same way on all devices,
+when no ``seed`` is give, which is necessary for consistency.
+However, when a random ``seed`` is provided by the user, Tarantella will use that one instead.
 
 Important points
 ^^^^^^^^^^^^^^^^
@@ -221,3 +258,8 @@ Instead of using custom training loops, please use ``Model.fit(...)``.
 Since the ``Ftrl`` optimizer does not use batches, it is not supported in Tarantella.
 How to use your custom gradient-based optimizer is explained :ref:`here <custom-optimizers-label>`.
 
+
+.. rubric:: Footnotes
+
+.. [#footnote_consistent] That is, the global batch size must equal the micro batch size times
+   the number of devices used.
