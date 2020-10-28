@@ -1,3 +1,4 @@
+import logging
 import tensorflow as tf
 from tensorflow.python.data.ops import iterator_ops
 from tensorflow.python.keras.engine import training_utils
@@ -68,6 +69,9 @@ class TarantellaModel(tf.keras.models.Model):
                                                   rank = self.rank,
                                                   shuffle_seed = self.default_shuffle_seed)
       x = distributed_dataset.distribute_dataset_across_ranks()
+    else:
+      logging.getLogger().info("[rank %d] Automatic dataset distribution is disabled. \
+Make sure the dataset is sharded manually across ranks." % (self.rank))
     return self.model.fit(x, **kwargs)
     
   def evaluate(self, *args, **kwargs):
