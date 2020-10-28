@@ -2,8 +2,8 @@ import tensorflow as tf
 from tensorflow import keras
 import tarantella as tnt
 
-# TODO: Add an import for the utility functions,
-# and add the source somewhere else
+# Skip function implementations for brevity
+[...]
 
 # Initialize Tarantella (before doing anything else)
 tnt.init()
