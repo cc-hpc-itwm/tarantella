@@ -16,9 +16,5 @@ and help spreading the word about it are great ways to contribute
 and make Tarantella better software.
 
 If you want to contribute to Tarantella with changes to its code,
-please open a `pull request <https://github.com/cc-hpc-itwm/tarantella/pulls>`_.
-Please adhere to the following guidelines when opening a pull request.
-
-.. todo::
-
-   What include into an MR?
+please open a `pull request <https://github.com/cc-hpc-itwm/tarantella/pulls>`_
+on GitHub.
