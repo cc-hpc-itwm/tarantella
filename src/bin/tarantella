@@ -1,0 +1,88 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import argparse
+import subprocess
+
+import runtime.file_management as file_man
+import runtime.platform_config as platform_config
+import tensorflow as tf
+
+def parse_args():
+  parser = argparse.ArgumentParser()
+  multinode_group = parser.add_argument_group('Multi-node execution')
+  multinode_group.add_argument("--hostfile",
+                      dest = "hostfile",
+                      help="Path to the list of nodes (hostnames) on which to execute the code",
+                      default = None)
+  multinode_group.add_argument("--n-per-node", "--device-per-node",
+                    help="Number of devices (i.e., either GPUs or CPUs) to be used per node",
+                    dest = "npernode",
+                    type = int,
+                    default = None)
+  singlenode_group = parser.add_argument_group('Single-node execution')
+  singlenode_group.add_argument("-n",
+                    help="Number of processes to start on the local node",
+                    dest = "npernode",
+                    type = int,
+                    default = None)
+
+  parser.add_argument("--no-gpu",
+                    help="Disable GPU usage",
+                    dest = "use_gpus",
+                    action='store_false',
+                    default = True)
+  parser.add_argument('app', nargs='+')
+  return parser.parse_args()
+
+def collect_environment_variables():
+  env = {}
+  for var in ['PATH', 'LD_LIBRARY_PATH', 'PYTHONPATH']:
+    env[var] = os.environ[var]
+  return env
+
+
+
+class Tarantella:
+  def __init__(self, hostlist, num_gpus_per_node, num_cpus_per_node, command_list):
+    self.hostlist = hostlist
+    self.command_list = command_list
+
+    self.npernode = num_gpus_per_node
+    if self.npernode == 0:
+      self.npernode = num_cpus_per_node
+
+    self.nranks = len(hostlist) * self.npernode
+    self.hostfile = file_man.HostFile(self.hostlist, self.npernode)
+    self.executable_script = self.generate_executable_script()
+
+  def generate_executable_script(self):
+    # create execution script
+    header = "#!/bin/bash"
+
+    environment = ""
+    for var_name,value in collect_environment_variables().items():
+      environment += "export %s=%s\n" % (var_name, value)
+
+    command = "python %s" % (' '.join(self.command_list))
+    return file_man.GPIScriptFile(header, environment, command, dir = os.getcwd())
+
+  def run(self):
+    with self.hostfile, self.executable_script:
+      command_list = ["gaspi_run", "-n", str(self.nranks),
+                      "-m", self.hostfile.name,
+                      self.executable_script.name]
+      result = subprocess.run(command_list,
+                  check = True,
+                  stdout=None, stderr=None,)
+
+if __name__ == "__main__":
+  args = parse_args()
+  print(args)
+  nodes_list = platform_config.generate_nodes_list(args.hostfile)
+  num_gpus, num_cpus = platform_config.generate_num_devices_per_node(npernode = args.npernode,
+                                                                      use_gpus = args.use_gpus)
+
+  tarantella = Tarantella(nodes_list, num_gpus, num_cpus, args.app)
+  tarantella.run()
