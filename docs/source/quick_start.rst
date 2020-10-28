@@ -200,7 +200,8 @@ Tarantella does not support any other way to feed data to ``fit`` at the moment.
 In particular, Numpy arrays, TensorFlow tensors and generators are not supported.
 
 Tarantella's automatic data distribution can be switched off by passing
-``tnt_distribute_dataset=False`` in ``tnt.Model.fit``.
+``tnt_distribute_dataset=False`` in ``tnt.Model.fit``, in which case Tarantella
+will issue an ``INFO`` message.
 
 There are a few important points when using distributed datasets in Tarantella:
 
