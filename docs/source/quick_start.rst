@@ -3,10 +3,10 @@
 Quick start
 ===========
 
-This section explains how to get started using Tarantella to distributetly
+This section explains how to get started using Tarantella to distributedly
 train an existing TensorFlow 2/Keras model.
 First we will examine what changes to your code have to be made, before we will look into
-the execution of your script with ``tnt_run`` on the command line.
+the execution of your script with ``tarantella`` on the command line.
 Finally, we will state in more detail what features Tarantella currently supports and
 what important points need to be taken into account when using Tarantella.
 
@@ -37,7 +37,7 @@ First we need to import the Tarantella library:
 
    import tarantella as tnt
 
-Having done that we need to initialise the library (which will setup the communication infrastructure):
+Having done that we need to initialize the library (which will setup the communication infrastructure):
 
 .. code-block:: Python
 
@@ -68,20 +68,101 @@ to the standard Keras interface. Note, however, that Tarantella is taking care o
 distribution of the ``train_dataset`` in the background. All the possibilities of how to
 feed datasets to Tarantella are explained in more detail below.
 
-Lastly, we can evaluate the final accuracy of your ``model`` on the ``test_dataset`` using
+Lastly, we can evaluate the final accuracy of our ``model`` on the ``test_dataset`` using
 ``model.evaluate``.
 
-Executing your model: ``tnt_run``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+To test and run ``tarantella`` in the next section, you can find a full version of the above example
+`here <https://github.com/cc-hpc-itwm/tarantella/tree/main/docs/source/quick_start_model_full.py>`__.
 
-Next, let's execute our model distributedly using ``tnt_run`` on the command line.
+Executing your model with ``tarantella``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. todo::
+Next, let's execute our model distributedly using ``tarantella`` on the command line.
+The simplest way to do that is by passing the python script of our model to ``tarantella``:
 
-  * simplest solution
-  * machine files
-  * logging and how to redirect it
-  * all run options
+.. code-block:: bash
+
+   tarantella model.py
+
+This will execute our model distributedly on a single node, using all the available GPUs.
+In case, no GPUs can be found, ``tarantella`` will executed in serial mode on the CPU,
+and an ``INFO`` message will be issued. In case you have GPUs available, but
+want to execute ``tarantella`` on CPUs nonetheless, you can specify the ``--no-gpu`` option.
+
+.. code-block:: bash
+
+   tarantella --no-gpu model.py
+
+We can also set command line parameters for the python script ``model.py``, which have to
+succeed the name of the script:
+
+.. code-block:: bash
+
+   tarantella --no-gpu model.py --batch_size=64 --learning_rate=0.01
+
+On a single node, we can also explicitly specify the number of TensorFlow instances
+we want to use. This is done with the ``-n`` option:
+
+.. code-block:: bash
+
+   tarantella -n 4 model.py --batch_size=64
+
+Here, ``tarantella`` would try to execute distributedly on 4 GPUs.
+If there are not enough GPUs available, ``tarantella`` will print a ``WARNING``
+and run 4 instances of TensorFlow on the CPU instead.
+If there are no GPUs installed or the ``--no-gpu`` option is use,
+``tarantella`` will not print a ``WARNING``.
+
+Next, let's run ``tarantella`` on multiple nodes. In order to do this,
+we need to provide ``tarantella`` with a ``hostfile`` that includes
+the ``hostname`` s of the nodes that shall be used:
+
+.. code-block:: bash
+
+   $ cat hostfile
+   name_of_node_1
+   name_of_node_2
+
+With this ``hostfile`` we can run tarantella on multiple nodes:
+
+.. code-block:: bash
+
+   tarantella --hostfile hostfile model.py
+
+In this case, ``tarantella`` uses *all* GPUs it can find.
+If no GPUs are available ``tarantella`` will start *one* TensorFlow instance
+per node on the CPUs, and issue an ``INFO`` message. 
+Again, this can be disabled by explicitly using the ``--no-gpu``
+option.
+
+As before, you can specify the number of GPUs/CPUs used per node
+explicitly with the option ``--n-per-node=<number>``:
+
+.. code-block:: bash
+
+   tarantella --hostfile hostfile --n-per-node=4 --no-gpu model.py --batch_size=64
+
+In this example, ``tarantella`` would execute 4 instances of TensorFlow on the CPUs
+of each node specified in ``hostfile``.
+
+.. note::
+
+   ``tarantella`` requires all names in the ``hostfile`` to be **unique**,
+   and all nodes to be **identical** (number and type of CPUs and GPUs).
+
+In addition, ``tarantella`` can be run with different levels of logging output.
+The log-levels that are available are ``INFO``, ``WARNING``, ``DEBUG`` and ``ERROR``,
+and can be set with ``--log-level``:
+
+.. code-block:: bash
+
+   tarantella --hostfile hostfile --log-level=INFO model.py
+
+The directory where to put the log files can be specified with ``--log-dir=<your_log_dir>``.
+It will be created if necessary and existing files will be overwritten, in case it already exists.
+By default, ``tarantella`` will log on the :ref:`master rank <ranks-label>` only.
+This can be changed by using the ``--log-on-all-devices`` option which will create log files
+for each :ref:`rank <ranks-label>` individually.
 
 Model checkpointing
 ^^^^^^^^^^^^^^^^^^^
@@ -121,7 +202,7 @@ This will make sure, GASPIs communication infrastructure is correctly initialize
    per program.
 
 This should not limit the expressiveness of your models, however. In case you want to
-use several DNNs in the same model (e.g. to build a GAN), simply construct several
+use several DNNs in the same model (e.g., to build a GAN), simply construct several
 ``Keras.Model`` s and combine them into a single one by calling them explicitly, as described e.g.
 `here <https://www.tensorflow.org/guide/keras/functional#all_models_are_callable_just_like_layers>`_.
 
