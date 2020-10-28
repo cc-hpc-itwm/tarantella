@@ -25,7 +25,7 @@ To make this capability accessible to as many users as possible, Tarantella's us
 was designed in such a way that no knowledge of HPC or parallel computing is required
 to use it.
 
-In order to be able to integrate Tarantella into any TensorFlow-based Deep Learning workflow,
+To allow integrating Tarantella into any TensorFlow-based Deep Learning workflow,
 we put special emphasis on strictly following the synchronous scheme of the optimization process
 used to train DNNs. This guarantees that results obtained in serial execution can be
 reproduced when using distributed training
