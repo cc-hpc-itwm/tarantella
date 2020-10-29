@@ -66,7 +66,7 @@ def get_rank():
 def get_size():
   return global_context.size
 
-def broadcast_model_weights(model, root_rank = 0):
+def broadcast_model_weights(model, root_rank):
   weights = model.get_weights()
   GPICommLib.broadcast_model_weights(global_context, weights, root_rank)
   model.set_weights(weights)

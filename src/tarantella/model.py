@@ -14,6 +14,7 @@ class TarantellaModel(tf.keras.models.Model):
       Please call "tarantella.init() first."
       """)
       
+    self.master_rank = 0
     self.rank = tarantella.get_rank()
     self.comm_size = tarantella.get_size()
     self.model = model
@@ -21,18 +22,18 @@ class TarantellaModel(tf.keras.models.Model):
     self.default_shuffle_seed = 42
 
   def __getattr__(self, name):
-    if name in ('model', 'rank', 'comm_size'):
+    if name in ('model', 'rank', 'comm_size', 'master_rank', 'threshold'):
       return getattr(self.__dict__, name)
     return getattr(self.__dict__['model'], name)
   
   def __setattr__(self, name, value):
-    if name in ('model', 'rank', 'comm_size'):
+    if name in ('model', 'rank', 'comm_size', 'master_rank', 'threshold'):
       self.__dict__[name] = value
     else:
       setattr(self.__dict__['model'], name, value)
   
   def __delattr__(self, name):
-    if name in ('model', 'rank', 'comm_size'):
+    if name in ('model', 'rank', 'comm_size', 'master_rank', 'threshold'):
       delattr(self.__dict__, name)
     delattr(self.__dict__['model'], name)
 
@@ -61,7 +62,7 @@ class TarantellaModel(tf.keras.models.Model):
           **kwargs):
 
     # Broadcast initial weights to all processes
-    tarantella.broadcast_model_weights(self.model, root_rank = 0)
+    tarantella.broadcast_model_weights(self.model, root_rank = self.master_rank)
 
     if tnt_distribute_dataset:
       distributed_dataset = ds.DistributedDataset(dataset = x,
