@@ -3,11 +3,13 @@
 import os
 import sys
 import argparse
+import logging
 import subprocess
 
 import runtime.file_management as file_man
 import runtime.platform_config as platform_config
-import tensorflow as tf
+import runtime.environment_config as env_config
+import tensorflow as tf 
 
 def parse_args():
   parser = argparse.ArgumentParser()
@@ -36,13 +38,6 @@ def parse_args():
   parser.add_argument('app', nargs='+')
   return parser.parse_args()
 
-def collect_environment_variables():
-  env = {}
-  for var in ['PATH', 'LD_LIBRARY_PATH', 'PYTHONPATH']:
-    env[var] = os.environ[var]
-  return env
-
-
 
 class Tarantella:
   def __init__(self, hostlist, num_gpus_per_node, num_cpus_per_node, command_list):
@@ -61,9 +56,9 @@ class Tarantella:
     # create execution script
     header = "#!/bin/bash"
 
-    environment = ""
-    for var_name,value in collect_environment_variables().items():
-      environment += "export %s=%s\n" % (var_name, value)
+    environment = env_config.gen_exports_from_dict(env_config.collect_environment_variables()) + \
+                  env_config.gen_exports_from_dict(env_config.collect_tensorflow_variables()) + \
+                  env_config.gen_exports_from_dict(env_config.collect_tarantella_variables())
 
     command = "python %s" % (' '.join(self.command_list))
     return file_man.GPIScriptFile(header, environment, command, dir = os.getcwd())
