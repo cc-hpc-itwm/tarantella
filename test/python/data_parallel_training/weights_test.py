@@ -34,16 +34,14 @@ class TestsDataParallelCompareWeights:
   def test_compare_weights_across_ranks(self, tarantella_framework, model_runner,
                                         micro_batch_size, nbatches, number_epochs):
     comm_size = tarantella_framework.get_size()
-    rank = tarantella_framework.get_rank()
-    nsamples = nbatches * micro_batch_size * comm_size
+    batch_size = micro_batch_size * comm_size
+    nsamples = nbatches * batch_size
 
     (train_dataset, _) = util.load_dataset(mnist.load_mnist_dataset,
                                            train_size = nsamples,
-                                           train_batch_size = micro_batch_size,
+                                           train_batch_size = batch_size,
                                            test_size = 0,
-                                           test_batch_size = micro_batch_size,
-                                           comm_size = comm_size, 
-                                           rank = rank)
+                                           test_batch_size = batch_size)
     model_runner.reset_weights()
     model_runner.train_model(train_dataset, number_epochs)
     final_weights = model_runner.get_weights()

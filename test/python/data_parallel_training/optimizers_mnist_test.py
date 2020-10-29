@@ -33,15 +33,14 @@ class TestsDataParallelOptimizers:
   @pytest.mark.parametrize("nbatches", [230])
   def test_compare_accuracy_optimizers(self, tarantella_framework, mnist_model_runner,
                                       optimizer, micro_batch_size, nbatches):
-    nsamples = nbatches * micro_batch_size * tarantella_framework.get_size()
+    batch_size = micro_batch_size * tarantella_framework.get_size()
+    nsamples = nbatches * batch_size
     (number_epochs, lr) = mnist.get_hyperparams(optimizer)
     (train_dataset, test_dataset) = util.load_dataset(mnist.load_mnist_dataset,
                                                       train_size = nsamples,
-                                                      train_batch_size = micro_batch_size,
+                                                      train_batch_size = batch_size,
                                                       test_size = 10000,
-                                                      test_batch_size = micro_batch_size,
-                                                      comm_size = tarantella_framework.get_size(),
-                                                      rank = tarantella_framework.get_rank())
+                                                      test_batch_size = batch_size)
     mnist_model_runner.compile_model(optimizer(learning_rate=lr))
     mnist_model_runner.reset_weights()
     mnist_model_runner.train_model(train_dataset, number_epochs)
@@ -58,14 +57,13 @@ class TestsDataParallelOptimizers:
   def test_compare_sgd_momentum(self, tarantella_framework, mnist_model_runner,
                                 lr, nesterov, momentum, micro_batch_size, nbatches,
                                 number_epochs):
-    nsamples = nbatches * micro_batch_size * tarantella_framework.get_size()
+    batch_size = micro_batch_size * tarantella_framework.get_size()
+    nsamples = nbatches * batch_size
     (train_dataset, test_dataset) = util.load_dataset(mnist.load_mnist_dataset,
                                                       train_size = nsamples,
-                                                      train_batch_size = micro_batch_size,
+                                                      train_batch_size = batch_size,
                                                       test_size = 10000,
-                                                      test_batch_size = micro_batch_size,
-                                                      comm_size = tarantella_framework.get_size(),
-                                                      rank = tarantella_framework.get_rank())
+                                                      test_batch_size = batch_size)
     mnist_model_runner.compile_model(keras.optimizers.SGD(learning_rate=lr,
                                                           momentum=momentum,
                                                           nesterov=nesterov))
