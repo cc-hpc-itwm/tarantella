@@ -75,8 +75,18 @@ class TarantellaModel(tf.keras.models.Model):
 Make sure the dataset is sharded manually across ranks." % (self.rank))
     return self.model.fit(x, **kwargs)
     
-  def evaluate(self, *args, **kwargs):
-    return self.model.evaluate(*args, **kwargs)
+  def evaluate(self, x = None, **kwargs):
+    test_dataset = ds.DistributedDataset(dataset = x,
+                                         num_ranks = self.comm_size,
+                                         rank = self.rank,
+                                         shuffle_seed = self.default_shuffle_seed)
+    x = test_dataset.distribute_dataset_across_ranks(is_training = False)
+    return self.model.evaluate(x, **kwargs)
 
-  def predict(self, *args, **kwargs):
-    return self.model.predict(*args, **kwargs)
+  def predict(self, x = None, **kwargs):
+    test_dataset = ds.DistributedDataset(dataset = x,
+                                         num_ranks = self.comm_size,
+                                         rank = self.rank,
+                                         shuffle_seed = self.default_shuffle_seed)
+    x = test_dataset.distribute_dataset_across_ranks(is_training = False)
+    return self.model.predict(x, **kwargs)

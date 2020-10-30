@@ -14,11 +14,14 @@ class DistributedDataset:
     self.base_dataset, self.dataset_transformations = \
            ds_helpers.gen_dataset_transformations(dataset)
 
-  def distribute_dataset_across_ranks(self):
+  def distribute_dataset_across_ranks(self, is_training = True):
     index_last_batch_op = ds_helpers.get_index_last_batch_operation(
                                 self.dataset_transformations)
 
     dataset = self.base_dataset
+    if is_training == False and index_last_batch_op == None:
+      return dataset.batch(batch_size = 1)
+
      # re-apply dataset transformations identically, except for creating batches
     for index, (transf, ds_kwargs) in enumerate(self.dataset_transformations):
       if isinstance(transf(dataset, **ds_kwargs), ds.ShuffleDataset):
@@ -26,7 +29,13 @@ class DistributedDataset:
 
       elif isinstance(transf(dataset, **ds_kwargs), ds.BatchDataset) and \
            index_last_batch_op == index:
-        dataset = self.distributed_batch(dataset, ds_kwargs)
+        if is_training:
+          dataset = self.distributed_batch(dataset, ds_kwargs)
+        else:
+          # TODO: support value of `drop_remainder` coming from user
+          batch_size = self.get_batch_size(ds_kwargs)
+          micro_batch_size = self.get_microbatch_size(batch_size)
+          dataset = dataset.batch(batch_size = micro_batch_size)
 
       else:
         dataset = transf(dataset, **ds_kwargs)
