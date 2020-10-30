@@ -16,7 +16,6 @@ import pytest
 @pytest.fixture(scope="class", params=[mnist.fc_model_generator,
                                        mnist.lenet5_model_generator,
                                        mnist.sequential_model_generator,
-                                       mnist.alexnet_model_generator
                                       ])
 def model_runners(request):
   tf.random.set_seed(42)
