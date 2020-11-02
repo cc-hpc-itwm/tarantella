@@ -61,7 +61,8 @@ class TarantellaModel(tf.keras.models.Model):
                               **kwargs)
                               
   def fit(self,
-          x=None,
+          x = None,
+          tnt_micro_batch_size = None,
           tnt_distribute_dataset = True,
           **kwargs):
 
@@ -73,24 +74,36 @@ class TarantellaModel(tf.keras.models.Model):
                                                   num_ranks = self.comm_size,
                                                   rank = self.rank,
                                                   shuffle_seed = self.default_shuffle_seed)
-      x = distributed_dataset.distribute_dataset_across_ranks()
+      x = distributed_dataset.distribute_dataset_across_ranks(
+            user_micro_batch_size = tnt_micro_batch_size,
+            is_training = True)
     else:
       logging.getLogger().info("[rank %d] Automatic dataset distribution is disabled. \
 Make sure the dataset is sharded manually across ranks." % (self.rank))
     return self.model.fit(x, **kwargs)
     
-  def evaluate(self, x = None, **kwargs):
+  def evaluate(self,
+               x = None,
+               tnt_micro_batch_size = None,
+               **kwargs):
     test_dataset = ds.DistributedDataset(dataset = x,
                                          num_ranks = self.comm_size,
                                          rank = self.rank,
                                          shuffle_seed = self.default_shuffle_seed)
-    x = test_dataset.distribute_dataset_across_ranks(is_training = False)
+    x = test_dataset.distribute_dataset_across_ranks(
+            user_micro_batch_size = tnt_micro_batch_size,
+            is_training = False)
     return self.model.evaluate(x, **kwargs)
 
-  def predict(self, x = None, **kwargs):
+  def predict(self,
+              x = None,
+              tnt_micro_batch_size = None,
+              **kwargs):
     test_dataset = ds.DistributedDataset(dataset = x,
                                          num_ranks = self.comm_size,
                                          rank = self.rank,
                                          shuffle_seed = self.default_shuffle_seed)
-    x = test_dataset.distribute_dataset_across_ranks(is_training = False)
+    x = test_dataset.distribute_dataset_across_ranks(
+            user_micro_batch_size = tnt_micro_batch_size,
+            is_training = False)
     return self.model.predict(x, **kwargs)

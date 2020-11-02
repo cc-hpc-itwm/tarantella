@@ -14,31 +14,64 @@ class DistributedDataset:
     self.base_dataset, self.dataset_transformations = \
            ds_helpers.gen_dataset_transformations(dataset)
 
-  def distribute_dataset_across_ranks(self, is_training = True):
-    index_last_batch_op = ds_helpers.get_index_last_batch_operation(
-                                self.dataset_transformations)
-
+  def distribute_dataset_across_ranks(self, user_micro_batch_size = None, is_training = True):
+    index_last_batch_op = ds_helpers.get_index_last_batch_operation(self.dataset_transformations)
     dataset = self.base_dataset
-    if is_training == False and index_last_batch_op == None:
-      return dataset.batch(batch_size = 1)
 
-     # re-apply dataset transformations identically, except for creating batches
+    # Batched datsets:
+    # re-apply dataset transformations identically, except for batching & shuffling
     for index, (transf, ds_kwargs) in enumerate(self.dataset_transformations):
+      # shuffle operation
       if isinstance(transf(dataset, **ds_kwargs), ds.ShuffleDataset):
         dataset = self.shuffle_with_seed(dataset, ds_kwargs)
-
-      elif isinstance(transf(dataset, **ds_kwargs), ds.BatchDataset) and \
-           index_last_batch_op == index:
-        if is_training:
-          dataset = self.distributed_batch(dataset, ds_kwargs)
+      # batch operation
+      elif isinstance(transf(dataset, **ds_kwargs), ds.BatchDataset) \
+      and index_last_batch_op == index:
+        batch_size = self.get_batch_size(ds_kwargs)
+        if user_micro_batch_size:
+          micro_batch_size = user_micro_batch_size
+          if micro_batch_size * self.num_ranks != batch_size:
+            raise ValueError("[DistributedDataset] micro batch size (%d) is not consistent \
+with batch size (%d) on number of devices used (%d)" % (micro_batch_size, batch_size, self.num_ranks))
         else:
-          # TODO: support value of `drop_remainder` coming from user
-          batch_size = self.get_batch_size(ds_kwargs)
           micro_batch_size = self.get_microbatch_size(batch_size)
-          dataset = dataset.batch(batch_size = micro_batch_size)
 
+        drop_remainder = False
+        if 'drop_remainder' in ds_kwargs:
+          drop_remainder = ds_kwargs['drop_remainder']
+
+        if is_training:
+          dataset = self.distributed_batch(dataset,
+                                           batch_size = batch_size,
+                                           micro_batch_size = micro_batch_size,
+                                           drop_remainder = drop_remainder)
+        else:
+          # FIXME: distribute batch for `evaluate` and `predict`
+          dataset = dataset.batch(batch_size = micro_batch_size,
+                                  drop_remainder = drop_remainder)
+      # other operations
       else:
         dataset = transf(dataset, **ds_kwargs)
+
+    # Unbatched datasets outside `fit`
+    if is_training == False and index_last_batch_op == None:
+      if user_micro_batch_size:
+        dataset = dataset.batch(batch_size = user_micro_batch_size)
+      else:
+        dataset = dataset.batch(batch_size = 1)
+
+    # Unbatched datasets inside `fit`
+    if is_training == True and index_last_batch_op == None:
+      if user_micro_batch_size:
+        micro_batch_size = user_micro_batch_size
+        batch_size = micro_batch_size * self.num_ranks
+        dataset = self.distributed_batch(dataset,
+                                         batch_size = batch_size,
+                                         micro_batch_size = micro_batch_size,
+                                         drop_remainder = False)
+      else:
+        raise ValueError("[DistributedDataset] Unbatched datasets without tnt_micro_batch_size are not supported")
+
     return dataset
 
   def shuffle_with_seed(self, dataset, ds_kwargs):
@@ -51,11 +84,8 @@ class DistributedDataset:
                                 self.rank, ds_kwargs['seed']))
     return dataset.shuffle(**ds_kwargs)
 
-  def distributed_batch(self, dataset, ds_kwargs):
-    batch_size = self.get_batch_size(ds_kwargs)
-    micro_batch_size = self.get_microbatch_size(batch_size)
-
-    if 'drop_remainder' in ds_kwargs and ds_kwargs['drop_remainder']:
+  def distributed_batch(self, dataset, batch_size, micro_batch_size, drop_remainder):
+    if drop_remainder == True:
       dataset = dataset.batch(batch_size = batch_size,
                               drop_remainder = True)
       dataset = dataset.unbatch()
@@ -76,8 +106,8 @@ class DistributedDataset:
                             drop_remainder = False)
     dataset = dataset.shard(num_shards=self.num_ranks, index = self.rank)
 
-    logging.getLogger().info("[rank %d] Using micro batch size %s; applying sharding" \
-                             % (self.rank, micro_batch_size.numpy()))
+    logging.getLogger().info("[rank %d] Using batch size = %d, micro batch size = %d." \
+                             % (self.rank, batch_size, micro_batch_size))
     return dataset
 
   def get_batch_size(self, ds_kwargs):
@@ -95,5 +125,4 @@ class DistributedDataset:
 
     logging.getLogger().debug("[rank %d] Batch size (%d) is a multiple of the number of ranks %d" % (
                               self.rank, batch_size, self.num_ranks))
-    return batch_size // self.num_ranks
-
+    return int(batch_size // self.num_ranks)
