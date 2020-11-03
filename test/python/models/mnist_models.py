@@ -94,3 +94,21 @@ def alexnet_model_generator():
 
   logging.getLogger().info("Initialized AlexNet model")
   return model
+
+class SubclassedModel(tf.keras.Model):
+  def __init__(self):
+    super(SubclassedModel, self).__init__()
+    self.flatten = keras.layers.Flatten(input_shape=(28,28,1,))
+    self.dense = keras.layers.Dense(200, activation='relu', name='FC')
+    self.classifier = keras.layers.Dense(10, activation='softmax', name='softmax')
+    logging.getLogger().info("Initialized SubclassedModel")
+
+  def call(self, inputs):
+    x = self.flatten(inputs)
+    x = self.dense(x)
+    return self.classifier(x)
+
+def subclassed_model_generator():
+  model = SubclassedModel()
+  model.build((None,28,28,1))
+  return model

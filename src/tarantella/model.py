@@ -7,13 +7,17 @@ import tarantella
 import tarantella.optimizers.synchronous_distributed_optimizer as distributed_optimizers
 import tarantella.datasets.distributed_dataset as ds
 
+model_implemented_methods = ['model', 'rank', 'comm_size', '_master_rank', 'threshold',
+                             'call', 'build', 'done_broadcast', 'set_weights', 'load_weights',
+                             'broadcast_weights_if_necessary', 'broadcast_weights',
+                             'broadcaster', 'default_shuffle_seed']
+
 class TarantellaModel(tf.keras.models.Model):
   def __init__(self, model, _fusion_threshold_bytes = 32768):
     if not tarantella.global_context:
       raise RuntimeError("""Cannot initialize a TarantellaModel before the Tarantella library.
       Please call "tarantella.init() first."
       """)
-      
     self._master_rank = 0
     self.rank = tarantella.get_rank()
     self.comm_size = tarantella.get_size()
@@ -29,21 +33,33 @@ class TarantellaModel(tf.keras.models.Model):
   def master_rank(self):
     return self._master_rank
 
+  def call(self, inputs):
+    return self.model.call(inputs)
+
+  def build(self, input_shape):
+    return self.model.build(input_shape)
+
   def __getattr__(self, name):
-    if name in ('model', 'rank', 'comm_size', '_master_rank', 'threshold'):
+    if name in model_implemented_methods or \
+       'model' not in self.__dict__:
       return getattr(self.__dict__, name)
     return getattr(self.__dict__['model'], name)
   
   def __setattr__(self, name, value):
-    if name in ('model', 'rank', 'comm_size', '_master_rank', 'threshold'):
+    if name in model_implemented_methods or \
+       'model' not in self.__dict__:
       self.__dict__[name] = value
     else:
       setattr(self.__dict__['model'], name, value)
   
   def __delattr__(self, name):
-    if name in ('model', 'rank', 'comm_size', '_master_rank', 'threshold'):
+    if name in model_implemented_methods or \
+       'model' not in self.__dict__:
       delattr(self.__dict__, name)
     delattr(self.__dict__['model'], name)
+
+  def get_weights(self):
+    return self.model.get_weights()
 
   def compile(self,
               optimizer='rmsprop',
