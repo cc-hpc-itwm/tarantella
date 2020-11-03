@@ -46,11 +46,8 @@ class TestsDataParallelCompareWeights:
     model_runner.train_model(train_dataset, number_epochs)
     final_weights = model_runner.get_weights()
 
-    # broadcast the weights from a random rank to all the participating ranks
-    random.seed(util.current_date())
-    reference_rank = random.randint(0, comm_size-1)
-    tarantella.broadcast_model_weights(model_runner.model,
-                                       root_rank = reference_rank)
+    # broadcast the weights from the master rank to all the participating ranks
+    model_runner.model.broadcast_weights()
 
     reference_rank_weights = model_runner.get_weights()
     util.compare_weights(final_weights, reference_rank_weights, 1e-6)

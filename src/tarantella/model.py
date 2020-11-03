@@ -17,7 +17,11 @@ class TarantellaModel(tf.keras.models.Model):
     self._master_rank = 0
     self.rank = tarantella.get_rank()
     self.comm_size = tarantella.get_size()
+
     self.model = model
+    self.done_broadcast = False
+    self.broadcaster = None
+
     self.threshold = _fusion_threshold_bytes
     self.default_shuffle_seed = 42
 
@@ -49,7 +53,7 @@ class TarantellaModel(tf.keras.models.Model):
               sample_weight_mode=None,
               weighted_metrics=None,
               **kwargs):
-    
+    self.done_broadcast = False
     optimizer = tarantella.distributed_optimizers.SynchDistributedOptimizer(optimizer,
                                                   _fusion_threshold_bytes = self.threshold)
     return self.model.compile(optimizer = optimizer,
@@ -65,9 +69,7 @@ class TarantellaModel(tf.keras.models.Model):
           tnt_micro_batch_size = None,
           tnt_distribute_dataset = True,
           **kwargs):
-
-    # Broadcast initial weights to all processes
-    tarantella.broadcast_model_weights(self.model, root_rank = self._master_rank)
+    self.broadcast_weights_if_necessary()
 
     if tnt_distribute_dataset:
       distributed_dataset = ds.DistributedDataset(dataset = x,
@@ -86,6 +88,8 @@ Make sure the dataset is sharded manually across ranks." % (self.rank))
                x = None,
                tnt_micro_batch_size = None,
                **kwargs):
+    self.broadcast_weights_if_necessary()
+
     test_dataset = ds.DistributedDataset(dataset = x,
                                          num_ranks = self.comm_size,
                                          rank = self.rank,
@@ -99,6 +103,8 @@ Make sure the dataset is sharded manually across ranks." % (self.rank))
               x = None,
               tnt_micro_batch_size = None,
               **kwargs):
+    self.broadcast_weights_if_necessary()
+
     test_dataset = ds.DistributedDataset(dataset = x,
                                          num_ranks = self.comm_size,
                                          rank = self.rank,
@@ -107,3 +113,22 @@ Make sure the dataset is sharded manually across ranks." % (self.rank))
             user_micro_batch_size = tnt_micro_batch_size,
             is_training = False)
     return self.model.predict(x, **kwargs)
+
+  def load_weights(self, *args, **kwargs):
+    # loaded weights from the same source will be identical on all ranks
+    self.done_broadcast = True
+    return self.model.load_weights(*args, **kwargs)
+  
+  def set_weights(self, *args, **kwargs):
+    self.model.set_weights(*args, **kwargs)
+    self.broadcast_weights()
+    
+  def broadcast_weights_if_necessary(self):
+    if not self.done_broadcast:
+      self.broadcast_weights()
+
+  def broadcast_weights(self):
+    if not self.broadcaster:
+        self.broadcaster = tarantella.TensorBroadcaster(self.get_weights(), self._master_rank)
+    self.broadcaster.broadcast(self.get_weights())
+    self.done_broadcast = True
