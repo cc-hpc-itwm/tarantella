@@ -1,7 +1,9 @@
-import logging
 import numpy as np
 import tensorflow as tf
 import GPICommLib
+
+import logging
+logger = logging.getLogger(__name__)
 
 import tarantella.tnt_config as tnt_config
 import tarantella.model as model
@@ -62,7 +64,7 @@ def init(devices_per_node = None):
     if devices_per_node is None:
       devices_per_node = global_tnt_config.devices_per_node
     else:
-      logging.getLogger().warn("Overriding the default number of devices per node to {}".format(
+      logger.warn("Overriding the default number of devices per node to {}".format(
                                devices_per_node))
     setup_gpus(global_context.rank, ngpus = devices_per_node)
 

@@ -1,6 +1,6 @@
 import enum
-import logging
 import os
+from tarantella import logger
 
 class TNTConfig(enum.Enum):
   TNT_DEVICES_PER_NODE = 'TNT_DEVICES_PER_NODE'
@@ -38,7 +38,7 @@ class TarantellaConfiguration:
     value = self.config.get(env_var_name)
     if value is None:
       value = TarantellaConfigurationDefaults.config().get(variable_name)
-    logging.getLogger('tarantella').warn("{}={}".format(env_var_name, value))
+    logger.warn("{}={}".format(env_var_name, value))
     return value
 
   @property

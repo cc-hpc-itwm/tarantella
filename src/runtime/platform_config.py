@@ -1,14 +1,13 @@
-import logging
 import platform
 import os
 
 import runtime.tf_config as tf_config
+from runtime import logger
 
 def generate_nodes_list(hostfile = None):
   if hostfile is None:
     hostname = platform.node()
-    logging.getLogger().debug("No `hostfile` provided. Using only the current node `{}`".format(
-                              hostname))
+    logger.debug("No `hostfile` provided. Using only the current node `{}`".format(hostname))
     return [hostname]
 
   if not os.path.isfile(hostfile):
@@ -26,7 +25,7 @@ def generate_nodes_list(hostfile = None):
   
   unique_nodes = [node.strip() for node in set(nodes_list)]
   if len(nodes_list) != len(set(nodes_list)):
-    logging.getLogger().debug("The `hostfile` does not contain only unique hostnames; removing duplicates.")
+    logger.debug("The `hostfile` does not contain only unique hostnames; removing duplicates.")
   return unique_nodes
 
 
@@ -49,7 +48,7 @@ def generate_num_devices_per_node(npernode = None, use_gpus = True):
     try:
       num_gpus = generate_num_gpus_per_node(npernode)
     except:
-      logging.getLogger().warn("Cannot find {0} available GPUs per node as \
+      logger.warn("Cannot find {0} available GPUs per node as \
 requested; using {0} ranks on CPUs instead".format(npernode))
 
   num_cpus = 0
