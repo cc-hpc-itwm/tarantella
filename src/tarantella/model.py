@@ -9,7 +9,7 @@ import tarantella.datasets.distributed_dataset as ds
 
 model_implemented_methods = ['model', 'rank', 'comm_size', '_master_rank', 'threshold',
                              'call', 'build', 'done_broadcast', 'set_weights', 'load_weights',
-                             'broadcast_weights_if_necessary', 'broadcast_weights',
+                             'get_weights', 'broadcast_weights_if_necessary', 'broadcast_weights',
                              'broadcaster', 'default_shuffle_seed']
 
 class TarantellaModel(tf.keras.models.Model):
@@ -23,6 +23,7 @@ class TarantellaModel(tf.keras.models.Model):
     self.comm_size = tarantella.get_size()
 
     self.model = model
+    self.input_shapes = None
     self.done_broadcast = False
     self.broadcaster = None
 
@@ -58,9 +59,6 @@ class TarantellaModel(tf.keras.models.Model):
       delattr(self.__dict__, name)
     delattr(self.__dict__['model'], name)
 
-  def get_weights(self):
-    return self.model.get_weights()
-
   def compile(self,
               optimizer='rmsprop',
               loss=None,
@@ -79,12 +77,24 @@ class TarantellaModel(tf.keras.models.Model):
                               sample_weight_mode = sample_weight_mode,
                               weighted_metrics = weighted_metrics,
                               **kwargs)
-                              
+
+  def _set_input_shapes(self, dataset):
+    if not isinstance(dataset, tf.data.Dataset):
+      raise RuntimeError("tnt.model.TarantellaModel only supports tf.data.Dataset")
+
+    if isinstance(dataset.element_spec, tf.TensorSpec):
+      self.input_shapes = dataset.element_spec.shape
+    elif isinstance(dataset.element_spec[0], tf.TensorSpec): # (input, outputs)
+      self.input_shapes = dataset.element_spec[0].shape
+    else: # ((input0, ..., input_n), outputs)
+      self.input_shapes = [elem_spec.shape for elem_spec in dataset.element_spec[0]]
+
   def fit(self,
           x = None,
           tnt_micro_batch_size = None,
           tnt_distribute_dataset = True,
           **kwargs):
+    self._set_input_shapes(x)
     self.broadcast_weights_if_necessary()
 
     if tnt_distribute_dataset:
@@ -104,6 +114,7 @@ Make sure the dataset is sharded manually across ranks." % (self.rank))
                x = None,
                tnt_micro_batch_size = None,
                **kwargs):
+    self._set_input_shapes(x)
     self.broadcast_weights_if_necessary()
 
     test_dataset = ds.DistributedDataset(dataset = x,
@@ -119,6 +130,7 @@ Make sure the dataset is sharded manually across ranks." % (self.rank))
               x = None,
               tnt_micro_batch_size = None,
               **kwargs):
+    self._set_input_shapes(x)
     self.broadcast_weights_if_necessary()
 
     test_dataset = ds.DistributedDataset(dataset = x,
@@ -140,12 +152,20 @@ Make sure the dataset is sharded manually across ranks." % (self.rank))
     self.broadcast_weights()
     self.done_broadcast = True
     
+  def get_weights(self, *args, **kwargs):
+    if not self.model.built:
+      if not self.input_shapes:
+        raise RuntimeError("""Cannot get weights before initializition.
+        Please call "tnt.Model.build()" or "tnt.model.TarantellaModel.fit()" first.
+        """)
+      self.model.build(self.input_shapes)
+    return self.model.get_weights(*args, **kwargs)
+
   def broadcast_weights_if_necessary(self):
     if not self.done_broadcast:
       self.broadcast_weights()
 
   def broadcast_weights(self):
-    # FIXME: weights may not have been available/initialized in TF yet -> add build(input_shape)
     weights = self.get_weights()
 
     if not self.broadcaster:

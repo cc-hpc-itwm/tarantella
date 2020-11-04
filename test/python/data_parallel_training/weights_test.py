@@ -15,7 +15,6 @@ import pytest
 # (reuse the same model for various test parameter combinations)
 @pytest.fixture(scope="class", params=[mnist.lenet5_model_generator,
                                        mnist.sequential_model_generator,
-                                       mnist.alexnet_model_generator
                                       ])
 def model_runner(request):
   yield base_runner.generate_tnt_model_runner(request.param())
