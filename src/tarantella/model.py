@@ -16,7 +16,7 @@ class TarantellaModel(tf.keras.models.Model):
   def __init__(self, model, _fusion_threshold_bytes = 32768):
     if not tarantella.global_context:
       raise RuntimeError("""Cannot initialize a TarantellaModel before the Tarantella library.
-      Please call "tarantella.init() first."
+      Please call "tarantella.init()" first.
       """)
     self._master_rank = 0
     self.rank = tarantella.get_rank()
