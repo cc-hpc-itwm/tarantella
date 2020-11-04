@@ -144,7 +144,13 @@ Make sure the dataset is sharded manually across ranks." % (self.rank))
       self.broadcast_weights()
 
   def broadcast_weights(self):
+    # FIXME: weights may not have been available/initialized in TF yet -> add build(input_shape)
+    weights = self.get_weights()
+
     if not self.broadcaster:
-        self.broadcaster = tarantella.TensorBroadcaster(self.get_weights(), self._master_rank)
-    self.broadcaster.broadcast(self.get_weights())
+      self.broadcaster = tarantella.TensorBroadcaster(weights, self._master_rank)
+
+    self.broadcaster.broadcast(weights)
+    self.model.set_weights(weights)
+
     self.done_broadcast = True
