@@ -138,6 +138,7 @@ Make sure the dataset is sharded manually across ranks." % (self.rank))
   def set_weights(self, *args, **kwargs):
     self.model.set_weights(*args, **kwargs)
     self.broadcast_weights()
+    self.done_broadcast = True
     
   def broadcast_weights_if_necessary(self):
     if not self.done_broadcast:
