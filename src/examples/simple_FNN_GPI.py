@@ -82,7 +82,7 @@ opt = keras.optimizers.SGD(learning_rate=args.learning_rate)
 reference_model.compile(optimizer=opt,
                         loss=keras.losses.SparseCategoricalCrossentropy(),
                         metrics=[keras.metrics.SparseCategoricalAccuracy()],
-                        experimental_run_tf_function=False)
+                       )
               
 # Tarantella model
 tf.random.set_seed(42)
@@ -101,7 +101,7 @@ opt = keras.optimizers.SGD(learning_rate=args.learning_rate)
 model.compile(optimizer=opt,
               loss=keras.losses.SparseCategoricalCrossentropy(),
               metrics=[keras.metrics.SparseCategoricalAccuracy()],
-              experimental_run_tf_function=False)
+             )
 
 if rank == 0:
   model.summary()
