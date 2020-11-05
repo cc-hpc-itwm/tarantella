@@ -7,7 +7,7 @@ def setup_logging(logger, log_level):
   handler = logging.StreamHandler()
   handler.setLevel(logger.level)
 
-  formatter = logging.Formatter('[%(levelname)s][%(name)s] - %(pathname)s:%(lineno)d: %(message)s')
+  formatter = logging.Formatter('[%(levelname)s][%(name)s] %(pathname)s:%(lineno)d: %(message)s')
   handler.setFormatter(formatter)
 
   logger.addHandler(handler)

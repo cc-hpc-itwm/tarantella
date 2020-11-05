@@ -3,7 +3,7 @@ import tensorflow as tf
 import GPICommLib
 
 import logging
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("TNT_LIB")
 
 import runtime.logging_config as logging_config
 import tarantella.tnt_config as tnt_config
