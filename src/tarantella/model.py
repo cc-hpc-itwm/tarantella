@@ -136,10 +136,9 @@ class TarantellaModel(tf.keras.models.Model):
 
   def predict(self,
               x = None,
-              y = None,
               tnt_micro_batch_size = None,
               **kwargs):
-    self._setup_for_execution('predict', x, y, kwargs)
+    self._setup_for_execution('predict', x, None, kwargs)
 
     test_dataset = ds.DistributedDataset(dataset = x,
                                          num_ranks = self.comm_size,
