@@ -27,18 +27,17 @@ class TestsDataParallelOptimizersCIFAR10:
                                         ])
   @pytest.mark.parametrize("micro_batch_size", [64])
   @pytest.mark.parametrize("nbatches", [230])
+  @pytest.mark.parametrize("ntest_batches", [40])
   def test_cifar_alexnet(self, tarantella_framework, cifar_model_runner,
                          optimizer, micro_batch_size, nbatches):
-
-    nsamples = nbatches * micro_batch_size * tarantella_framework.get_size()
+    batch_size = micro_batch_size * tarantella_framework.get_size()
+    nsamples = nbatches * batch_size
     (number_epochs, lr) = cifar.get_hyperparams(optimizer)
     (train_dataset, test_dataset) = util.load_dataset(cifar.load_cifar_dataset,
                                                       train_size = nsamples,
-                                                      train_batch_size = micro_batch_size,
-                                                      test_size = nsamples // 10,
-                                                      test_batch_size = micro_batch_size,
-                                                      comm_size = tarantella_framework.get_size(),
-                                                      rank = tarantella_framework.get_rank())
+                                                      train_batch_size = batch_size,
+                                                      test_size = 10000,
+                                                      test_batch_size = batch_size)
     if optimizer.__name__ == 'SGD':
       cifar_model_runner.compile_model(optimizer(learning_rate=lr, momentum=0.9))
     else:

@@ -97,3 +97,55 @@ function (tarantella_generate_python_gpi_test)
                 LABELS ${ARG_LABELS})
   endforeach()
 endfunction()
+
+function (tarantella_generate_python_test)
+  set (one_value_options NAME TEST_FILE DESCRIPTION TIMEOUT)
+  set (multi_value_options LABELS ARGS)
+  set (required_options NAME TEST_FILE)
+  _parse_arguments (ARG "${options}" "${one_value_options}"
+                        "${multi_value_options}" "${required_options}" ${ARGN})
+  set(CLEANUP_TEST_NAME gpi_cleanup)
+  _default_if_unset (ARG_TIMEOUT 600)
+  _default_if_unset (ARG_LABELS "Python")
+
+  list(APPEND ARG_LABELS "Python")
+  list(REMOVE_DUPLICATES ARG_LABELS)
+
+  # wrap call to the test executable in a script that exports the current environment
+  # the script can then be executed within a `gaspi_run` call
+  set(script_name run_${ARG_NAME}.sh)
+  set(script_path ${CMAKE_CURRENT_BINARY_DIR}/${script_name})
+  tarantella_gen_test_script(NAME ${script_name}
+                             SCRIPT_DIR ${CMAKE_CURRENT_BINARY_DIR}
+                             TEST_FILE ${ARG_TEST_FILE}
+                             IS_PYTHON_TEST)
+
+  # create gaspi_run test
+  add_test(NAME ${ARG_NAME}
+           WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+           COMMAND "${CMAKE_COMMAND}"
+             -DRUNCOMMAND=bash
+             -DRUNCOMMAND_ARGS=" "
+             -DTEST_EXECUTABLE="${script_path}"
+             -DTEST_DIR="${CMAKE_BINARY_DIR}"
+             -DSLEEP="1"
+             -P "${CMAKE_SOURCE_DIR}/cmake/run_test.cmake"
+          )
+
+  # set labels if specified
+  if (ARG_LABELS)
+    set_property(TEST ${ARG_NAME} PROPERTY LABELS ${ARG_LABELS})
+  endif()
+
+  # set cleanup fixture script if specified
+  if (ARG_CLEANUP)
+    set_tests_properties(${ARG_NAME} PROPERTIES FIXTURES_REQUIRED ${ARG_CLEANUP})
+  endif()
+
+  # set timeout if specified
+  if (ARG_TIMEOUT)
+    set_tests_properties(${ARG_NAME} PROPERTIES TIMEOUT ${ARG_TIMEOUT})
+  endif()
+
+  message(STATUS "Test: Generating test ${ARG_NAME}")
+endfunction()

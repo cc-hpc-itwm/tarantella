@@ -1,7 +1,11 @@
+import logging
 import tensorflow as tf
+from tensorflow.python.data.ops import iterator_ops
+from tensorflow.python.keras.engine import training_utils
 
 import tarantella
 import tarantella.optimizers.synchronous_distributed_optimizer as distributed_optimizers
+import tarantella.datasets.distributed_dataset as ds
 
 class TarantellaModel(tf.keras.models.Model):
   def __init__(self, model, _fusion_threshold_bytes = 32768):
@@ -9,19 +13,32 @@ class TarantellaModel(tf.keras.models.Model):
       raise RuntimeError("""Cannot initialize a TarantellaModel before the Tarantella library.
       Please call "tarantella.init() first."
       """)
+      
+    self._master_rank = 0
+    self.rank = tarantella.get_rank()
+    self.comm_size = tarantella.get_size()
     self.model = model
     self.threshold = _fusion_threshold_bytes
+    self.default_shuffle_seed = 42
+
+  @property
+  def master_rank(self):
+    return self._master_rank
 
   def __getattr__(self, name):
+    if name in ('model', 'rank', 'comm_size', '_master_rank', 'threshold'):
+      return getattr(self.__dict__, name)
     return getattr(self.__dict__['model'], name)
   
   def __setattr__(self, name, value):
-    if name in ('model'):
+    if name in ('model', 'rank', 'comm_size', '_master_rank', 'threshold'):
       self.__dict__[name] = value
     else:
       setattr(self.__dict__['model'], name, value)
   
   def __delattr__(self, name):
+    if name in ('model', 'rank', 'comm_size', '_master_rank', 'threshold'):
+      delattr(self.__dict__, name)
     delattr(self.__dict__['model'], name)
 
   def compile(self,
@@ -34,7 +51,7 @@ class TarantellaModel(tf.keras.models.Model):
               **kwargs):
     
     optimizer = tarantella.distributed_optimizers.SynchDistributedOptimizer(optimizer,
-                _fusion_threshold_bytes = self.threshold)
+                                                  _fusion_threshold_bytes = self.threshold)
     return self.model.compile(optimizer = optimizer,
                               loss = loss,
                               metrics = metrics,
@@ -43,13 +60,50 @@ class TarantellaModel(tf.keras.models.Model):
                               weighted_metrics = weighted_metrics,
                               **kwargs)
                               
-  def fit(self, *args, **kwargs):
-    # Broadcast initial weights to all processes
-    tarantella.broadcast_model_weights(self.model, root_rank = 0)
-    return self.model.fit(*args, **kwargs)
-    
-  def evaluate(self, *args, **kwargs):
-    return self.model.evaluate(*args, **kwargs)
+  def fit(self,
+          x = None,
+          tnt_micro_batch_size = None,
+          tnt_distribute_dataset = True,
+          **kwargs):
 
-  def predict(self, *args, **kwargs):
-    return self.model.predict(*args, **kwargs)
+    # Broadcast initial weights to all processes
+    tarantella.broadcast_model_weights(self.model, root_rank = self._master_rank)
+
+    if tnt_distribute_dataset:
+      distributed_dataset = ds.DistributedDataset(dataset = x,
+                                                  num_ranks = self.comm_size,
+                                                  rank = self.rank,
+                                                  shuffle_seed = self.default_shuffle_seed)
+      x = distributed_dataset.distribute_dataset_across_ranks(
+            user_micro_batch_size = tnt_micro_batch_size,
+            is_training = True)
+    else:
+      logging.getLogger().info("[rank %d] Automatic dataset distribution is disabled. \
+Make sure the dataset is sharded manually across ranks." % (self.rank))
+    return self.model.fit(x, **kwargs)
+    
+  def evaluate(self,
+               x = None,
+               tnt_micro_batch_size = None,
+               **kwargs):
+    test_dataset = ds.DistributedDataset(dataset = x,
+                                         num_ranks = self.comm_size,
+                                         rank = self.rank,
+                                         shuffle_seed = self.default_shuffle_seed)
+    x = test_dataset.distribute_dataset_across_ranks(
+            user_micro_batch_size = tnt_micro_batch_size,
+            is_training = False)
+    return self.model.evaluate(x, **kwargs)
+
+  def predict(self,
+              x = None,
+              tnt_micro_batch_size = None,
+              **kwargs):
+    test_dataset = ds.DistributedDataset(dataset = x,
+                                         num_ranks = self.comm_size,
+                                         rank = self.rank,
+                                         shuffle_seed = self.default_shuffle_seed)
+    x = test_dataset.distribute_dataset_across_ranks(
+            user_micro_batch_size = tnt_micro_batch_size,
+            is_training = False)
+    return self.model.predict(x, **kwargs)

@@ -8,7 +8,7 @@ from tnt_tfops import tnt_ops
 class SynchDistributedOptimizer(wrapper.OptimizerWrapper):
   _HAS_AGGREGATE_GRAD = True
 
-  def __init__(self, optimizer, name = None, _fusion_threshold_bytes = 0):
+  def __init__(self, optimizer, name = None, _fusion_threshold_bytes = 32768):
     self.optimizer = optimizer
     if name is None:
       name = "SynchDistributedOptimizer"

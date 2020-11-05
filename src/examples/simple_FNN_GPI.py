@@ -51,7 +51,7 @@ def mnist_as_np_arrays(training_samples, validation_samples, test_samples):
 def create_dataset_from_arrays(samples, labels, batch_size):
   assert(len(samples) == len(labels))
   ds = tf.data.Dataset.from_tensor_slices((samples, labels))
-  return ds.batch(batch_size)
+  return ds.batch(batch_size, drop_remainder=True)
 
 args = parse_args()
 
@@ -110,15 +110,15 @@ if rank == 0:
 # Load MNIST dataset
 (x_train, y_train), (x_val, y_val), (x_test, y_test) = mnist_as_np_arrays(train_size, val_size, test_size)
 reference_train_dataset = create_dataset_from_arrays(x_train, y_train, batch_size)
-reference_val_dataset = create_dataset_from_arrays(x_val, y_val, micro_batch_size)
-reference_test_dataset = create_dataset_from_arrays(x_test, y_test, micro_batch_size)
+reference_val_dataset = create_dataset_from_arrays(x_val, y_val, batch_size)
+reference_test_dataset = create_dataset_from_arrays(x_test, y_test, batch_size)
 
-train_dataset = create_dataset_from_arrays(x_train, y_train, micro_batch_size)
-val_dataset = create_dataset_from_arrays(x_val, y_val, micro_batch_size)
-test_dataset = create_dataset_from_arrays(x_test, y_test, micro_batch_size)
+train_dataset = create_dataset_from_arrays(x_train, y_train, batch_size)
+val_dataset = create_dataset_from_arrays(x_val, y_val, batch_size)
+test_dataset = create_dataset_from_arrays(x_test, y_test, batch_size)
 
 reference_train_dataset = reference_train_dataset.shuffle(len(x_train), shuffle_seed)
-train_dataset = train_dataset.shard(comm_size, rank).shuffle(len(x_train), shuffle_seed)
+train_dataset = train_dataset.shuffle(len(x_train), shuffle_seed)
 
 
 # TRAINING
@@ -143,11 +143,8 @@ history = model.fit(train_dataset,
                     verbose= 1 if rank == 0 else 0,
                     validation_data=val_dataset,
                     callbacks=[] if rank == 0 else [],)
+tnt_loss_accuracy = model.evaluate(test_dataset, verbose=0)
 
-# EVALUATION
-#if rank == 0:
-tnt_loss_accuracy = model.evaluate(test_dataset,
-                                   verbose=0)
-print("Tarantella[test_loss, accuracy] = ", tnt_loss_accuracy)
-print("Reference [test_loss, accuracy] = ", reference_loss_accuracy)
-
+if rank == 0:
+  print("Tarantella[test_loss, accuracy] = ", tnt_loss_accuracy)
+  print("Reference [test_loss, accuracy] = ", reference_loss_accuracy)

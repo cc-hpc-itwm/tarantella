@@ -10,17 +10,14 @@ def create_dataset_from_arrays(samples, labels, batch_size):
 
 def load_dataset(dataset_loader,
                  train_size, train_batch_size,
-                 test_size, test_batch_size,
-                 comm_size = 1, rank = 0):
+                 test_size, test_batch_size):
   shuffle_seed = current_date()
 
   (x_train, y_train), (x_val, y_val), (x_test, y_test) = dataset_loader(train_size, 0, test_size)
   train_dataset = create_dataset_from_arrays(x_train, y_train, train_batch_size)
   test_dataset = create_dataset_from_arrays(x_test, y_test, test_batch_size)
 
-  train_dataset = train_dataset.shard(comm_size, rank)
   train_dataset = train_dataset.shuffle(len(x_train), shuffle_seed, reshuffle_each_iteration = True)
-
   return (train_dataset, test_dataset)
 
 def current_date():

@@ -16,7 +16,6 @@ import pytest
 @pytest.fixture(scope="class", params=[mnist.fc_model_generator,
                                        mnist.lenet5_model_generator,
                                        mnist.sequential_model_generator,
-                                       mnist.alexnet_model_generator
                                       ])
 def model_runners(request):
   tf.random.set_seed(42)
@@ -33,14 +32,10 @@ class TestsDataParallelCompareAccuracy:
   @pytest.mark.parametrize("micro_batch_size", [32, 61])
   @pytest.mark.parametrize("number_epochs", [3])
   @pytest.mark.parametrize("nbatches", [200])
-  @pytest.mark.parametrize("ntest_batches", [50])
   def test_compare_accuracy_against_reference(self, tarantella_framework, model_runners,
-                                              micro_batch_size, number_epochs, nbatches, ntest_batches):
-    comm_size = tarantella_framework.get_size()
-    rank = tarantella_framework.get_rank()
-    batch_size = micro_batch_size * comm_size
+                                              micro_batch_size, number_epochs, nbatches):
+    batch_size = micro_batch_size * tarantella_framework.get_size()
     nsamples = nbatches * batch_size
-    ntest_samples = ntest_batches * batch_size
 
     tnt_model_runner, reference_model_runner = model_runners
     # reuse model with its initial weights
@@ -56,22 +51,21 @@ class TestsDataParallelCompareAccuracy:
     (ref_train_dataset, ref_test_dataset) = util.load_dataset(mnist.load_mnist_dataset,
                                                               train_size = nsamples,
                                                               train_batch_size = batch_size,
-                                                              test_size = ntest_samples,
-                                                              test_batch_size = micro_batch_size)
+                                                              test_size = 10000,
+                                                              test_batch_size = batch_size)
     reference_model_runner.train_model(ref_train_dataset, number_epochs)
     reference_loss_accuracy = reference_model_runner.evaluate_model(ref_test_dataset)
 
     # train Tarantella model
     (train_dataset, test_dataset) = util.load_dataset(mnist.load_mnist_dataset,
                                                       train_size = nsamples,
-                                                      train_batch_size = micro_batch_size,
-                                                      test_size = ntest_samples,
-                                                      test_batch_size = micro_batch_size,
-                                                      comm_size = comm_size,
-                                                      rank = rank)
+                                                      train_batch_size = batch_size,
+                                                      test_size = 10000,
+                                                      test_batch_size = batch_size)
     tnt_model_runner.train_model(train_dataset, number_epochs)
     tnt_loss_accuracy = tnt_model_runner.evaluate_model(test_dataset)
 
+    rank = tarantella_framework.get_rank()
     logging.getLogger().info("[Rank %d] Tarantella[loss, accuracy] = %s" % (rank, str(tnt_loss_accuracy)))
     logging.getLogger().info("[Rank %d] Reference [loss, accuracy] = %s" % (rank, str(reference_loss_accuracy)))
     assert np.isclose(tnt_loss_accuracy[0], reference_loss_accuracy[0], atol=1e-2) # losses might not be identical

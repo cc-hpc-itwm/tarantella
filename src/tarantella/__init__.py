@@ -66,13 +66,13 @@ def get_rank():
 def get_size():
   return global_context.size
 
-def broadcast_model_weights(model, root_rank = 0):
+def broadcast_model_weights(model, root_rank):
   weights = model.get_weights()
   GPICommLib.broadcast_model_weights(global_context, weights, root_rank)
   model.set_weights(weights)
 
 class SynchCommunicator():
-  def __init__(self, global_context, _fusion_threshold_bytes = 0):
+  def __init__(self, global_context, _fusion_threshold_bytes):
     self.context = global_context
     self.weight_to_index = dict()
     self.comm = None
