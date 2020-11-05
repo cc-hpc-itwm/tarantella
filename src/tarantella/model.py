@@ -12,10 +12,10 @@ model_implemented_methods = ['model', 'rank', 'comm_size', '_master_rank',
                              'get_weights', '_broadcast_weights_if_necessary', '_broadcast_weights',
                              'broadcaster', 'default_shuffle_seed']
 
-class TarantellaModel(tf.keras.models.Model):
+class Model(tf.keras.models.Model):
   def __init__(self, model):
     if not tarantella.global_context:
-      raise RuntimeError("""Cannot initialize a TarantellaModel before the Tarantella library.
+      raise RuntimeError("""Cannot initialize a Model before the Tarantella library.
       Please call "tarantella.init()" first.
       """)
     self._master_rank = 0
@@ -164,7 +164,7 @@ class TarantellaModel(tf.keras.models.Model):
     if not self.model.built:
       if not self.input_shapes:
         raise RuntimeError("""Cannot get weights before initializition.
-        Please call "tnt.Model.build()" or "tnt.model.TarantellaModel.fit()" first.
+        Please call "tnt.Model.build()" or "tnt.Model.fit()" first.
         """)
       self.model.build(self.input_shapes)
     return self.model.get_weights(*args, **kwargs)
@@ -185,15 +185,15 @@ class TarantellaModel(tf.keras.models.Model):
 
   def _validate_datasets(self, x, y):
     if not isinstance(x, tf.data.Dataset) or not y is None:
-      raise RuntimeError("tnt.model.TarantellaModel only supports `tf.data.Dataset`",
+      raise RuntimeError("tnt.Model only supports `tf.data.Dataset`",
                          "for `x` and `None` for y.")
 
   def _validate_batch_size_argument(self, exec_type, args_dict):
     if 'batch_size' in args_dict:
-      raise KeyError("tnt.model.TarantellaModel does not support `batch_size` argument in %s" % exec_type)
+      raise KeyError("tnt.Model does not support `batch_size` argument in %s" % exec_type)
 
     if 'validation_batch_size' in args_dict and exec_type == 'fit':
-      raise KeyError("tnt.model.TarantellaModel.fit does not support `validation_batch_size` argument")
+      raise KeyError("tnt.Model.fit does not support `validation_batch_size` argument")
 
   def _set_input_shapes(self, dataset):
     if isinstance(dataset.element_spec, tf.TensorSpec):

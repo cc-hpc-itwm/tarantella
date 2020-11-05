@@ -93,7 +93,7 @@ x = layers.Dense(200, activation='relu')(x)
 outputs = layers.Dense(10, activation='softmax', name='softmax')(x)
 
 model = keras.Model(inputs=inputs, outputs=outputs)
-model = tarantella.model.TarantellaModel(model)
+model = tarantella.Model(model)
 
 # Building the graph
 # Specify the training configuration (optimizer, loss, metrics) & compile
