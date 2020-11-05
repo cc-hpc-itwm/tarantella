@@ -7,7 +7,7 @@ import tarantella
 import tarantella.optimizers.synchronous_distributed_optimizer as distributed_optimizers
 import tarantella.datasets.distributed_dataset as ds
 
-model_implemented_methods = ['model', 'rank', 'comm_size', '_master_rank', 'threshold',
+model_implemented_methods = ['model', 'rank', 'comm_size', '_master_rank',
                              'call', 'build', 'done_broadcast', 'set_weights', 'load_weights',
                              'get_weights', 'broadcast_weights_if_necessary', 'broadcast_weights',
                              'broadcaster', 'default_shuffle_seed']
@@ -27,7 +27,6 @@ class TarantellaModel(tf.keras.models.Model):
     self.done_broadcast = False
     self.broadcaster = None
 
-    self.threshold = _fusion_threshold_bytes
     self.default_shuffle_seed = 42
 
   @property
