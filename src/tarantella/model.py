@@ -9,13 +9,13 @@ import tarantella.datasets.distributed_dataset as ds
 
 model_implemented_methods = ['model', 'rank', 'comm_size', '_master_rank',
                              'call', 'build', 'done_broadcast', 'set_weights', 'load_weights',
-                             'get_weights', 'broadcast_weights_if_necessary', 'broadcast_weights',
+                             'get_weights', '_broadcast_weights_if_necessary', '_broadcast_weights',
                              'broadcaster', 'default_shuffle_seed']
 
-class TarantellaModel(tf.keras.models.Model):
+class Model(tf.keras.models.Model):
   def __init__(self, model):
     if not tarantella.global_context:
-      raise RuntimeError("""Cannot initialize a TarantellaModel before the Tarantella library.
+      raise RuntimeError("""Cannot initialize a Model before the Tarantella library.
       Please call "tarantella.init()" first.
       """)
     self._master_rank = 0
@@ -28,6 +28,12 @@ class TarantellaModel(tf.keras.models.Model):
     self.broadcaster = None
 
     self.default_shuffle_seed = 42
+
+    # support for TF 2.0 -- 2.3
+    self.tf_default_verbose = {'fit' : 1,
+                               'evaluate' : 1,
+                               'predict' : 0,
+                              }
 
   @property
   def master_rank(self):
@@ -76,44 +82,49 @@ class TarantellaModel(tf.keras.models.Model):
                               weighted_metrics = weighted_metrics,
                               **kwargs)
 
-  def _set_input_shapes(self, dataset):
-    if not isinstance(dataset, tf.data.Dataset):
-      raise RuntimeError("tnt.model.TarantellaModel only supports tf.data.Dataset")
-
-    if isinstance(dataset.element_spec, tf.TensorSpec):
-      self.input_shapes = dataset.element_spec.shape
-    elif isinstance(dataset.element_spec[0], tf.TensorSpec): # (input, outputs)
-      self.input_shapes = dataset.element_spec[0].shape
-    else: # ((input0, ..., input_n), outputs)
-      self.input_shapes = [elem_spec.shape for elem_spec in dataset.element_spec[0]]
-
   def fit(self,
           x = None,
+          y = None,
+          validation_data = None,
           tnt_micro_batch_size = None,
+          tnt_validation_micro_batch_size = None,
           tnt_distribute_dataset = True,
           **kwargs):
-    self._set_input_shapes(x)
-    self.broadcast_weights_if_necessary()
+    self._setup_for_execution('fit', x, y, kwargs)
 
     if tnt_distribute_dataset:
-      distributed_dataset = ds.DistributedDataset(dataset = x,
-                                                  num_ranks = self.comm_size,
-                                                  rank = self.rank,
-                                                  shuffle_seed = self.default_shuffle_seed)
-      x = distributed_dataset.distribute_dataset_across_ranks(
+      distributed_x = ds.DistributedDataset(dataset = x,
+                                            num_ranks = self.comm_size,
+                                            rank = self.rank,
+                                            shuffle_seed = self.default_shuffle_seed)
+      x = distributed_x.distribute_dataset_across_ranks(
             user_micro_batch_size = tnt_micro_batch_size,
             is_training = True)
     else:
-      logging.getLogger().info("[rank %d] Automatic dataset distribution is disabled. \
-Make sure the dataset is sharded manually across ranks." % (self.rank))
-    return self.model.fit(x, **kwargs)
+      logging.getLogger().info(
+        "[rank %d] Automatic dataset distribution is disabled." % (self.rank),
+        "Make sure the dataset is sharded manually across ranks.")
+
+    # Always switch off shuffling
+    kwargs["shuffle"] = False
+
+    if validation_data:
+      distributed_validation_data = ds.DistributedDataset(dataset = validation_data,
+                                                          num_ranks = self.comm_size,
+                                                          rank = self.rank,
+                                                          shuffle_seed = self.default_shuffle_seed)
+      validation_data = distributed_validation_data.distribute_dataset_across_ranks(
+            user_micro_batch_size = tnt_validation_micro_batch_size,
+            is_training = False)
+
+    return self.model.fit(x, validation_data = validation_data, **kwargs)
     
   def evaluate(self,
                x = None,
+               y = None,
                tnt_micro_batch_size = None,
                **kwargs):
-    self._set_input_shapes(x)
-    self.broadcast_weights_if_necessary()
+    self._setup_for_execution('evaluate', x, y, kwargs)
 
     test_dataset = ds.DistributedDataset(dataset = x,
                                          num_ranks = self.comm_size,
@@ -128,8 +139,7 @@ Make sure the dataset is sharded manually across ranks." % (self.rank))
               x = None,
               tnt_micro_batch_size = None,
               **kwargs):
-    self._set_input_shapes(x)
-    self.broadcast_weights_if_necessary()
+    self._setup_for_execution('predict', x, None, kwargs)
 
     test_dataset = ds.DistributedDataset(dataset = x,
                                          num_ranks = self.comm_size,
@@ -147,23 +157,57 @@ Make sure the dataset is sharded manually across ranks." % (self.rank))
   
   def set_weights(self, *args, **kwargs):
     self.model.set_weights(*args, **kwargs)
-    self.broadcast_weights()
+    self._broadcast_weights()
     self.done_broadcast = True
     
   def get_weights(self, *args, **kwargs):
     if not self.model.built:
       if not self.input_shapes:
         raise RuntimeError("""Cannot get weights before initializition.
-        Please call "tnt.Model.build()" or "tnt.model.TarantellaModel.fit()" first.
+        Please call "tnt.Model.build()" or "tnt.Model.fit()" first.
         """)
       self.model.build(self.input_shapes)
     return self.model.get_weights(*args, **kwargs)
 
-  def broadcast_weights_if_necessary(self):
-    if not self.done_broadcast:
-      self.broadcast_weights()
+  def _setup_for_execution(self, exec_type, x, y, args_dict):
+    self._set_verbose_all_ranks(exec_type, args_dict)
+    self._validate_datasets(x, y)
+    self._validate_batch_size_argument(exec_type, args_dict)
+    self._set_input_shapes(x)
+    self._broadcast_weights_if_necessary()
 
-  def broadcast_weights(self):
+  def _set_verbose_all_ranks(self, exec_type, args_dict):
+    if not 'verbose' in args_dict:
+      args_dict['verbose'] = self.tf_default_verbose[exec_type]
+    if not tarantella.global_tnt_config.log_on_all_devices:
+      if self.rank != self._master_rank:
+        args_dict['verbose'] = 0
+
+  def _validate_datasets(self, x, y):
+    if not isinstance(x, tf.data.Dataset) or not y is None:
+      raise RuntimeError("tnt.Model only supports `tf.data.Dataset`",
+                         "for `x` and `None` for y.")
+
+  def _validate_batch_size_argument(self, exec_type, args_dict):
+    if 'batch_size' in args_dict:
+      raise KeyError("tnt.Model does not support `batch_size` argument in %s" % exec_type)
+
+    if 'validation_batch_size' in args_dict and exec_type == 'fit':
+      raise KeyError("tnt.Model.fit does not support `validation_batch_size` argument")
+
+  def _set_input_shapes(self, dataset):
+    if isinstance(dataset.element_spec, tf.TensorSpec):
+      self.input_shapes = dataset.element_spec.shape
+    elif isinstance(dataset.element_spec[0], tf.TensorSpec): # (input, outputs)
+      self.input_shapes = dataset.element_spec[0].shape
+    else: # ((input0, ..., input_n), outputs)
+      self.input_shapes = [elem_spec.shape for elem_spec in dataset.element_spec[0]]
+
+  def _broadcast_weights_if_necessary(self):
+    if not self.done_broadcast:
+      self._broadcast_weights()
+
+  def _broadcast_weights(self):
     weights = self.get_weights()
 
     if not self.broadcaster:

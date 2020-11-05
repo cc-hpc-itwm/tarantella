@@ -6,7 +6,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 import tarantella.tnt_config as tnt_config
-import tarantella.model as model
+from tarantella.model import Model
 import tarantella.optimizers as optimizers
 import tarantella.optimizers.synchronous_distributed_optimizer as distributed_optimizers
 from tnt_tfops import tnt_ops

@@ -1,10 +1,10 @@
 import tensorflow as tf
 from tensorflow import keras
 
-import tarantella
+import tarantella as tnt
 
 def generate_tnt_model_runner(model):
-  model_data_par = tarantella.model.TarantellaModel(model)
+  model_data_par = tnt.Model(model)
   runner = TrainingRunner(model_data_par)
   return runner
 

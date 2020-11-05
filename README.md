@@ -99,7 +99,7 @@ ctest
 
 ## Distributed Training with Tarantella
 
-* Enable distributed training for an existing `Keras` model, by wrapping it as a `TarantellaModel`.
+* Enable distributed training for an existing `Keras` model, by wrapping it as a `tarantella.Model`.
   A complete example can be found [here](https://gitlab.itwm.fraunhofer.de/carpenamarie/hpdlf/-/blob/master/src/examples/simple_FNN_GPI.py).
 
 * Create a `nodesfile` with one machine name (i.e., hostname) per line for each of the parallel processes that will be involved in the data parallel DNN training.

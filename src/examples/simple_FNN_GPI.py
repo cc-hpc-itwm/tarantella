@@ -7,7 +7,7 @@ from tensorflow.keras import layers
 
 from models.utils import keras_utils as utils
 
-import tarantella
+import tarantella as tnt
 
 def parse_args():
   parser = argparse.ArgumentParser()
@@ -55,9 +55,9 @@ def create_dataset_from_arrays(samples, labels, batch_size):
 
 args = parse_args()
 
-tarantella.init(args.ngpus_per_node)
-rank = tarantella.get_rank()
-comm_size = tarantella.get_size()
+tnt.init(args.ngpus_per_node)
+rank = tnt.get_rank()
+comm_size = tnt.get_size()
 
 batch_size = args.batch_size
 micro_batch_size = args.batch_size // comm_size
@@ -82,7 +82,7 @@ opt = keras.optimizers.SGD(learning_rate=args.learning_rate)
 reference_model.compile(optimizer=opt,
                         loss=keras.losses.SparseCategoricalCrossentropy(),
                         metrics=[keras.metrics.SparseCategoricalAccuracy()],
-                        experimental_run_tf_function=False)
+                       )
               
 # Tarantella model
 tf.random.set_seed(42)
@@ -93,7 +93,7 @@ x = layers.Dense(200, activation='relu')(x)
 outputs = layers.Dense(10, activation='softmax', name='softmax')(x)
 
 model = keras.Model(inputs=inputs, outputs=outputs)
-model = tarantella.model.TarantellaModel(model)
+model = tnt.Model(model)
 
 # Building the graph
 # Specify the training configuration (optimizer, loss, metrics) & compile
@@ -101,7 +101,7 @@ opt = keras.optimizers.SGD(learning_rate=args.learning_rate)
 model.compile(optimizer=opt,
               loss=keras.losses.SparseCategoricalCrossentropy(),
               metrics=[keras.metrics.SparseCategoricalAccuracy()],
-              experimental_run_tf_function=False)
+             )
 
 if rank == 0:
   model.summary()
@@ -126,7 +126,7 @@ train_dataset = train_dataset.shuffle(len(x_train), shuffle_seed)
 history = reference_model.fit(reference_train_dataset,
                               epochs = args.number_epochs,
                               shuffle = False,
-                              verbose= 1 if rank == 0 else 0,
+                              verbose = args.verbose if rank == 0 else 0,
                               validation_data=reference_val_dataset)
 reference_loss_accuracy = reference_model.evaluate(reference_test_dataset,
                                                    verbose=0)
@@ -140,7 +140,7 @@ runtime_callback = utils.RuntimeProfiler(batch_size = batch_size, logging_freq= 
 history = model.fit(train_dataset,
                     epochs = args.number_epochs,
                     shuffle = False,
-                    verbose= 1 if rank == 0 else 0,
+                    verbose = args.verbose,
                     validation_data=val_dataset,
                     callbacks=[] if rank == 0 else [],)
 tnt_loss_accuracy = model.evaluate(test_dataset, verbose=0)

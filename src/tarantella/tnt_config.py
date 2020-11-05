@@ -43,7 +43,10 @@ class TarantellaConfiguration:
 
   @property
   def devices_per_node(self):
-    return int(self.get_variable_or_default(TNTConfig.TNT_DEVICES_PER_NODE))     
+    devices_per_node_string = self.get_variable_or_default(TNTConfig.TNT_DEVICES_PER_NODE)
+    if devices_per_node_string is None:
+      return None
+    return int(devices_per_node_string)
 
   @property
   def log_on_all_devices(self):
