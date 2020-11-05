@@ -76,28 +76,13 @@ class TarantellaModel(tf.keras.models.Model):
                               weighted_metrics = weighted_metrics,
                               **kwargs)
 
-  def _validate_datasets(self, x, y):
-    if not isinstance(x, tf.data.Dataset) or not y is None:
-      raise RuntimeError("tnt.model.TarantellaModel only supports `tf.data.Dataset`\
- for `x` and `None` for y.")
-
-  def _set_input_shapes(self, dataset):
-    if isinstance(dataset.element_spec, tf.TensorSpec):
-      self.input_shapes = dataset.element_spec.shape
-    elif isinstance(dataset.element_spec[0], tf.TensorSpec): # (input, outputs)
-      self.input_shapes = dataset.element_spec[0].shape
-    else: # ((input0, ..., input_n), outputs)
-      self.input_shapes = [elem_spec.shape for elem_spec in dataset.element_spec[0]]
-
   def fit(self,
           x = None,
           y = None,
           tnt_micro_batch_size = None,
           tnt_distribute_dataset = True,
           **kwargs):
-    self._validate_datasets(x, y)
-    self._set_input_shapes(x)
-    self._broadcast_weights_if_necessary()
+    self._setup_for_execution(x, y)
 
     if tnt_distribute_dataset:
       distributed_dataset = ds.DistributedDataset(dataset = x,
@@ -117,9 +102,7 @@ Make sure the dataset is sharded manually across ranks." % (self.rank))
                y = None,
                tnt_micro_batch_size = None,
                **kwargs):
-    self._validate_datasets(x, y)
-    self._set_input_shapes(x)
-    self._broadcast_weights_if_necessary()
+    self._setup_for_execution(x, y)
 
     test_dataset = ds.DistributedDataset(dataset = x,
                                          num_ranks = self.comm_size,
@@ -135,9 +118,7 @@ Make sure the dataset is sharded manually across ranks." % (self.rank))
               y = None,
               tnt_micro_batch_size = None,
               **kwargs):
-    self._validate_datasets(x, y)
-    self._set_input_shapes(x)
-    self._broadcast_weights_if_necessary()
+    self._setup_for_execution(x, y)
 
     test_dataset = ds.DistributedDataset(dataset = x,
                                          num_ranks = self.comm_size,
@@ -166,6 +147,24 @@ Make sure the dataset is sharded manually across ranks." % (self.rank))
         """)
       self.model.build(self.input_shapes)
     return self.model.get_weights(*args, **kwargs)
+
+  def _setup_for_execution(self, x, y):
+    self._validate_datasets(x, y)
+    self._set_input_shapes(x)
+    self._broadcast_weights_if_necessary()
+
+  def _validate_datasets(self, x, y):
+    if not isinstance(x, tf.data.Dataset) or not y is None:
+      raise RuntimeError("tnt.model.TarantellaModel only supports `tf.data.Dataset`\
+ for `x` and `None` for y.")
+
+  def _set_input_shapes(self, dataset):
+    if isinstance(dataset.element_spec, tf.TensorSpec):
+      self.input_shapes = dataset.element_spec.shape
+    elif isinstance(dataset.element_spec[0], tf.TensorSpec): # (input, outputs)
+      self.input_shapes = dataset.element_spec[0].shape
+    else: # ((input0, ..., input_n), outputs)
+      self.input_shapes = [elem_spec.shape for elem_spec in dataset.element_spec[0]]
 
   def _broadcast_weights_if_necessary(self):
     if not self.done_broadcast:
