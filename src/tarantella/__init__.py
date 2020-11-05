@@ -2,6 +2,10 @@ import numpy as np
 import tensorflow as tf
 import GPICommLib
 
+import logging
+logger = logging.getLogger(__name__)
+
+import tarantella.tnt_config as tnt_config
 import tarantella.model as model
 import tarantella.optimizers as optimizers
 import tarantella.optimizers.synchronous_distributed_optimizer as distributed_optimizers
@@ -10,6 +14,7 @@ from tnt_tfops import tnt_ops
 import sys
 
 global_context = None
+global_tnt_config = tnt_config.TarantellaConfiguration()
 
 def setup_gpus(rank, ngpus = None):
   """Checks whether there are GPUs available on the machine and assigns one
@@ -31,8 +36,6 @@ def setup_gpus(rank, ngpus = None):
     """
   
   phys_gpus = tf.config.experimental.list_physical_devices('GPU')
-  print("Num CPUs Available: ", len(tf.config.experimental.list_physical_devices('CPU')))
-  print("Num GPUs Available: ", len(phys_gpus) if phys_gpus else 0)
   if phys_gpus and len(phys_gpus) > 0:
     if ngpus:
       target_gpu = rank % ngpus
@@ -50,15 +53,20 @@ def setup_gpus(rank, ngpus = None):
       # make sure only one GPU is visible per process
       tf.config.experimental.set_visible_devices(phys_gpus[target_gpu], 'GPU')
       logical_gpus = tf.config.experimental.list_logical_devices('GPU')
-      print("[rank ", rank, "] ", len(phys_gpus), "Physical GPUs,", len(logical_gpus), "Logical GPU")
     except RuntimeError as e:
       print(e)
 
-def init(ngpus = None):
-  global global_context 
+def init(devices_per_node = None):
+  global global_context
   if global_context is None:
-    global_context = GPICommLib.GPIContext()    
-    setup_gpus(global_context.rank, ngpus)
+    global_context = GPICommLib.GPIContext()
+
+    if devices_per_node is None:
+      devices_per_node = global_tnt_config.devices_per_node
+    else:
+      logger.warn("Overriding the default number of devices per node to {}".format(
+                               devices_per_node))
+    setup_gpus(global_context.rank, ngpus = devices_per_node)
 
 def get_rank():
   return global_context.rank
@@ -85,11 +93,11 @@ class TensorBroadcaster():
     self.broadcaster.broadcast(tensor_list)
 
 class SynchCommunicator():
-  def __init__(self, global_context, _fusion_threshold_bytes):
+  def __init__(self, global_context):
     self.context = global_context
     self.weight_to_index = dict()
     self.comm = None
-    self.threshold = _fusion_threshold_bytes
+    self.threshold = global_tnt_config.fusion_threshold
 
   def setup_infrastructure(self, gradients_and_weights):
     """ Setup state and allocate GPI segments

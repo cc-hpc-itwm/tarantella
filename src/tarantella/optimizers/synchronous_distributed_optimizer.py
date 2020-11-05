@@ -8,15 +8,14 @@ from tnt_tfops import tnt_ops
 class SynchDistributedOptimizer(wrapper.OptimizerWrapper):
   _HAS_AGGREGATE_GRAD = True
 
-  def __init__(self, optimizer, name = None, _fusion_threshold_bytes = 32768):
+  def __init__(self, optimizer, name = None):
     self.optimizer = optimizer
     if name is None:
       name = "SynchDistributedOptimizer"
     super(self.__class__, self).__init__(optimizer, name = name)
 
     # add new attributes after the base object has been initialized
-    self.comm = tarantella.SynchCommunicator(tarantella.global_context,
-                                             _fusion_threshold_bytes)
+    self.comm = tarantella.SynchCommunicator(tarantella.global_context)
     self.initialized = False
 
   # customized gradient reduction method used by `keras.model.fit`
