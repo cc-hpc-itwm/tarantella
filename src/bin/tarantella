@@ -45,7 +45,7 @@ def parse_args():
 logging to files within the Tarantella library",
                     dest = "log_dir",
                     default = None)
-  log_levels = ('DEBUG', 'INFO', 'WARN', 'ERROR')
+  log_levels = ('DEBUG', 'INFO', 'WARNING', 'ERROR')
   parser.add_argument('--log-level', default='INFO', choices=log_levels)
   parser.add_argument('app', nargs='+')
   args = parser.parse_args()
@@ -56,6 +56,7 @@ logging to files within the Tarantella library",
 class Tarantella:
   def __init__(self, hostlist, num_gpus_per_node, num_cpus_per_node, command_list,
                log_dir, log_all):
+    self.log_level = logging.getLevelName(logger.level)
     self.log_dir = log_dir
     self.log_all = log_all
 
@@ -77,7 +78,8 @@ class Tarantella:
     environment = env_config.gen_exports_from_dict(env_config.collect_environment_variables()) + \
                   env_config.gen_exports_from_dict(env_config.collect_tensorflow_variables()) + \
                   env_config.gen_exports_from_dict(env_config.collect_tarantella_variables()) + \
-                  env_config.gen_exports_from_dict(env_config.get_logging_variables(self.log_dir,
+                  env_config.gen_exports_from_dict(env_config.get_logging_variables(self.log_level,
+                                                                                    self.log_dir,
                                                                                     self.log_all))
 
     command = "python %s" % (' '.join(self.command_list))

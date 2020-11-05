@@ -1,13 +1,12 @@
 import os
 import logging
 
-from runtime import logger 
 import tensorflow as tf
 
-def get_logging_variables(log_all, user_log_dir):
-  return { "TNT_LOG_LEVEL" : logging.getLevelName(logger.level),
-           "TNT_LOG_ON_ALL_DEVICES" : log_all,
-           "TNT_LOG_DIR" : user_log_dir
+def get_logging_variables(log_level, log_all, user_log_dir):
+  return { "TNT_LOG_LEVEL" : str(log_level),
+           "TNT_LOG_ON_ALL_DEVICES" : str(log_all),
+           "TNT_LOG_DIR" : str(user_log_dir)
           }
           
 def collect_environment_variables():
@@ -34,5 +33,5 @@ def collect_tarantella_variables():
 def gen_exports_from_dict(env_dict):
   environment = ""
   for var_name,value in env_dict.items():
-    environment += "export %s=%s\n" % (var_name, value)
+    environment += "export {}={}\n".format(var_name, value)
   return environment
