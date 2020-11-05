@@ -172,6 +172,7 @@ class TarantellaModel(tf.keras.models.Model):
   def _setup_for_execution(self, exec_type, x, y, args_dict):
     self._set_verbose_all_ranks(exec_type, args_dict)
     self._validate_datasets(x, y)
+    self._validate_batch_size_argument(exec_type, args_dict)
     self._set_input_shapes(x)
     self._broadcast_weights_if_necessary()
 
@@ -184,8 +185,15 @@ class TarantellaModel(tf.keras.models.Model):
 
   def _validate_datasets(self, x, y):
     if not isinstance(x, tf.data.Dataset) or not y is None:
-      raise RuntimeError("tnt.model.TarantellaModel only supports `tf.data.Dataset`\
- for `x` and `None` for y.")
+      raise RuntimeError("tnt.model.TarantellaModel only supports `tf.data.Dataset`",
+                         "for `x` and `None` for y.")
+
+  def _validate_batch_size_argument(self, exec_type, args_dict):
+    if 'batch_size' in args_dict:
+      raise KeyError("tnt.model.TarantellaModel does not support `batch_size` argument in %s" % exec_type)
+
+    if 'validation_batch_size' in args_dict and exec_type == 'fit':
+      raise KeyError("tnt.model.TarantellaModel.fit does not support `validation_batch_size` argument")
 
   def _set_input_shapes(self, dataset):
     if isinstance(dataset.element_spec, tf.TensorSpec):
