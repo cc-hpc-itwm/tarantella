@@ -29,6 +29,7 @@ class TarantellaModel(tf.keras.models.Model):
 
     self.default_shuffle_seed = 42
 
+    # support for TF 2.0 -- 2.3
     self.tf_default_verbose = {'fit' : 1,
                                'evaluate' : 1,
                                'predict' : 0,
