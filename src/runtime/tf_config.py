@@ -13,5 +13,5 @@ def get_available_gpus():
   return len(phys_gpus)
 
 def setup_logging(log_level):
-  #tf.logging.set_verbosity(log_level) 
+  # TODO: check tensorflow logging levels
   os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'

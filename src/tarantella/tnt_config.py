@@ -1,11 +1,12 @@
 import enum
+import logging
 import os
-from tarantella import logger
 
 class TNTConfig(enum.Enum):
   TNT_DEVICES_PER_NODE = 'TNT_DEVICES_PER_NODE'
   TNT_LOG_ON_ALL_DEVICES = 'TNT_LOG_ON_ALL_DEVICES'
   TNT_LOG_DIR = 'TNT_LOG_DIR'
+  TNT_LOG_LEVEL = 'TNT_LOG_LEVEL'
   TNT_FUSION_THRESHOLD = 'TNT_FUSION_THRESHOLD'
 
 class TarantellaConfigurationDefaults:
@@ -14,7 +15,8 @@ class TarantellaConfigurationDefaults:
     default_config = { TNTConfig.TNT_DEVICES_PER_NODE : None,
                        TNTConfig.TNT_FUSION_THRESHOLD : 32 * 1024,
                        TNTConfig.TNT_LOG_ON_ALL_DEVICES : False,
-                       TNTConfig.TNT_LOG_DIR : None
+                       TNTConfig.TNT_LOG_DIR : None,
+                       TNTConfig.TNT_LOG_LEVEL : "WARN",
                      }
     return default_config
 
@@ -38,7 +40,6 @@ class TarantellaConfiguration:
     value = self.config.get(env_var_name)
     if value is None:
       value = TarantellaConfigurationDefaults.config().get(variable_name)
-    logger.warn("{}={}".format(env_var_name, value))
     return value
 
   @property
@@ -55,6 +56,10 @@ class TarantellaConfiguration:
   @property
   def log_dir(self):
     return self.get_variable_or_default(TNTConfig.TNT_LOG_DIR)
+  
+  @property
+  def log_level(self):
+    return self.get_variable_or_default(TNTConfig.TNT_LOG_LEVEL)
 
   @property
   def fusion_threshold(self):

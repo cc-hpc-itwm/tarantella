@@ -6,9 +6,9 @@ import subprocess
 import sys
 
 import runtime.file_management as file_man
+import runtime.logging_config as logging_config
 import runtime.platform_config as platform_config
 import runtime.environment_config as env_config
-import runtime.logging_config as logging_config
 from runtime import logger
 
 def parse_args():
@@ -45,8 +45,8 @@ def parse_args():
 logging to files within the Tarantella library",
                     dest = "log_dir",
                     default = None)
-  log_levels = ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
-  parser.add_argument('-l', '--log-level', default='INFO', choices=log_levels)
+  log_levels = ('DEBUG', 'INFO', 'WARN', 'ERROR')
+  parser.add_argument('--log-level', default='INFO', choices=log_levels)
   parser.add_argument('app', nargs='+')
   args = parser.parse_args()
 
@@ -54,7 +54,11 @@ logging to files within the Tarantella library",
   return args
 
 class Tarantella:
-  def __init__(self, hostlist, num_gpus_per_node, num_cpus_per_node, command_list):
+  def __init__(self, hostlist, num_gpus_per_node, num_cpus_per_node, command_list,
+               log_dir, log_all):
+    self.log_dir = log_dir
+    self.log_all = log_all
+
     self.hostlist = hostlist
     self.command_list = command_list
 
@@ -73,7 +77,8 @@ class Tarantella:
     environment = env_config.gen_exports_from_dict(env_config.collect_environment_variables()) + \
                   env_config.gen_exports_from_dict(env_config.collect_tensorflow_variables()) + \
                   env_config.gen_exports_from_dict(env_config.collect_tarantella_variables()) + \
-                  env_config.gen_exports_from_dict(env_config.gen_exports_from_dict())
+                  env_config.gen_exports_from_dict(env_config.get_logging_variables(self.log_dir,
+                                                                                    self.log_all))
 
     command = "python %s" % (' '.join(self.command_list))
     return file_man.GPIScriptFile(header, environment, command, dir = os.getcwd())
@@ -89,11 +94,11 @@ class Tarantella:
 
 if __name__ == "__main__":
   args = parse_args()
-  logging_config.setup_logging(args.log_level)
+  logging_config.setup_logging(logger, args.log_level)
   
   nodes_list = platform_config.generate_nodes_list(args.hostfile)
   num_gpus, num_cpus = platform_config.generate_num_devices_per_node(npernode = args.npernode,
                                                                       use_gpus = args.use_gpus)
 
-  tarantella = Tarantella(nodes_list, num_gpus, num_cpus, args.app)
+  tarantella = Tarantella(nodes_list, num_gpus, num_cpus, args.app, args.log_dir, args.log_all)
   tarantella.run()

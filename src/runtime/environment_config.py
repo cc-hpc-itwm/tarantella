@@ -1,17 +1,11 @@
 import os
 import logging
 
-from runtime import tf_config
 from runtime import logger 
 import tensorflow as tf
 
-def setup_logging(log_level):
-  logging.basicConfig(level = log_level,
-                      format = '%(levelname)s - %(pathname)s:%(lineno)d %(name)s %(message)s')
-  tf_config.setup_logging(log_level)
-
 def get_logging_variables(log_all, user_log_dir):
-  return { "TNT_LOG_LEVEL" : logger.level,
+  return { "TNT_LOG_LEVEL" : logging.getLevelName(logger.level),
            "TNT_LOG_ON_ALL_DEVICES" : log_all,
            "TNT_LOG_DIR" : user_log_dir
           }
