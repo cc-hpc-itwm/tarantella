@@ -84,23 +84,39 @@ class TarantellaModel(tf.keras.models.Model):
   def fit(self,
           x = None,
           y = None,
+          validation_data = None,
           tnt_micro_batch_size = None,
+          tnt_validation_micro_batch_size = None,
           tnt_distribute_dataset = True,
           **kwargs):
     self._setup_for_execution('fit', x, y, kwargs)
 
     if tnt_distribute_dataset:
-      distributed_dataset = ds.DistributedDataset(dataset = x,
-                                                  num_ranks = self.comm_size,
-                                                  rank = self.rank,
-                                                  shuffle_seed = self.default_shuffle_seed)
-      x = distributed_dataset.distribute_dataset_across_ranks(
+      distributed_x = ds.DistributedDataset(dataset = x,
+                                            num_ranks = self.comm_size,
+                                            rank = self.rank,
+                                            shuffle_seed = self.default_shuffle_seed)
+      x = distributed_x.distribute_dataset_across_ranks(
             user_micro_batch_size = tnt_micro_batch_size,
             is_training = True)
     else:
-      logging.getLogger().info("[rank %d] Automatic dataset distribution is disabled. \
-Make sure the dataset is sharded manually across ranks." % (self.rank))
-    return self.model.fit(x, **kwargs)
+      logging.getLogger().info(
+        "[rank %d] Automatic dataset distribution is disabled." % (self.rank),
+        "Make sure the dataset is sharded manually across ranks.")
+
+    # Always switch off shuffling
+    kwargs["shuffle"] = False
+
+    if validation_data:
+      distributed_validation_data = ds.DistributedDataset(dataset = validation_data,
+                                                          num_ranks = self.comm_size,
+                                                          rank = self.rank,
+                                                          shuffle_seed = self.default_shuffle_seed)
+      validation_data = distributed_validation_data.distribute_dataset_across_ranks(
+            user_micro_batch_size = tnt_validation_micro_batch_size,
+            is_training = False)
+
+    return self.model.fit(x, validation_data = validation_data, **kwargs)
     
   def evaluate(self,
                x = None,
