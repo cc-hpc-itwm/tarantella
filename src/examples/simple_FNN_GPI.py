@@ -126,7 +126,7 @@ train_dataset = train_dataset.shuffle(len(x_train), shuffle_seed)
 history = reference_model.fit(reference_train_dataset,
                               epochs = args.number_epochs,
                               shuffle = False,
-                              verbose= 1 if rank == 0 else 0,
+                              verbose = args.verbose if rank == 0 else 0,
                               validation_data=reference_val_dataset)
 reference_loss_accuracy = reference_model.evaluate(reference_test_dataset,
                                                    verbose=0)
@@ -140,7 +140,7 @@ runtime_callback = utils.RuntimeProfiler(batch_size = batch_size, logging_freq= 
 history = model.fit(train_dataset,
                     epochs = args.number_epochs,
                     shuffle = False,
-                    verbose= 1 if rank == 0 else 0,
+                    verbose = args.verbose,
                     validation_data=val_dataset,
                     callbacks=[] if rank == 0 else [],)
 tnt_loss_accuracy = model.evaluate(test_dataset, verbose=0)

@@ -29,6 +29,11 @@ class TarantellaModel(tf.keras.models.Model):
 
     self.default_shuffle_seed = 42
 
+    self.tf_default_verbose = {'fit' : 1,
+                               'evaluate' : 1,
+                               'predict' : 0,
+                              }
+
   @property
   def master_rank(self):
     return self._master_rank
@@ -82,7 +87,7 @@ class TarantellaModel(tf.keras.models.Model):
           tnt_micro_batch_size = None,
           tnt_distribute_dataset = True,
           **kwargs):
-    self._setup_for_execution(x, y)
+    self._setup_for_execution('fit', x, y, kwargs)
 
     if tnt_distribute_dataset:
       distributed_dataset = ds.DistributedDataset(dataset = x,
@@ -102,7 +107,7 @@ Make sure the dataset is sharded manually across ranks." % (self.rank))
                y = None,
                tnt_micro_batch_size = None,
                **kwargs):
-    self._setup_for_execution(x, y)
+    self._setup_for_execution('evaluate', x, y, kwargs)
 
     test_dataset = ds.DistributedDataset(dataset = x,
                                          num_ranks = self.comm_size,
@@ -118,7 +123,7 @@ Make sure the dataset is sharded manually across ranks." % (self.rank))
               y = None,
               tnt_micro_batch_size = None,
               **kwargs):
-    self._setup_for_execution(x, y)
+    self._setup_for_execution('predict', x, y, kwargs)
 
     test_dataset = ds.DistributedDataset(dataset = x,
                                          num_ranks = self.comm_size,
@@ -148,10 +153,18 @@ Make sure the dataset is sharded manually across ranks." % (self.rank))
       self.model.build(self.input_shapes)
     return self.model.get_weights(*args, **kwargs)
 
-  def _setup_for_execution(self, x, y):
+  def _setup_for_execution(self, exec_type, x, y, args_dict):
+    self._set_verbose_all_ranks(exec_type, args_dict)
     self._validate_datasets(x, y)
     self._set_input_shapes(x)
     self._broadcast_weights_if_necessary()
+
+  def _set_verbose_all_ranks(self, exec_type, args_dict):
+    if not 'verbose' in args_dict:
+      args_dict['verbose'] = self.tf_default_verbose[exec_type]
+    if not tarantella.global_tnt_config.log_on_all_devices:
+      if self.rank != self._master_rank:
+        args_dict['verbose'] = 0
 
   def _validate_datasets(self, x, y):
     if not isinstance(x, tf.data.Dataset) or not y is None:
