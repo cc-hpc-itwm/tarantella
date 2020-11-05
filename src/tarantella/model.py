@@ -9,7 +9,7 @@ import tarantella.datasets.distributed_dataset as ds
 
 model_implemented_methods = ['model', 'rank', 'comm_size', '_master_rank',
                              'call', 'build', 'done_broadcast', 'set_weights', 'load_weights',
-                             'get_weights', 'broadcast_weights_if_necessary', 'broadcast_weights',
+                             'get_weights', '_broadcast_weights_if_necessary', '_broadcast_weights',
                              'broadcaster', 'default_shuffle_seed']
 
 class TarantellaModel(tf.keras.models.Model):
@@ -93,7 +93,7 @@ class TarantellaModel(tf.keras.models.Model):
           tnt_distribute_dataset = True,
           **kwargs):
     self._set_input_shapes(x)
-    self.broadcast_weights_if_necessary()
+    self._broadcast_weights_if_necessary()
 
     if tnt_distribute_dataset:
       distributed_dataset = ds.DistributedDataset(dataset = x,
@@ -113,7 +113,7 @@ Make sure the dataset is sharded manually across ranks." % (self.rank))
                tnt_micro_batch_size = None,
                **kwargs):
     self._set_input_shapes(x)
-    self.broadcast_weights_if_necessary()
+    self._broadcast_weights_if_necessary()
 
     test_dataset = ds.DistributedDataset(dataset = x,
                                          num_ranks = self.comm_size,
@@ -129,7 +129,7 @@ Make sure the dataset is sharded manually across ranks." % (self.rank))
               tnt_micro_batch_size = None,
               **kwargs):
     self._set_input_shapes(x)
-    self.broadcast_weights_if_necessary()
+    self._broadcast_weights_if_necessary()
 
     test_dataset = ds.DistributedDataset(dataset = x,
                                          num_ranks = self.comm_size,
@@ -147,7 +147,7 @@ Make sure the dataset is sharded manually across ranks." % (self.rank))
   
   def set_weights(self, *args, **kwargs):
     self.model.set_weights(*args, **kwargs)
-    self.broadcast_weights()
+    self._broadcast_weights()
     self.done_broadcast = True
     
   def get_weights(self, *args, **kwargs):
@@ -159,11 +159,11 @@ Make sure the dataset is sharded manually across ranks." % (self.rank))
       self.model.build(self.input_shapes)
     return self.model.get_weights(*args, **kwargs)
 
-  def broadcast_weights_if_necessary(self):
+  def _broadcast_weights_if_necessary(self):
     if not self.done_broadcast:
-      self.broadcast_weights()
+      self._broadcast_weights()
 
-  def broadcast_weights(self):
+  def _broadcast_weights(self):
     weights = self.get_weights()
 
     if not self.broadcaster:

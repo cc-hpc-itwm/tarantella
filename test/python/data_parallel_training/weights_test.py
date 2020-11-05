@@ -46,7 +46,7 @@ class TestsDataParallelCompareWeights:
     final_weights = model_runner.get_weights()
 
     # broadcast the weights from the master rank to all the participating ranks
-    model_runner.model.broadcast_weights()
+    model_runner.model._broadcast_weights()
 
     reference_rank_weights = model_runner.get_weights()
     util.compare_weights(final_weights, reference_rank_weights, 1e-6)
