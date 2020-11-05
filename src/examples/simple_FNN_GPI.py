@@ -7,7 +7,7 @@ from tensorflow.keras import layers
 
 from models.utils import keras_utils as utils
 
-import tarantella
+import tarantella as tnt
 
 def parse_args():
   parser = argparse.ArgumentParser()
@@ -55,9 +55,9 @@ def create_dataset_from_arrays(samples, labels, batch_size):
 
 args = parse_args()
 
-tarantella.init(args.ngpus_per_node)
-rank = tarantella.get_rank()
-comm_size = tarantella.get_size()
+tnt.init(args.ngpus_per_node)
+rank = tnt.get_rank()
+comm_size = tnt.get_size()
 
 batch_size = args.batch_size
 micro_batch_size = args.batch_size // comm_size
@@ -93,7 +93,7 @@ x = layers.Dense(200, activation='relu')(x)
 outputs = layers.Dense(10, activation='softmax', name='softmax')(x)
 
 model = keras.Model(inputs=inputs, outputs=outputs)
-model = tarantella.Model(model)
+model = tnt.Model(model)
 
 # Building the graph
 # Specify the training configuration (optimizer, loss, metrics) & compile
