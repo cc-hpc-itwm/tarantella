@@ -76,10 +76,12 @@ class TarantellaModel(tf.keras.models.Model):
                               weighted_metrics = weighted_metrics,
                               **kwargs)
 
-  def _set_input_shapes(self, dataset):
-    if not isinstance(dataset, tf.data.Dataset):
-      raise RuntimeError("tnt.model.TarantellaModel only supports tf.data.Dataset")
+  def _validate_datasets(self, x, y):
+    if not isinstance(x, tf.data.Dataset) or not y is None:
+      raise RuntimeError("tnt.model.TarantellaModel only supports `tf.data.Dataset`\
+ for `x` and `None` for y.")
 
+  def _set_input_shapes(self, dataset):
     if isinstance(dataset.element_spec, tf.TensorSpec):
       self.input_shapes = dataset.element_spec.shape
     elif isinstance(dataset.element_spec[0], tf.TensorSpec): # (input, outputs)
@@ -89,9 +91,11 @@ class TarantellaModel(tf.keras.models.Model):
 
   def fit(self,
           x = None,
+          y = None,
           tnt_micro_batch_size = None,
           tnt_distribute_dataset = True,
           **kwargs):
+    self._validate_datasets(x, y)
     self._set_input_shapes(x)
     self._broadcast_weights_if_necessary()
 
@@ -110,8 +114,10 @@ Make sure the dataset is sharded manually across ranks." % (self.rank))
     
   def evaluate(self,
                x = None,
+               y = None,
                tnt_micro_batch_size = None,
                **kwargs):
+    self._validate_datasets(x, y)
     self._set_input_shapes(x)
     self._broadcast_weights_if_necessary()
 
@@ -126,8 +132,10 @@ Make sure the dataset is sharded manually across ranks." % (self.rank))
 
   def predict(self,
               x = None,
+              y = None,
               tnt_micro_batch_size = None,
               **kwargs):
+    self._validate_datasets(x, y)
     self._set_input_shapes(x)
     self._broadcast_weights_if_necessary()
 
