@@ -74,45 +74,35 @@ PYBIND11_MODULE(GPICommLib, m)
         },
         py::return_value_policy::reference_internal);
 
-  m.def("broadcast_model_weights",
-      [](tarantella::GPI::Context& context, std::vector<py::array>& tensor_list,
-         tarantella::GPI::Rank root_rank)
-      {
-        std::vector<tarantella::collectives::TensorInfo> tensor_infos;
-        std::vector<void*> tensor_ptrs;
-        for (auto& tens : tensor_list)
+  py::class_<tarantella::TensorBroadcaster>(m, "TensorBroadcaster")
+    .def(py::init(
+        [](tarantella::GPI::Context& context,
+           std::vector<tarantella::collectives::TensorInfo> tensor_infos,
+           tarantella::GPI::Rank root_rank)
         {
-          py::buffer_info info = tens.request();
+          tarantella::distribution::DataParallelGroupBuilder group_builder(context);
+          tarantella::distribution::DataParallelSegmentIDBuilder segment_id_builder{};
 
-          tarantella::collectives::BufferElementType elemtype;
-          if (info.format == py::format_descriptor<float>::format())
+          return std::unique_ptr<tarantella::TensorBroadcaster>(
+            new tarantella::TensorBroadcaster(context,
+                                              segment_id_builder.get_segment_id(),
+                                              group_builder.get_group(),
+                                              tensor_infos,
+                                              root_rank));
+        }),
+        // ensure the `context` object is not garbage-collected as long as the SynchCommunicator is alive
+        py::keep_alive<1, 2>())
+    .def("broadcast",
+        [](tarantella::TensorBroadcaster &tb, std::vector<py::array>& tensor_list)
+        {
+          std::vector<void*> tensor_ptrs;
+          for (auto& tens : tensor_list)
           {
-            elemtype = tarantella::collectives::BufferElementType::FLOAT;
+            py::buffer_info info = tens.request(); 
+            tensor_ptrs.emplace_back(info.ptr);
           }
-          else if (info.format == py::format_descriptor<int32_t>::format())
-          {
-            elemtype = tarantella::collectives::BufferElementType::INT32;
-          }
-          else if (info.format == py::format_descriptor<int16_t>::format())
-          {
-            elemtype = tarantella::collectives::BufferElementType::INT16;
-          }
-          else
-          {
-            throw std::runtime_error("[Pybind11][bcast_initial_model_params] Unknown buffer type");
-          }
-          tensor_infos.emplace_back(0, info.size, elemtype);
-          tensor_ptrs.emplace_back(info.ptr);
-        }
-
-        tarantella::distribution::DataParallelGroupBuilder group_builder(context);
-        tarantella::distribution::DataParallelSegmentIDBuilder segment_id_builder{};
-        tarantella::TensorBroadcaster tb{context, segment_id_builder.get_segment_id(),
-                                         group_builder.get_group(), tensor_infos,
-                                         root_rank};
-        tb.exec_broadcast(tensor_ptrs);
-      },
-      "Broadcast an array of tensors to all processes");
+          tb.exec_broadcast(tensor_ptrs);
+        });
 
   py::class_<tarantella::PipelineCommunicator>(m, "PipelineCommunicator")
     .def(py::init(

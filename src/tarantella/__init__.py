@@ -66,10 +66,23 @@ def get_rank():
 def get_size():
   return global_context.size
 
-def broadcast_model_weights(model, root_rank):
-  weights = model.get_weights()
-  GPICommLib.broadcast_model_weights(global_context, weights, root_rank)
-  model.set_weights(weights)
+def get_tensor_info(tensor_id, tensor):
+  return GPICommLib.TensorInfo(tensor_id,
+                               int(np.prod(tensor.shape)), 
+                               np.dtype(tf.dtypes.as_dtype(tensor.dtype).as_numpy_dtype()))
+
+class TensorBroadcaster():
+  def __init__(self, tensor_list, root_rank):
+    self.context = global_context
+    self.root_rank = root_rank
+
+    tensor_infos = [get_tensor_info(tid, tensor) for tid, tensor in enumerate(tensor_list)]
+    self.broadcaster = GPICommLib.TensorBroadcaster(self.context,
+                                                    tensor_infos,
+                                                    self.root_rank)
+
+  def broadcast(self, tensor_list):
+    self.broadcaster.broadcast(tensor_list)
 
 class SynchCommunicator():
   def __init__(self, global_context, _fusion_threshold_bytes):
@@ -91,12 +104,10 @@ class SynchCommunicator():
       running_grad_id += 1
 
     # initialize the internal `SynchCommunicator` corresponding to the provided list of gradients
-    grad_info = list()
+    grad_infos = list()
     for grad, weight in gradients_and_weights:
-      grad_info.append(GPICommLib.TensorInfo(self.weight_to_index[weight.name], 
-                                             int(np.prod(grad.shape)), 
-                                             np.dtype(grad.dtype.as_numpy_dtype)))
-    self.comm = GPICommLib.SynchDistCommunicator(global_context, grad_info, self.threshold)
+      grad_infos.append(get_tensor_info(self.weight_to_index[weight.name], grad))
+    self.comm = GPICommLib.SynchDistCommunicator(global_context, grad_infos, self.threshold)
 
   def reduce_gradients(self, gradients_and_weights):
     gradients_to_reduce = list()
