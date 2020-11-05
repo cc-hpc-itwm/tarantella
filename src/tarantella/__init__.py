@@ -58,6 +58,7 @@ def init(devices_per_node = None):
   global global_context
   if global_context is None:
     global_context = GPICommLib.GPIContext()
+
     if devices_per_node is None:
       devices_per_node = global_tnt_config.devices_per_node
     else:
@@ -90,11 +91,11 @@ class TensorBroadcaster():
     self.broadcaster.broadcast(tensor_list)
 
 class SynchCommunicator():
-  def __init__(self, global_context, _fusion_threshold_bytes):
+  def __init__(self, global_context):
     self.context = global_context
     self.weight_to_index = dict()
     self.comm = None
-    self.threshold = _fusion_threshold_bytes
+    self.threshold = global_tnt_config.fusion_threshold
 
   def setup_infrastructure(self, gradients_and_weights):
     """ Setup state and allocate GPI segments

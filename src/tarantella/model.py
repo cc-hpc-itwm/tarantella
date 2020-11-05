@@ -13,7 +13,7 @@ model_implemented_methods = ['model', 'rank', 'comm_size', '_master_rank', 'thre
                              'broadcaster', 'default_shuffle_seed']
 
 class TarantellaModel(tf.keras.models.Model):
-  def __init__(self, model, _fusion_threshold_bytes = 32768):
+  def __init__(self, model):
     if not tarantella.global_context:
       raise RuntimeError("""Cannot initialize a TarantellaModel before the Tarantella library.
       Please call "tarantella.init()" first.
@@ -68,8 +68,7 @@ class TarantellaModel(tf.keras.models.Model):
               weighted_metrics=None,
               **kwargs):
     self.done_broadcast = False
-    optimizer = tarantella.distributed_optimizers.SynchDistributedOptimizer(optimizer,
-                                                  _fusion_threshold_bytes = self.threshold)
+    optimizer = tarantella.distributed_optimizers.SynchDistributedOptimizer(optimizer)
     return self.model.compile(optimizer = optimizer,
                               loss = loss,
                               metrics = metrics,
