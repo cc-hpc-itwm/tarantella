@@ -169,6 +169,13 @@ class Model(tf.keras.models.Model):
       self.model.build(self.input_shapes)
     return self.model.get_weights(*args, **kwargs)
 
+  def summary(self, *args, **kwargs):
+    if tarantella.global_tnt_config.output_on_all_devices:
+      self.model.summary(*args, **kwargs)
+    else:
+      if self.rank == self._master_rank:
+        self.model.summary(*args, **kwargs)
+
   def _setup_for_execution(self, exec_type, x, y, args_dict):
     self._set_verbose_all_ranks(exec_type, args_dict)
     self._validate_datasets(x, y)

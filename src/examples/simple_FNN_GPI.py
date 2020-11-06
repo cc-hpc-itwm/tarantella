@@ -102,9 +102,7 @@ model.compile(optimizer=opt,
               loss=keras.losses.SparseCategoricalCrossentropy(),
               metrics=[keras.metrics.SparseCategoricalAccuracy()],
              )
-
-if rank == 0:
-  model.summary()
+model.summary()
 
 # DATA LOADING & PRE-PROCESSING
 # Load MNIST dataset
