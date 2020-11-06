@@ -30,7 +30,9 @@ def generate_nodes_list(hostfile = None):
 
 
 def generate_num_gpus_per_node(npernode = None):
-  num_physical_gpus = tf_config.get_available_gpus()
+  num_physical_gpus = len(tf_config.get_available_gpus())
+  logger.debug("Num GPUs Available: {}".format(num_physical_gpus))
+
   if npernode is None:  # use as many GPUs as possible
     num_devices = num_physical_gpus
 
