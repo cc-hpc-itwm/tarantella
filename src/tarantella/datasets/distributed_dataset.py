@@ -2,6 +2,7 @@ import logging
 import tensorflow as tf
 from tensorflow.python.data.ops import dataset_ops as ds
 
+from tarantella import logger
 import tarantella.datasets.dataset_helpers as ds_helpers
 
 class DistributedDataset:
@@ -31,8 +32,9 @@ class DistributedDataset:
         if user_micro_batch_size:
           micro_batch_size = user_micro_batch_size
           if micro_batch_size * self.num_ranks != batch_size:
-            raise ValueError("[DistributedDataset] micro batch size (%d) is not consistent \
-with batch size (%d) on number of devices used (%d)" % (micro_batch_size, batch_size, self.num_ranks))
+            raise ValueError("[DistributedDataset] micro batch size ({}) is not consistent \
+with batch size ({}) on number of devices used ({}).".format(micro_batch_size, batch_size,
+                                                            self.num_ranks))
         else:
           micro_batch_size = self.get_microbatch_size(batch_size)
 
@@ -76,12 +78,11 @@ with batch size (%d) on number of devices used (%d)" % (micro_batch_size, batch_
 
   def shuffle_with_seed(self, dataset, ds_kwargs):
     if not 'seed' in ds_kwargs or ds_kwargs['seed'] is None:
-      logging.getLogger().warn("[rank %d] Shuffling with fixed shuffle seed %d" % (
-                              self.rank, self.shuffle_seed))
+      logger.warn("[rank {}] Shuffling with fixed shuffle seed {}.".format(self.rank,
+                                                                          self.shuffle_seed))
       ds_kwargs['seed'] = self.shuffle_seed
     else:
-      logging.getLogger().debug("[rank %d] Shuffling with shuffle seed %d" % (
-                                self.rank, ds_kwargs['seed']))
+      logger.debug("[rank {}] Shuffling with shuffle seed {}.".format(self.rank, ds_kwargs['seed']))
     return dataset.shuffle(**ds_kwargs)
 
   def distributed_batch(self, dataset, batch_size, micro_batch_size, drop_remainder):
@@ -97,8 +98,8 @@ with batch size (%d) on number of devices used (%d)" % (micro_batch_size, batch_
 
       # Total number of samples is not multiple of the batch size
       if num_samples % batch_size != 0:
-        logging.getLogger().warn("[rank %d] Number of samples (%d) is not a multiple of batch size.\
- Removing the last incomplete batch from the dataset." % (self.rank, num_samples))
+        logger.warn("[rank {}] Number of samples ({}) is not a multiple of batch size.\
+ Removing the last incomplete batch from the dataset.".format(self.rank, num_samples))
         num_samples_multiple = (num_samples // batch_size) * batch_size
         dataset = dataset.take(num_samples_multiple)
 
@@ -106,8 +107,8 @@ with batch size (%d) on number of devices used (%d)" % (micro_batch_size, batch_
                             drop_remainder = False)
     dataset = dataset.shard(num_shards=self.num_ranks, index = self.rank)
 
-    logging.getLogger().info("[rank %d] Using batch size = %d, micro batch size = %d." \
-                             % (self.rank, batch_size, micro_batch_size))
+    logger.info("[rank {}] Using batch size = {}, micro batch size = {}.".format(self.rank,
+                                                              batch_size, micro_batch_size))
     return dataset
 
   def get_batch_size(self, ds_kwargs):
@@ -120,9 +121,9 @@ with batch size (%d) on number of devices used (%d)" % (micro_batch_size, batch_
       raise ValueError("[DistributedDataset]Incorrectly defined batch size")
 
     if batch_size % self.num_ranks != 0:
-      raise ValueError("[DistributedDataset] Batch size (%d) is not a multiple of the number of ranks %d" % (
-                              batch_size, self.num_ranks))
+      raise ValueError("[DistributedDataset] Batch size ({}) is not a multiple".format(batch_size) +
+                       "of the number of ranks {}".format(self.num_ranks))
 
-    logging.getLogger().debug("[rank %d] Batch size (%d) is a multiple of the number of ranks %d" % (
-                              self.rank, batch_size, self.num_ranks))
+    logging.debug("[rank {}] Batch size ({}) is a multiple of the number of ranks {}.".format(
+                  self.rank, batch_size, self.num_ranks))
     return int(batch_size // self.num_ranks)
