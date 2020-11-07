@@ -44,6 +44,66 @@ def gen_dataset_shuffle_batch(dataset, batch_size, drop_remainder):
   dataset = dataset.prefetch(buffer_size=2)
   return dataset
 
+def gen_dataset_filter(dataset, batch_size, drop_remainder):
+  # Read from multiple files in parallel
+  dataset = dataset.shuffle(10, seed=44, reshuffle_each_iteration=True)
+  
+  def pred(x,y):
+    return x > 100
+  dataset = dataset.filter(predicate = lambda x, y: pred(x,y))
+  dataset = dataset.batch(batch_size, drop_remainder)
+  return dataset
+
+def gen_dataset_flat_map(dataset, batch_size, drop_remainder):
+  dataset = dataset.batch(batch_size = 3, drop_remainder = False)
+
+  # flat map works on batched datasets
+  dataset = dataset.flat_map(lambda x, y: tf.data.Dataset.from_tensor_slices((x, y)))
+
+  dataset = dataset.batch(batch_size, drop_remainder)
+  return dataset
+
+def gen_dataset_interleave(dataset, batch_size, drop_remainder):
+  dataset = dataset.batch(batch_size = 3, drop_remainder = False)
+  dataset = dataset.interleave(map_func = lambda x, y: tf.data.Dataset.from_tensor_slices((x+3, y)),
+                               cycle_length=tf.data.experimental.AUTOTUNE,
+                               block_length=2)
+
+  dataset = dataset.batch(batch_size, drop_remainder)
+  return dataset
+
+def gen_dataset_map(dataset, batch_size, drop_remainder):
+  def map_fn(x, y):
+    return x*5, y
+  dataset = dataset.map(lambda x, y: map_fn(x, y))
+
+  dataset = dataset.batch(batch_size, drop_remainder)
+  return dataset
+
+def gen_dataset_padded_batch(dataset, batch_size, drop_remainder):
+  dataset = dataset.padded_batch(batch_size, drop_remainder)
+  return dataset
+
+def gen_dataset_parallel_interleave(dataset, batch_size, drop_remainder):
+  dataset = dataset.batch(batch_size = 3, drop_remainder = False)
+  dataset = dataset.interleave(map_func = lambda x, y: tf.data.Dataset.from_tensor_slices((x+3, y)),
+                               cycle_length=tf.data.experimental.AUTOTUNE,
+                               block_length=2,
+                               num_parallel_calls=4)
+
+  dataset = dataset.batch(batch_size, drop_remainder)
+  return dataset
+
+def gen_dataset_parallel_map(dataset, batch_size, drop_remainder):
+  dataset = dataset.repeat(2)
+
+  def map_fn(x,y):
+    return x*5, y+x
+  dataset = dataset.map(map_func = lambda x, y: map_fn(x,y),
+                        num_parallel_calls=2,
+                        deterministic=True)
+  dataset = dataset.batch(batch_size, drop_remainder)
+  return dataset
 
 def gen_dataset_io_pipeline(dataset, batch_size, drop_remainder):
   # Read from multiple files in parallel
@@ -92,7 +152,14 @@ def validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank):
 @pytest.mark.parametrize("apply_transformations", [gen_dataset_batch,
                                                    gen_dataset_shuffle_batch,
                                                    gen_dataset_multiple_batch,
-                                                   gen_dataset_io_pipeline])
+                                                   gen_dataset_io_pipeline,
+                                                   gen_dataset_filter,
+                                                   gen_dataset_flat_map,
+                                                   gen_dataset_interleave,
+                                                   gen_dataset_map,
+                                                   gen_dataset_parallel_interleave,
+                                                   gen_dataset_parallel_map,
+                                                   ])
 @pytest.mark.parametrize("dataset_generator", [np_arrays_from_range])
 @pytest.mark.parametrize("comm_size", [1,3,4])
 @pytest.mark.parametrize("micro_batch_size", [5])
