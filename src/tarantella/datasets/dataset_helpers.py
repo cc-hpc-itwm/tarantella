@@ -40,17 +40,23 @@ def _get_transformation_info_paddedbatch(dataset):
   kwargs = {"batch_size": dataset._batch_size,
             "padded_shapes": dataset._padded_shapes,
             "padding_values": dataset._padding_values,
-            "drop_remainder": dataset._drop_remainder}
+            "drop_remainder": dataset._drop_remainder,
+            "structure" : dataset._structure}
   return (tnt_ops.TntPaddedBatchDataset, kwargs)
 
 def _get_transformation_info_parallelinterleave(dataset):
+  # bug in TF2.2: `deterministic` is not saved as an attribute
+  deterministic = "true"
+  if hasattr(dataset, '_deterministic'):
+    deterministic = dataset._deterministic
+
   kwargs = {"map_func": dataset._map_func,
             "cycle_length": dataset._cycle_length,
             "block_length": dataset._block_length,
             "num_parallel_calls": dataset._num_parallel_calls,
             "buffer_output_elements": dataset._buffer_output_elements,
             "prefetch_input_elements": dataset._prefetch_input_elements,
-            "deterministic": dataset._deterministic}
+            "deterministic": deterministic}
   return (tnt_ops.TntParallelInterleaveDataset, kwargs)
 
 def _get_transformation_info_parallelmap(dataset):
@@ -127,6 +133,8 @@ _transformations = {ds.BatchDataset : _get_transformation_info_batch,
                     ds.InterleaveDataset : _get_transformation_info_interleave,
                     ds.MapDataset : _get_transformation_info_map,
                     ds.PaddedBatchDataset : _get_transformation_info_paddedbatch,
+                    ds.ParallelInterleaveDataset : _get_transformation_info_parallelinterleave,
+                    ds.ParallelMapDataset : _get_transformation_info_parallelmap,
                     ds.PrefetchDataset : _get_transformation_info_prefetch,
                     ds.RepeatDataset : _get_transformation_info_repeat,
                     ds.ShardDataset : _get_transformation_info_shard,
@@ -144,10 +152,14 @@ def gen_dataset_transformations(dataset):
   """
   stack = []
   while (hasattr(dataset, '_input_dataset')):
+    identified_transf = False
     for transformation in _transformations:
       if isinstance(dataset, transformation):
         stack.append(_transformations[transformation](dataset))
+        identified_transf = True
         break
+    if not identified_transf:
+      raise RuntimeError("Unknown transformation provided: {}.".format(dataset._transformation_name))
     dataset = dataset._input_dataset
   return (dataset, list(reversed(stack)))
 
