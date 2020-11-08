@@ -1,3 +1,5 @@
+import copy 
+
 import tensorflow as tf
 from tensorflow.python.data.ops import dataset_ops as ds
 from tensorflow.python.framework import ops
@@ -162,13 +164,64 @@ def gen_dataset_transformations(dataset):
     dataset = dataset._input_dataset
   return (dataset, list(reversed(stack)))
 
-def get_index_last_batch_operation(dataset_transformations):
+
+class BatchingOpInfo:
+  def __init__(self, is_batched, last_batching_index = None,
+               transformation = None, params = None):
+    self._is_batched = is_batched
+    self._last_batching_index = last_batching_index
+    self._transformation = transformation
+    self.set_kwargs_properties(params)
+
+  @property
+  def is_batched(self):
+    return self._is_batched
+
+  @property
+  def batch_size(self):
+    return self._batch_size
+
+  @property
+  def drop_remainder(self):
+    return self._drop_remainder
+
+  def is_last_batching_transformation(self, index):
+    return index == self._last_batching_index
+
+  def set_kwargs_properties(self, ds_kwargs):
+    if not self.is_batched:
+      return
+    ds_kwargs = ds_kwargs if isinstance(ds_kwargs, dict) else {}
+
+    self._drop_remainder = None
+    if 'drop_remainder' in ds_kwargs:
+      self._drop_remainder = ds_kwargs.pop('drop_remainder')
+
+    if not 'batch_size' in ds_kwargs:
+      raise KeyError("[DistributedDataset] Batch transformation defined without batch size")
+    self._batch_size = ds_kwargs.pop('batch_size')
+    self._additional_kwargs = ds_kwargs
+
+  def apply(self, dataset, new_batch_size):
+    if not self.is_batched:
+      raise RuntimeError("[BatchingOpInfo] Cannot apply batching transformation: dataset is unbatched.")
+    kwargs = self._additional_kwargs
+    kwargs['batch_size'] = new_batch_size
+    kwargs['drop_remainder'] = self.drop_remainder
+    return self._transformation(dataset, **kwargs)
+
+
+def get_batching_info(dataset_transformations):
   last_batch_transf_index = None
   for index, (transf, ds_kwargs) in enumerate(reversed(dataset_transformations)):
-    if transf == ds.BatchDataset:
+    if transf in [ds.BatchDataset, tnt_ops.TntPaddedBatchDataset]:
       last_batch_transf_index = len(dataset_transformations) - index - 1
-      break
-  return last_batch_transf_index
+      return BatchingOpInfo(is_batched = True,
+                            last_batching_index = last_batch_transf_index,
+                            transformation = transf,
+                            params = copy.deepcopy(ds_kwargs))
+  return BatchingOpInfo(is_batched = False)
+
 
 def get_num_samples(dataset):
   cardinality = tf.data.experimental.cardinality(dataset)

@@ -14,9 +14,9 @@ class DistributedDataset:
     self.dataset = dataset
     self.base_dataset, self.dataset_transformations = \
            ds_helpers.gen_dataset_transformations(dataset)
+    self.batching_info = ds_helpers.get_batching_info(self.dataset_transformations)
 
   def distribute_dataset_across_ranks(self, user_micro_batch_size = None, is_training = True):
-    index_last_batch_op = ds_helpers.get_index_last_batch_operation(self.dataset_transformations)
     dataset = self.base_dataset
 
     # Batched datsets:
@@ -25,10 +25,10 @@ class DistributedDataset:
       # shuffle operation
       if isinstance(transf(dataset, **ds_kwargs), ds.ShuffleDataset):
         dataset = self.shuffle_with_seed(dataset, ds_kwargs)
-      # batch operation
-      elif isinstance(transf(dataset, **ds_kwargs), ds.BatchDataset) \
-      and index_last_batch_op == index:
-        batch_size = self.get_batch_size(ds_kwargs)
+
+      # batch operation (i.e., `batch` or `padded_batch`)
+      elif self.batching_info.is_last_batching_transformation(index):
+        batch_size = self.batching_info.batch_size
         if user_micro_batch_size:
           micro_batch_size = user_micro_batch_size
           if micro_batch_size * self.num_ranks != batch_size:
@@ -38,41 +38,35 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
         else:
           micro_batch_size = self.get_microbatch_size(batch_size)
 
-        drop_remainder = False
-        if 'drop_remainder' in ds_kwargs:
-          drop_remainder = ds_kwargs['drop_remainder']
-
         if is_training:
           dataset = self.distributed_batch(dataset,
                                            batch_size = batch_size,
-                                           micro_batch_size = micro_batch_size,
-                                           drop_remainder = drop_remainder)
+                                           micro_batch_size = micro_batch_size)
         else:
           # FIXME: distribute batch for `evaluate` and `predict`
-          dataset = dataset.batch(batch_size = micro_batch_size,
-                                  drop_remainder = drop_remainder)
+          dataset = self.batching_info.apply(dataset, new_batch_size = micro_batch_size)
+
       # other operations
       else:
         dataset = transf(dataset, **ds_kwargs)
 
-    # Unbatched datasets outside `fit`
-    if is_training == False and index_last_batch_op == None:
-      if user_micro_batch_size:
-        dataset = dataset.batch(batch_size = user_micro_batch_size)
-      else:
-        dataset = dataset.batch(batch_size = 1)
+    # Unbatched datasets
+    if self.batching_info.is_batched == False:
+      if is_training == False:    # outside `fit`
+        if user_micro_batch_size:
+          dataset = self.batching_info.apply(dataset, new_batch_size = micro_batch_size)
+        else:
+          dataset = self.batching_info.apply(dataset, new_batch_size = 1)
 
-    # Unbatched datasets inside `fit`
-    if is_training == True and index_last_batch_op == None:
-      if user_micro_batch_size:
-        micro_batch_size = user_micro_batch_size
-        batch_size = micro_batch_size * self.num_ranks
-        dataset = self.distributed_batch(dataset,
-                                         batch_size = batch_size,
-                                         micro_batch_size = micro_batch_size,
-                                         drop_remainder = False)
-      else:
-        raise ValueError("[DistributedDataset] Unbatched datasets without tnt_micro_batch_size are not supported")
+      if is_training == True:     # inside `fit`
+        if user_micro_batch_size:
+          micro_batch_size = user_micro_batch_size
+          batch_size = micro_batch_size * self.num_ranks
+          dataset = self.distributed_batch(dataset,
+                                          batch_size = batch_size,
+                                          micro_batch_size = micro_batch_size)
+        else:
+          raise ValueError("[DistributedDataset] Unbatched datasets without tnt_micro_batch_size are not supported")
 
     return dataset
 
@@ -85,10 +79,9 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
       logger.debug("[rank {}] Shuffling with shuffle seed {}.".format(self.rank, ds_kwargs['seed']))
     return dataset.shuffle(**ds_kwargs)
 
-  def distributed_batch(self, dataset, batch_size, micro_batch_size, drop_remainder):
-    if drop_remainder == True:
-      dataset = dataset.batch(batch_size = batch_size,
-                              drop_remainder = True)
+  def distributed_batch(self, dataset, batch_size, micro_batch_size):
+    if self.batching_info.drop_remainder == True:
+      dataset = self.batching_info.apply(dataset, new_batch_size = batch_size)
       dataset = dataset.unbatch()
 
     else: # no drop remainder
@@ -103,18 +96,12 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
         num_samples_multiple = (num_samples // batch_size) * batch_size
         dataset = dataset.take(num_samples_multiple)
 
-    dataset = dataset.batch(batch_size = micro_batch_size,
-                            drop_remainder = False)
+    dataset = self.batching_info.apply(dataset, new_batch_size = micro_batch_size)
     dataset = dataset.shard(num_shards=self.num_ranks, index = self.rank)
 
     logger.info("[rank {}] Using batch size = {}, micro batch size = {}.".format(self.rank,
                                                               batch_size, micro_batch_size))
     return dataset
-
-  def get_batch_size(self, ds_kwargs):
-    if not 'batch_size' in ds_kwargs:
-      raise KeyError("[DistributedDataset] Batch transformation defined without batch size")
-    return ds_kwargs['batch_size']
 
   def get_microbatch_size(self, batch_size):
     if batch_size is None or batch_size == 0:
