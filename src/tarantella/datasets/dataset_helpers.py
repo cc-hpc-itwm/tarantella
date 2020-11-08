@@ -40,8 +40,7 @@ def _get_transformation_info_paddedbatch(dataset):
   kwargs = {"batch_size": dataset._batch_size,
             "padded_shapes": dataset._padded_shapes,
             "padding_values": dataset._padding_values,
-            "drop_remainder": dataset._drop_remainder,
-            "structure" : dataset._structure}
+            "drop_remainder": dataset._drop_remainder}
   return (tnt_ops.TntPaddedBatchDataset, kwargs)
 
 def _get_transformation_info_parallelinterleave(dataset):
