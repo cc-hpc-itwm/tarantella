@@ -81,7 +81,11 @@ def gen_dataset_map(dataset, batch_size, drop_remainder):
   return dataset
 
 def gen_dataset_padded_batch(dataset, batch_size, drop_remainder):
-  dataset = dataset.padded_batch(batch_size, drop_remainder)
+  dataset = dataset.map(lambda x, y: tf.fill([4], x))
+  dataset = dataset.padded_batch(batch_size,
+                                 drop_remainder = drop_remainder,
+                                 padded_shapes = 8)
+  dataset = dataset.prefetch(buffer_size=2)
   return dataset
 
 def gen_dataset_parallel_interleave(dataset, batch_size, drop_remainder):
@@ -134,8 +138,10 @@ def validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank):
   expected_dataset_it = iter(ref_dataset)
 
   for local_batch, expected_batch in zip(local_dataset_it, expected_dataset_it):
-    local_batch = list(local_batch[0])
-    expected_batch = list(expected_batch[0])
+    if isinstance(local_batch, tuple):
+      local_batch = local_batch[0]
+    if isinstance(expected_batch, tuple):
+      expected_batch = expected_batch[0]
 
     # extract the slice of the reference dataset that corresponds to `rank`
     expected_micro_batch = expected_batch[rank * micro_batch_size:
@@ -159,6 +165,7 @@ def validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank):
                                                    gen_dataset_map,
                                                    gen_dataset_parallel_interleave,
                                                    gen_dataset_parallel_map,
+                                                   gen_dataset_padded_batch,
                                                    ])
 @pytest.mark.parametrize("dataset_generator", [np_arrays_from_range])
 @pytest.mark.parametrize("comm_size", [1,3,4])
@@ -198,7 +205,15 @@ def test_with_drop_remainder(apply_transformations, dataset_generator,
 @pytest.mark.parametrize("apply_transformations", [gen_dataset_batch,
                                                    gen_dataset_shuffle_batch,
                                                    gen_dataset_multiple_batch,
-                                                   gen_dataset_io_pipeline])
+                                                   gen_dataset_io_pipeline,
+                                                   gen_dataset_filter,
+                                                   gen_dataset_flat_map,
+                                                   gen_dataset_interleave,
+                                                   gen_dataset_map,
+                                                   gen_dataset_parallel_interleave,
+                                                   gen_dataset_parallel_map,
+                                                   gen_dataset_padded_batch,
+                                                   ])
 @pytest.mark.parametrize("dataset_generator", [np_arrays_from_range])
 @pytest.mark.parametrize("comm_size", [1,3,4])
 @pytest.mark.parametrize("micro_batch_size", [5])
@@ -238,7 +253,15 @@ def test_no_drop_remainder(apply_transformations, dataset_generator,
 @pytest.mark.parametrize("apply_transformations", [gen_dataset_batch,
                                                    gen_dataset_shuffle_batch,
                                                    gen_dataset_multiple_batch,
-                                                   gen_dataset_io_pipeline])
+                                                   gen_dataset_io_pipeline,
+                                                   gen_dataset_filter,
+                                                   gen_dataset_flat_map,
+                                                   gen_dataset_interleave,
+                                                   gen_dataset_map,
+                                                   gen_dataset_parallel_interleave,
+                                                   gen_dataset_parallel_map,
+                                                   gen_dataset_padded_batch,
+                                                   ])
 @pytest.mark.parametrize("dataset_generator", [np_arrays_from_range])
 @pytest.mark.parametrize("comm_size", [3, 4])
 @pytest.mark.parametrize("micro_batch_size", [5])
