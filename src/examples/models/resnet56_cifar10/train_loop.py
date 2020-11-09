@@ -27,6 +27,13 @@ import tensorflow as tf
 from models.resnet56_cifar10  import cifar_preprocessing
 from models.utils import common
 
+def tarantella_enabled():
+  try:
+    import tarantella
+  except:
+    return False
+  return True
+
 def parse_args():
   parser = argparse.ArgumentParser()
   parser.add_argument("--data_dir", help="location of the ImageNet dataset")
@@ -42,12 +49,6 @@ def parse_args():
   parser.add_argument("--val-freq",
                       type=int,
                       default = 1)
-  parser.add_argument("--ngpus-per-node",
-                      type=int,
-                      help = """Number of GPUs to assign to ranks on each node 
-                      (should match the number of ranks deployed on each node and
-                      be <= than the number of available GPUs)""",
-                      default = None)
   parser.add_argument("--data-format",
                       help = "Reshape data into either 'channels_last' or 'channels_first' format",
                       default = "channels_last")
@@ -152,12 +153,11 @@ def run(model, optimizer,
     Dictionary of training and eval stats.
   """
   micro_batch_size = batch_size // comm_size
-  datasets = load_data(data_dir, batch_size, rank, comm_size,
-              shuffle_seed)
+  datasets = load_data(data_dir, batch_size, rank, comm_size, shuffle_seed)
 
-  train_steps = (cifar_preprocessing.NUM_IMAGES['train'] // batch_size)
-  num_val_steps = (cifar_preprocessing.NUM_IMAGES['validation'] // micro_batch_size)
-  num_test_steps = (cifar_preprocessing.NUM_IMAGES['test'] // micro_batch_size)
+  train_steps = cifar_preprocessing.NUM_IMAGES['train'] // batch_size
+  num_val_steps = cifar_preprocessing.NUM_IMAGES['validation'] // micro_batch_size
+  num_test_steps = cifar_preprocessing.NUM_IMAGES['test'] // micro_batch_size
 
   callbacks = [] 
   if custom_callbacks:
@@ -165,20 +165,19 @@ def run(model, optimizer,
   callbacks.append(common.LearningRateBatchScheduler(
                             learning_rate_schedule,
                             batch_size=batch_size,
-                            num_images=cifar_preprocessing.NUM_IMAGES['train'])
-  )
+                            num_images=cifar_preprocessing.NUM_IMAGES['train']))
 
-  model.compile(
-        loss='categorical_crossentropy',
-        optimizer=optimizer,
-        metrics=(['categorical_accuracy']),
-        run_eagerly = None,
-        experimental_run_tf_function = False
-        )
+  model.compile(loss='categorical_crossentropy',
+                optimizer=optimizer,
+                metrics=(['categorical_accuracy']))
 
-  verbose = 0
-  if rank == 0:
+  kwargs = {}
+  if tarantella_enabled():
+    kwargs = {'tnt_distribute_dataset': False}
     verbose = 2
+  else:
+    verbose = 2 if rank == 0 else 0
+
   history = model.fit(datasets['train'],
                       epochs=train_epochs,
                       steps_per_epoch=train_steps,
@@ -186,13 +185,15 @@ def run(model, optimizer,
                       validation_steps=num_val_steps,
                       validation_data=datasets['validation'],
                       validation_freq=val_freq,
-                      verbose=verbose)
+                      verbose=2,
+                      **kwargs)
 
-  # The evaluation must be done by a single rank, to avoid
-  # the same sample being evaluated twice
-  # We use the microbatch size to make sure the data fits on a single rank.
-  if rank == 0:
-    eval_output = model.evaluate(datasets['test'],
-                                steps=num_test_steps,
-                                verbose=2)
+  kwargs = {}
+  if tarantella_enabled():
+    kwargs = {'tnt_micro_batch_size': micro_batch_size}
+
+  eval_output = model.evaluate(datasets['test'],
+                               steps=num_test_steps,
+                               verbose=2,
+                               **kwargs)
 

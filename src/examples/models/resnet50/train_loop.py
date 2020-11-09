@@ -28,6 +28,13 @@ from models.resnet50 import imagenet_preprocessing
 from models.resnet50 import resnet_model
 from models.utils import common
 
+def tarantella_enabled():
+  try:
+    import tarantella
+  except:
+    return False
+  return True
+
 def parse_args():
   parser = argparse.ArgumentParser()
   parser.add_argument("--data_dir", help="location of the ImageNet dataset")
@@ -43,19 +50,9 @@ def parse_args():
   parser.add_argument("--val-freq",
                       type=int,
                       default = 1)
-  parser.add_argument("--ngpus-per-node",
-                      type=int,
-                      help = """Number of GPUs to assign to ranks on each node 
-                      (should match the number of ranks deployed on each node and
-                      be <= than the number of available GPUs)""",
-                      default = None)
   parser.add_argument("--data-format",
                       help = "Reshape data into either 'channels_last' or 'channels_first' format",
                       default = "channels_last")
-  parser.add_argument("--tensor_fusion_threshold",
-                      type = int,
-                      help = "set threshold for tensor fusion",
-                      default = 0)
   parser.add_argument("--profile-runtimes", action='store_true',
                       default = False)
   parser.add_argument("--logging-freq", help="how often (in number of iterations) to record the runtimes per iteration",
@@ -151,35 +148,30 @@ def run(model, optimizer,
     Dictionary of training and eval stats.
   """
   micro_batch_size = batch_size // comm_size
-  datasets = load_data(data_dir, batch_size, rank, comm_size,
-              shuffle_seed)
+  datasets = load_data(data_dir, batch_size, rank, comm_size, shuffle_seed)
 
+  train_steps = imagenet_preprocessing.NUM_IMAGES['train'] // batch_size
+  num_val_steps = imagenet_preprocessing.NUM_IMAGES['validation'] // micro_batch_size
 
-  train_steps = (
-      imagenet_preprocessing.NUM_IMAGES['train'] // batch_size)
-  num_val_steps = (
-      imagenet_preprocessing.NUM_IMAGES['validation'] // micro_batch_size)
-  
   callbacks = [] 
   if custom_callbacks:
     callbacks += custom_callbacks
   callbacks.append(common.LearningRateBatchScheduler(
                             learning_rate_schedule,
                             batch_size=batch_size,
-                            num_images=imagenet_preprocessing.NUM_IMAGES['train'])
-  )
+                            num_images=imagenet_preprocessing.NUM_IMAGES['train']))
   
-  model.compile(
-        loss='sparse_categorical_crossentropy',
-        optimizer=optimizer,
-        metrics=(['sparse_categorical_accuracy']),
-        run_eagerly = None,
-        experimental_run_tf_function = False
-        )
+  model.compile(loss='sparse_categorical_crossentropy',
+                optimizer=optimizer,
+                metrics=(['sparse_categorical_accuracy']))
 
-  verbose = 0
-  if rank == 0:
+  kwargs = {}
+  if tarantella_enabled():
+    kwargs = {'tnt_distribute_dataset': False}
     verbose = 2
+  else:
+    verbose = 2 if rank == 0 else 0
+
   history = model.fit(datasets['train'],
                       epochs=train_epochs,
                       steps_per_epoch=train_steps,
@@ -187,17 +179,18 @@ def run(model, optimizer,
                       validation_steps=num_val_steps,
                       validation_data=datasets['validation'],
                       validation_freq=val_freq,
-                      verbose=verbose)
+                      verbose=verbose,
+                      **kwargs)
 
-  # The evaluation must be done by a single rank, to avoid
-  # the same sample being evaluated twice
-  # We use the microbatch size to make sure the data fits on a single rank.
+  kwargs = {}
+  if tarantella_enabled():
+    kwargs = {'tnt_micro_batch_size': micro_batch_size}
+
   stats = {}
-  if rank == 0:
-    eval_output = model.evaluate(datasets['validation'],
+  eval_output = model.evaluate(datasets['validation'],
                                 steps=num_val_steps,
-                                verbose=2)
-
-    stats = common.build_stats(history, eval_output, callbacks)
+                                verbose=verbose,
+                                **kwargs)
+  stats = common.build_stats(history, eval_output, callbacks)
   return stats
 
