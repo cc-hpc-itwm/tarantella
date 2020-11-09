@@ -18,6 +18,10 @@ def _get_transformation_info_cache(dataset):
   kwargs = {"filename": dataset._filename}
   return (ds.CacheDataset, kwargs)
 
+def _get_transformation_info_concatenate(dataset):
+  kwargs = {"dataset_to_concatenate": dataset._dataset_to_concatenate}
+  return (ds.ConcatenateDataset, kwargs)
+
 def _get_transformation_info_filter(dataset):
   kwargs = {"predicate": dataset._predicate}
   return (tnt_ops.TntFilterDataset, kwargs)
@@ -47,7 +51,7 @@ def _get_transformation_info_paddedbatch(dataset):
 
 def _get_transformation_info_parallelinterleave(dataset):
   # bug in TF2.2: `deterministic` is not saved as an attribute
-  deterministic = "true"
+  deterministic = "default"
   if hasattr(dataset, '_deterministic'):
     deterministic = dataset._deterministic
 
@@ -55,17 +59,27 @@ def _get_transformation_info_parallelinterleave(dataset):
             "cycle_length": dataset._cycle_length,
             "block_length": dataset._block_length,
             "num_parallel_calls": dataset._num_parallel_calls,
-            "buffer_output_elements": dataset._buffer_output_elements,
-            "prefetch_input_elements": dataset._prefetch_input_elements,
             "deterministic": deterministic}
+
+  # support for TF2.0 - does not have `buffer_output_elements`
+  if hasattr(dataset, '_buffer_output_elements'):
+    kwargs['buffer_output_elements'] = dataset._buffer_output_elements
+
+  if hasattr(dataset, '_prefetch_input_elements'):
+    kwargs['prefetch_input_elements'] = dataset._prefetch_input_elements
+
   return (tnt_ops.TntParallelInterleaveDataset, kwargs)
 
 def _get_transformation_info_parallelmap(dataset):
+  deterministic = "default"
+  if hasattr(dataset, '_deterministic'):
+    deterministic = dataset._deterministic
+
   kwargs = {"map_func": dataset._map_func,
             "use_inter_op_parallelism": dataset._use_inter_op_parallelism,
             "num_parallel_calls": dataset._num_parallel_calls,
             "preserve_cardinality": dataset._preserve_cardinality,
-            "deterministic": dataset._deterministic}
+            "deterministic": deterministic}
   return (tnt_ops.TntParallelMapDataset, kwargs)
 
 def _get_transformation_info_prefetch(dataset):
@@ -129,6 +143,7 @@ def _get_transformation_info_withoptions(dataset):
 
 _transformations = {ds.BatchDataset : _get_transformation_info_batch,
                     ds.CacheDataset : _get_transformation_info_cache,
+                    ds.ConcatenateDataset: _get_transformation_info_concatenate,
                     ds.FilterDataset : _get_transformation_info_filter,
                     ds.FlatMapDataset : _get_transformation_info_flatmap,
                     ds.InterleaveDataset : _get_transformation_info_interleave,
@@ -144,7 +159,7 @@ _transformations = {ds.BatchDataset : _get_transformation_info_batch,
                     ds.TakeDataset : _get_transformation_info_take,
                     ds._UnbatchDataset : _get_transformation_info_unbatch,
                     ds.WindowDataset : _get_transformation_info_window,
-                    ds._OptionsDataset : _get_transformation_info_withoptions,  
+                    ds._OptionsDataset : _get_transformation_info_withoptions,
                     }
 
 def gen_dataset_transformations(dataset):
@@ -152,7 +167,8 @@ def gen_dataset_transformations(dataset):
      Returns: tuple(original dataset, list of transformations)
   """
   stack = []
-  while (hasattr(dataset, '_input_dataset')):
+  while (hasattr(dataset, '_input_dataset')): # Stops when the initial dataset is encountered,
+                                              # or a zipped/enumerated dataset is found
     identified_transf = False
     for transformation in _transformations:
       if isinstance(dataset, transformation):

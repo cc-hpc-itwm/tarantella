@@ -11,9 +11,9 @@ class TntParallelInterleaveDataset(ds.UnaryDataset):
                cycle_length,
                block_length,
                num_parallel_calls,
-               buffer_output_elements,
-               prefetch_input_elements,
-               deterministic):
+               deterministic,
+               buffer_output_elements = None,   # backward compatibility with TF2.0
+               prefetch_input_elements = None):  # backward compatibility with TF2.0
     """See `Dataset.interleave()` for details."""
     self._input_dataset = input_dataset
     self._map_func = map_func # StructuredFunctionWrapper
@@ -24,18 +24,39 @@ class TntParallelInterleaveDataset(ds.UnaryDataset):
     self._prefetch_input_elements = prefetch_input_elements
     self._num_parallel_calls = num_parallel_calls
     self._deterministic = deterministic
-    
-    variant_tensor = gen_dataset_ops.parallel_interleave_dataset_v4(
-      input_dataset._variant_tensor,  # pylint: disable=protected-access
-      self._map_func.function.captured_inputs,  # pylint: disable=protected-access
-      self._cycle_length,
-      self._block_length,
-      self._buffer_output_elements,
-      self._prefetch_input_elements,
-      self._num_parallel_calls,
-      f=self._map_func.function,
-      deterministic=deterministic,
-      **self._flat_structure)
+
+    if (buffer_output_elements and buffer_output_elements != ds.AUTOTUNE) or \
+       (prefetch_input_elements and prefetch_input_elements != ds.AUTOTUNE):
+      variant_tensor = gen_dataset_ops.parallel_interleave_dataset_v4(
+          input_dataset._variant_tensor,  # pylint: disable=protected-access
+          self._map_func.function.captured_inputs,  # pylint: disable=protected-access
+          self._cycle_length,
+          self._block_length,
+          self._buffer_output_elements,
+          self._prefetch_input_elements,
+          self._num_parallel_calls,
+          f=self._map_func.function,
+          deterministic=deterministic,
+          **self._flat_structure)
+    elif deterministic != "default":
+      variant_tensor = gen_dataset_ops.parallel_interleave_dataset_v3(
+          input_dataset._variant_tensor,  # pylint: disable=protected-access
+          self._map_func.function.captured_inputs,  # pylint: disable=protected-access
+          self._cycle_length,
+          self._block_length,
+          self._num_parallel_calls,
+          f=self._map_func.function,
+          deterministic=deterministic_string,
+          **self._flat_structure)
+    else:
+      variant_tensor = gen_dataset_ops.parallel_interleave_dataset_v2(
+          input_dataset._variant_tensor,  # pylint: disable=protected-access
+          self._map_func.function.captured_inputs,  # pylint: disable=protected-access
+          self._cycle_length,
+          self._block_length,
+          self._num_parallel_calls,
+          f=self._map_func.function,
+          **self._flat_structure)
     super(TntParallelInterleaveDataset, self).__init__(
       input_dataset, variant_tensor)
 
