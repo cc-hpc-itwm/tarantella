@@ -10,7 +10,7 @@ def get_available_gpus():
   phys_gpus = tf.config.experimental.list_physical_devices('GPU')
   if phys_gpus is None:
     phys_gpus = []
-  return len(phys_gpus)
+  return phys_gpus
 
 
 _tf_logging_defaults = {'TF_CPP_MIN_LOG_LEVEL' : '3',
