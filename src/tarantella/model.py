@@ -179,6 +179,9 @@ class Model(tf.keras.models.Model):
   def to_json(self, **kwargs):
     return self.model.to_json(**kwargs)
 
+  def to_yaml(self, **kwargs):
+    return self.model.to_yaml(**kwargs)
+
   def load_weights(self, *args, **kwargs):
     # loaded weights from the same source will be identical on all ranks
     self.done_broadcast = True

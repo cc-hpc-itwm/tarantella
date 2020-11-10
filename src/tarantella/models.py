@@ -24,6 +24,10 @@ def model_from_json(json_string, **kwargs):
   keras_model = tf.keras.models.model_from_json(json_string, **kwargs)
   return tnt.Model(keras_model)
 
+def model_from_yaml(yaml_string, **kwargs):
+  keras_model = tf.keras.models.model_from_yaml(yaml_string, **kwargs)
+  return tnt.Model(keras_model)
+
 def clone_model(model, **kwargs):
   if isinstance(model, tnt.Model):
     keras_model = tf.keras.models.clone_model(model.model, **kwargs)
