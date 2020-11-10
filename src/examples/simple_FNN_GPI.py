@@ -56,6 +56,7 @@ def create_dataset_from_arrays(samples, labels, batch_size):
 args = parse_args()
 
 tnt.init(args.ngpus_per_node)
+master_rank = 0
 rank = tnt.get_rank()
 comm_size = tnt.get_size()
 
@@ -110,7 +111,7 @@ test_dataset = create_dataset_from_arrays(x_test, y_test, batch_size)
 history = reference_model.fit(train_dataset,
                               epochs = args.number_epochs,
                               shuffle = False,
-                              verbose = args.verbose if rank == 0 else 0,
+                              verbose = args.verbose if rank == master_rank else 0,
                               validation_data=val_dataset)
 reference_loss_accuracy = reference_model.evaluate(test_dataset,
                                                    verbose=0)
@@ -129,6 +130,6 @@ history = model.fit(train_dataset,
                     callbacks=[] if rank == 0 else [],)
 tnt_loss_accuracy = model.evaluate(test_dataset, verbose=0)
 
-if rank == 0:
+if rank == master_rank:
   print("Tarantella[test_loss, accuracy] = ", tnt_loss_accuracy)
   print("Reference [test_loss, accuracy] = ", reference_loss_accuracy)
