@@ -8,7 +8,7 @@ from tensorflow.keras import layers
 from models.utils import keras_utils as utils
 
 import tarantella as tnt
-from tarantella import models
+
 
 def parse_args():
   parser = argparse.ArgumentParser()
