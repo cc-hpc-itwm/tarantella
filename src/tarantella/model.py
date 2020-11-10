@@ -190,24 +190,24 @@ class Model(tf.keras.models.Model):
       if self.rank == self._master_rank:
         self.model.save_weights(filepath, **kwargs)
 
-  def load_weights(self, *args, **kwargs):
+  def load_weights(self, filepath, **kwargs):
     # loaded weights from the same source will be identical on all ranks
     self.done_broadcast = True
-    return self.model.load_weights(*args, **kwargs)
+    return self.model.load_weights(filepath = filepath, **kwargs)
   
-  def set_weights(self, *args, **kwargs):
-    self.model.set_weights(*args, **kwargs)
+  def set_weights(self, weights):
+    self.model.set_weights(weights)
     self._broadcast_weights()
     self.done_broadcast = True
     
-  def get_weights(self, *args, **kwargs):
+  def get_weights(self):
     if not self.model.built:
       if not self.input_shapes:
         raise RuntimeError("""Cannot get weights before initializition.
         Please call "tnt.Model.build()" or "tnt.Model.fit()" first.
         """)
       self.model.build(self.input_shapes)
-    return self.model.get_weights(*args, **kwargs)
+    return self.model.get_weights()
 
   def save(self, filepath, tnt_save_all_devices = False, **kwargs):
     if tnt_save_all_devices:
