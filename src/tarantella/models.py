@@ -2,8 +2,6 @@ import tensorflow as tf
 import tarantella as tnt
 from tarantella import logger
 
-from tarantella.optimizers.synchronous_distributed_optimizer import SynchDistributedOptimizer
-
 def save_model(model, filepath, **kwargs):
   if isinstance(model, tnt.Model):
     logger.info("save model from instance of tnt.Model")
