@@ -168,6 +168,14 @@ class Model(tf.keras.models.Model):
             is_training = False)
     return self.model.predict(x, **kwargs)
 
+  def get_config(self):
+    return self.model.get_config()
+
+  @classmethod
+  def from_config(cls, config):
+    keras_model = tf.keras.Model.from_config(config)
+    return cls(keras_model)
+
   def load_weights(self, *args, **kwargs):
     # loaded weights from the same source will be identical on all ranks
     self.done_broadcast = True

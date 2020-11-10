@@ -9,3 +9,6 @@ def save_model(model, filepath, **kwargs):
 def load_model(filepath, **kwargs):
   loaded_model = tf.keras.models.load_model(filepath, **kwargs)
   return tnt.Model(loaded_model)
+
+def model_from_config(config, **kwargs):
+  return tnt.Model.from_config(config)
