@@ -123,31 +123,42 @@ class Model(tf.keras.models.Model):
                x = None,
                y = None,
                tnt_micro_batch_size = None,
+               tnt_distribute_dataset = True,
                **kwargs):
     self._setup_for_execution('evaluate', x, y, kwargs)
 
-    test_dataset = ds.DistributedDataset(dataset = x,
-                                         num_ranks = self.comm_size,
-                                         rank = self.rank,
-                                         shuffle_seed = self.default_shuffle_seed)
-    x = test_dataset.distribute_dataset_across_ranks(
-            user_micro_batch_size = tnt_micro_batch_size,
-            is_training = False)
+    if tnt_distribute_dataset:
+      test_dataset = ds.DistributedDataset(dataset = x,
+                                          num_ranks = self.comm_size,
+                                          rank = self.rank,
+                                          shuffle_seed = self.default_shuffle_seed)
+      x = test_dataset.distribute_dataset_across_ranks(
+              user_micro_batch_size = tnt_micro_batch_size,
+              is_training = False)
+    else:
+      logging.getLogger().info(
+      "[rank %d] Automatic dataset distribution is disabled." % (self.rank))
+
     return self.model.evaluate(x, **kwargs)
 
   def predict(self,
               x = None,
               tnt_micro_batch_size = None,
+              tnt_distribute_dataset = True,
               **kwargs):
     self._setup_for_execution('predict', x, None, kwargs)
 
-    test_dataset = ds.DistributedDataset(dataset = x,
-                                         num_ranks = self.comm_size,
-                                         rank = self.rank,
-                                         shuffle_seed = self.default_shuffle_seed)
-    x = test_dataset.distribute_dataset_across_ranks(
-            user_micro_batch_size = tnt_micro_batch_size,
-            is_training = False)
+    if tnt_distribute_dataset:
+      test_dataset = ds.DistributedDataset(dataset = x,
+                                           num_ranks = self.comm_size,
+                                           rank = self.rank,
+                                           shuffle_seed = self.default_shuffle_seed)
+      x = test_dataset.distribute_dataset_across_ranks(
+               user_micro_batch_size = tnt_micro_batch_size,
+               is_training = False)
+    else:
+      logging.getLogger().info(
+      "[rank %d] Automatic dataset distribution is disabled." % (self.rank))
     return self.model.predict(x, **kwargs)
 
   def load_weights(self, *args, **kwargs):
