@@ -88,8 +88,7 @@ reference_model.compile(optimizer=opt,
               
 # Tarantella model
 tf.random.set_seed(42)
-model = keras.models.clone_model(reference_model)
-model = tnt.Model(model)
+model = tnt.models.clone_model(reference_model)
 
 # Building the graph
 # Specify the training configuration (optimizer, loss, metrics) & compile

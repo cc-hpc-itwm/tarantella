@@ -1,5 +1,6 @@
 import tensorflow as tf
 import tarantella as tnt
+from tarantella import logger
 
 from tarantella.optimizers.synchronous_distributed_optimizer import SynchDistributedOptimizer
 
@@ -16,4 +17,16 @@ def model_from_config(config, **kwargs):
 
 def model_from_json(json_string, **kwargs):
   keras_model = tf.keras.models.model_from_json(json_string, **kwargs)
+  return tnt.Model(keras_model)
+
+def clone_model(model, **kwargs):
+  if isinstance(model, tnt.Model):
+    keras_model = tf.keras.models.clone_model(model.model, **kwargs)
+    logger.info("clone model from instance of tnt.Model")
+  elif isinstance(model, tf.keras.Model):
+    keras_model = tf.keras.models.clone_model(model, **kwargs)
+    logger.info("clone model from instance of tf.keras.Model")
+  else:
+    raise ValueError("[tnt.models.clone_model] `model` needs to be either",
+                     "a `tf.keras.Model`, or a `tnt.Model`")
   return tnt.Model(keras_model)
