@@ -22,5 +22,8 @@ extended_add_library(NAME gpiresources
                 debug GPI2::GPI2dbg
             INCLUDE_DIRECTORIES
                 ${SRC_DIR}/gpi_comm_lib/
+            INSTALL
+            INSTALL_DESTINATION
+                ${INSTALL_LIB_DIR}
             POSITION_INDEPENDENT)
 

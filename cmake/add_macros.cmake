@@ -69,7 +69,8 @@ function (extended_add_library)
       ${ARG_SYSTEM_INCLUDE_DIRECTORIES})
   endif()
   if (ARG_INCLUDE_DIRECTORIES)
-    target_include_directories (${target_name} PUBLIC ${ARG_INCLUDE_DIRECTORIES})
+    target_include_directories (${target_name} PUBLIC
+                                $<BUILD_INTERFACE:${ARG_INCLUDE_DIRECTORIES}>)
   endif()
 
   if (ARG_POSITION_INDEPENDENT)

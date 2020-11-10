@@ -19,6 +19,8 @@ extended_add_library(NAME tfops
             LIBRARIES
                 tnt::gpicommlib
                 Tensorflow::Tensorflow
+            INSTALL
+            INSTALL_DESTINATION
+                ${INSTALL_LIB_DIR}
             POSITION_INDEPENDENT)
 set_property(TARGET tnt-tfops PROPERTY CXX_STANDARD 14)
-set_property(TARGET tnt-tfops PROPERTY LIBRARY_OUTPUT_DIRECTORY ${TFOPS_BUILD_DIR})
