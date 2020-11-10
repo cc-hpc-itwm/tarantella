@@ -10,7 +10,9 @@ import tarantella.datasets.distributed_dataset as ds
 model_implemented_methods = ['model', 'rank', 'comm_size', '_master_rank',
                              'call', 'build', 'done_broadcast', 'set_weights', 'load_weights',
                              'get_weights', '_broadcast_weights_if_necessary', '_broadcast_weights',
-                             'broadcaster', 'default_shuffle_seed']
+                             'broadcaster', 'default_shuffle_seed',
+                             'orig_optimizer', 'orig_loss', 'orig_metrics',
+                             'orig_loss_weights', 'orig_sample_weight_mode', 'orig_weighted_metrics']
 
 class Model(tf.keras.models.Model):
   def __init__(self, model):
@@ -26,6 +28,13 @@ class Model(tf.keras.models.Model):
     self.input_shapes = None
     self.done_broadcast = False
     self.broadcaster = None
+
+    self.orig_optimizer = None
+    self.orig_loss = None
+    self.orig_metrics = None
+    self.orig_loss_weights = None
+    self.orig_sample_weight_mode = None
+    self.orig_weighted_metrics = None
 
     self.default_shuffle_seed = 42
 
@@ -73,13 +82,22 @@ class Model(tf.keras.models.Model):
               weighted_metrics=None,
               **kwargs):
     self.done_broadcast = False
-    optimizer = tarantella.distributed_optimizers.SynchDistributedOptimizer(optimizer)
-    return self.model.compile(optimizer = optimizer,
-                              loss = loss,
-                              metrics = metrics,
-                              loss_weights = loss_weights,
-                              sample_weight_mode = sample_weight_mode,
-                              weighted_metrics = weighted_metrics,
+
+    # Store original parameters to save the model later
+    self.orig_optimizer = optimizer
+    self.orig_loss = loss
+    self.orig_metrics = metrics
+    self.orig_loss_weights = loss_weights
+    self.orig_sample_weight_mode = sample_weight_mode
+    self.orig_weighted_metrics = weighted_metrics
+
+    dist_optimizer = tarantella.distributed_optimizers.SynchDistributedOptimizer(self.orig_optimizer)
+    return self.model.compile(optimizer = dist_optimizer,
+                              loss = self.orig_loss,
+                              metrics = self.orig_metrics,
+                              loss_weights = self.orig_loss_weights,
+                              sample_weight_mode = self.orig_sample_weight_mode,
+                              weighted_metrics = self.orig_weighted_metrics,
                               **kwargs)
 
   def fit(self,
@@ -168,6 +186,33 @@ class Model(tf.keras.models.Model):
         """)
       self.model.build(self.input_shapes)
     return self.model.get_weights(*args, **kwargs)
+
+  def save(self, filepath, tnt_save_all_devices = False, **kwargs):
+    if tnt_save_all_devices:
+      self._save(filepath, kwargs)
+    else:
+      if self.rank == self._master_rank:
+        self._save(filepath, kwargs)
+
+  def _save(self, filepath, args_dict):
+    # 1. Re-compile underlying `Keras.model` w/ underlying optimizer
+    self.model.compile(optimizer = self.orig_optimizer,
+                       loss = self.orig_loss,
+                       metrics = self.orig_metrics,
+                       loss_weights = self.orig_loss_weights,
+                       sample_weight_mode = self.orig_sample_weight_mode,
+                       weighted_metrics = self.orig_weighted_metrics)
+
+    # 2. Save the model as `Keras.Model` with standard Keras optimizer
+    self.model.save(filepath = filepath, **args_dict)
+
+    # 3. Re-compile the Tarantella Model
+    self.compile(optimizer = self.orig_optimizer,
+                 loss = self.orig_loss,
+                 metrics = self.orig_metrics,
+                 loss_weights = self.orig_loss_weights,
+                 sample_weight_mode = self.orig_sample_weight_mode,
+                 weighted_metrics = self.orig_weighted_metrics)
 
   def summary(self, *args, **kwargs):
     if tarantella.global_tnt_config.output_on_all_devices:

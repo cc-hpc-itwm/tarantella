@@ -8,6 +8,7 @@ from tensorflow.keras import layers
 from models.utils import keras_utils as utils
 
 import tarantella as tnt
+from tarantella import models
 
 def parse_args():
   parser = argparse.ArgumentParser()
@@ -133,3 +134,19 @@ tnt_loss_accuracy = model.evaluate(test_dataset, verbose=0)
 if rank == master_rank:
   print("Tarantella[test_loss, accuracy] = ", tnt_loss_accuracy)
   print("Reference [test_loss, accuracy] = ", reference_loss_accuracy)
+
+# Save and reconstruct Tarantella model
+model_dir = "/home/labus/git/hpdlf/src/examples/saved_models/tnt_model"
+tnt.models.save_model(model = model, filepath = model_dir) # or `model.save(model_dir)`
+# TODO: all of `load_model`, `tnt.Model` and `compile` should be re-place by:
+# reconstructed_model = tnt.models.load_model(model_dir)
+reconstructed_model = keras.models.load_model(model_dir)
+reconstructed_model = tnt.Model(reconstructed_model)
+reconstructed_model.compile(optimizer=opt,
+                            loss=keras.losses.SparseCategoricalCrossentropy(),
+                            metrics=[keras.metrics.SparseCategoricalAccuracy()],
+                           )
+reconstructed_loss_accuracy = reconstructed_model.evaluate(test_dataset, verbose=0)
+
+if rank == master_rank:
+  print("Reconstructed Tarantella [test_loss, accuracy] = ", reconstructed_loss_accuracy)
