@@ -210,6 +210,7 @@ class Model(tf.keras.models.Model):
     return self.model.get_weights()
 
   def save(self, filepath, tnt_save_all_devices = False, **kwargs):
+    # FIXME: Needs barrier
     if tnt_save_all_devices:
       self._save(filepath, kwargs)
     else:
