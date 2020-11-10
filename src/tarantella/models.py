@@ -7,8 +7,9 @@ def save_model(model, filepath, **kwargs):
   model.save(filepath, **kwargs)
 
 def load_model(filepath, **kwargs):
-  loaded_model = tf.keras.models.load_model(filepath, **kwargs)
-  return tnt.Model(loaded_model)
+  keras_model = tf.keras.models.load_model(filepath, **kwargs)
+  # FIXME: compile tnt.Model before returning
+  return tnt.Model(keras_model)
 
 def model_from_config(config, **kwargs):
   return tnt.Model.from_config(config)
