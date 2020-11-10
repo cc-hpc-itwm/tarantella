@@ -5,3 +5,7 @@ from tarantella.optimizers.synchronous_distributed_optimizer import SynchDistrib
 
 def save_model(model, filepath, **kwargs):
   model.save(filepath, **kwargs)
+
+def load_model(filepath, **kwargs):
+  loaded_model = tf.keras.models.load_model(filepath, **kwargs)
+  return tnt.Model(loaded_model)

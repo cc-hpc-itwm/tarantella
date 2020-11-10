@@ -138,10 +138,8 @@ if rank == master_rank:
 # Save and reconstruct Tarantella model
 model_dir = "/home/labus/git/hpdlf/src/examples/saved_models/tnt_model"
 tnt.models.save_model(model = model, filepath = model_dir) # or `model.save(model_dir)`
-# TODO: all of `load_model`, `tnt.Model` and `compile` should be re-place by:
-# reconstructed_model = tnt.models.load_model(model_dir)
-reconstructed_model = keras.models.load_model(model_dir)
-reconstructed_model = tnt.Model(reconstructed_model)
+# TODO: Automatically compile in `tnt.models.load_model`
+reconstructed_model = tnt.models.load_model(model_dir)
 reconstructed_model.compile(optimizer=opt,
                             loss=keras.losses.SparseCategoricalCrossentropy(),
                             metrics=[keras.metrics.SparseCategoricalAccuracy()],
