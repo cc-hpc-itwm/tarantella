@@ -190,10 +190,14 @@ def run(model, optimizer,
 
   kwargs = {}
   if tarantella_enabled():
-    kwargs = {'tnt_micro_batch_size': micro_batch_size}
+    kwargs = {'tnt_distribute_dataset': False}
 
   eval_output = model.evaluate(datasets['test'],
                                steps=num_test_steps,
                                verbose=2,
                                **kwargs)
 
+  predict_output = model.predict(datasets['test'],
+                               steps=num_test_steps,
+                               verbose=2,
+                               **kwargs)

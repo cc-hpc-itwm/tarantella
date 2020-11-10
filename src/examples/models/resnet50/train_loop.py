@@ -184,7 +184,7 @@ def run(model, optimizer,
 
   kwargs = {}
   if tarantella_enabled():
-    kwargs = {'tnt_micro_batch_size': micro_batch_size}
+    kwargs = {'tnt_distribute_dataset': False}
 
   stats = {}
   eval_output = model.evaluate(datasets['validation'],
