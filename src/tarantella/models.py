@@ -12,3 +12,7 @@ def load_model(filepath, **kwargs):
 
 def model_from_config(config, **kwargs):
   return tnt.Model.from_config(config)
+
+def model_from_json(json_string, **kwargs):
+  keras_model = tf.keras.models.model_from_json(json_string, **kwargs)
+  return tnt.Model(keras_model)

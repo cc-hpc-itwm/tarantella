@@ -176,6 +176,9 @@ class Model(tf.keras.models.Model):
     keras_model = tf.keras.Model.from_config(config)
     return cls(keras_model)
 
+  def to_json(self, **kwargs):
+    return self.model.to_json(**kwargs)
+
   def load_weights(self, *args, **kwargs):
     # loaded weights from the same source will be identical on all ranks
     self.done_broadcast = True
