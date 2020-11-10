@@ -182,6 +182,14 @@ class Model(tf.keras.models.Model):
   def to_yaml(self, **kwargs):
     return self.model.to_yaml(**kwargs)
 
+  def save_weights(self, filepath, tnt_save_all_devices = False, **kwargs):
+    # FIXME: Needs barrier
+    if tnt_save_all_devices:
+      self.model.save_weights(filepath, **kwargs)
+    else:
+      if self.rank == self._master_rank:
+        self.model.save_weights(filepath, **kwargs)
+
   def load_weights(self, *args, **kwargs):
     # loaded weights from the same source will be identical on all ranks
     self.done_broadcast = True
