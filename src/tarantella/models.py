@@ -5,6 +5,13 @@ from tarantella import logger
 from tarantella.optimizers.synchronous_distributed_optimizer import SynchDistributedOptimizer
 
 def save_model(model, filepath, **kwargs):
+  if isinstance(model, tnt.Model):
+    logger.info("save model from instance of tnt.Model")
+  elif isinstance(model, tf.keras.Model):
+    logger.info("save model from instance of tf.keras.Model")
+  else:
+    raise ValueError("[tnt.models.save_model] `model` needs to be either",
+                     "a `tf.keras.Model`, or a `tnt.Model`")
   model.save(filepath, **kwargs)
 
 def load_model(filepath, **kwargs):
