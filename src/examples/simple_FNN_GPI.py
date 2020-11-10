@@ -86,13 +86,7 @@ reference_model.compile(optimizer=opt,
               
 # Tarantella model
 tf.random.set_seed(42)
-inputs = keras.Input(shape=(28,28,1,), name='input')
-x = layers.Flatten()(inputs)
-x = layers.Dense(200, activation='relu', name='FC')(x)
-x = layers.Dense(200, activation='relu')(x)
-outputs = layers.Dense(10, activation='softmax', name='softmax')(x)
-
-model = keras.Model(inputs=inputs, outputs=outputs)
+model = keras.models.clone_model(reference_model)
 model = tnt.Model(model)
 
 # Building the graph
