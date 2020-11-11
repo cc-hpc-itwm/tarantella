@@ -12,6 +12,7 @@ from tarantella.model import Model
 import tarantella.optimizers as optimizers
 import tarantella.optimizers.synchronous_distributed_optimizer as distributed_optimizers
 from tnt_tfops import tnt_ops
+from tarantella import models
 
 import sys
 

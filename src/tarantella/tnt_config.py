@@ -4,6 +4,7 @@ import os
 
 class TNTConfig(enum.Enum):
   TNT_DEVICES_PER_NODE = 'TNT_DEVICES_PER_NODE'
+  TNT_OUTPUT_ON_ALL_DEVICES = 'TNT_OUTPUT_ON_ALL_DEVICES'
   TNT_LOG_ON_ALL_DEVICES = 'TNT_LOG_ON_ALL_DEVICES'
   TNT_LOG_DIR = 'TNT_LOG_DIR'
   TNT_LOG_LEVEL = 'TNT_LOG_LEVEL'
@@ -14,6 +15,7 @@ class TarantellaConfigurationDefaults:
   def config(self):
     default_config = { TNTConfig.TNT_DEVICES_PER_NODE : None,
                        TNTConfig.TNT_FUSION_THRESHOLD : 32 * 1024,
+                       TNTConfig.TNT_OUTPUT_ON_ALL_DEVICES : False,
                        TNTConfig.TNT_LOG_ON_ALL_DEVICES : False,
                        TNTConfig.TNT_LOG_DIR : None,
                        TNTConfig.TNT_LOG_LEVEL : "WARN",
@@ -48,6 +50,10 @@ class TarantellaConfiguration:
     if devices_per_node_string is None:
       return None
     return int(devices_per_node_string)
+
+  @property
+  def output_on_all_devices(self):
+    return self.get_variable_or_default(TNTConfig.TNT_OUTPUT_ON_ALL_DEVICES)
 
   @property
   def log_on_all_devices(self):
