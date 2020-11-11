@@ -122,28 +122,35 @@ log_file = "logs/profiler/gpi-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%
 #tensorboard_callback = keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
 
 runtime_callback = utils.RuntimeProfiler(batch_size = batch_size, logging_freq= 10, print_freq= 30)
+
+chk_path = "/home/labus/git/hpdlf/src/examples/checkpoints" # replace with your absolute path
+save_weights_only = True
+model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+    chk_path, monitor='val_acc', verbose=1, save_best_only=False,
+    save_weights_only=save_weights_only, mode='auto', save_freq='epoch', options=None)
+
 history = model.fit(train_dataset,
                     epochs = args.number_epochs,
                     shuffle = False,
                     verbose = args.verbose,
                     validation_data=val_dataset,
-                    callbacks=[] if rank == 0 else [],)
+                    callbacks = [model_checkpoint_callback] if rank == master_rank else [],
+                   )
 tnt_loss_accuracy = model.evaluate(test_dataset, verbose=0)
 
 if rank == master_rank:
-  print("Tarantella[test_loss, accuracy] = ", tnt_loss_accuracy)
   print("Reference [test_loss, accuracy] = ", reference_loss_accuracy)
+  print("Tarantella[test_loss, accuracy] = ", tnt_loss_accuracy)
 
-# Save and reconstruct Tarantella model
-model_dir = "/home/labus/git/hpdlf/src/examples/saved_models/tnt_model"
-tnt.models.save_model(model = model, filepath = model_dir) # or `model.save(model_dir)`
-# TODO: Automatically compile in `tnt.models.load_model`
-reconstructed_model = tnt.models.load_model(model_dir)
-reconstructed_model.compile(optimizer=opt,
-                            loss=keras.losses.SparseCategoricalCrossentropy(),
-                            metrics=[keras.metrics.SparseCategoricalAccuracy()],
-                           )
-reconstructed_loss_accuracy = reconstructed_model.evaluate(test_dataset, verbose=0)
-
-if rank == master_rank:
-  print("Reconstructed Tarantella [test_loss, accuracy] = ", reconstructed_loss_accuracy)
+# Save tnt.Model configuration, initialize new model, and load weights from checkpoint
+if save_weights_only:
+  config = model.get_config()
+  new_model = tnt.models.model_from_config(config)
+  new_model.compile(optimizer=opt,
+                    loss=keras.losses.SparseCategoricalCrossentropy(),
+                    metrics=[keras.metrics.SparseCategoricalAccuracy()],
+                   )
+  new_model.load_weights(filepath = chk_path)
+  new_model_accuracy = new_model.evaluate(test_dataset, verbose=0)
+  if rank == master_rank:
+    print("New model [test_loss, accuracy] = ", new_model_accuracy)
