@@ -75,6 +75,9 @@ def init(devices_per_node = None):
 def get_rank():
   return global_context.rank
 
+def get_master_rank():
+  return 0
+
 def get_size():
   return global_context.size
 

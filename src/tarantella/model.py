@@ -20,7 +20,7 @@ class Model(tf.keras.models.Model):
       raise RuntimeError("""Cannot initialize a Model before the Tarantella library.
       Please call "tarantella.init()" first.
       """)
-    self._master_rank = 0
+    self._master_rank = tarantella.get_master_rank()
     self.rank = tarantella.get_rank()
     self.comm_size = tarantella.get_size()
 
@@ -44,10 +44,6 @@ class Model(tf.keras.models.Model):
                                'evaluate' : 1,
                                'predict' : 0,
                               }
-
-  @property
-  def master_rank(self):
-    return self._master_rank
 
   def call(self, inputs):
     return self.model.call(inputs)

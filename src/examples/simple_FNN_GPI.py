@@ -58,7 +58,7 @@ def create_dataset_from_arrays(samples, labels, batch_size):
 args = parse_args()
 
 tnt.init(args.ngpus_per_node)
-master_rank = 0
+master_rank = tnt.get_master_rank()
 rank = tnt.get_rank()
 comm_size = tnt.get_size()
 
