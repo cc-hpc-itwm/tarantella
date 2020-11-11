@@ -2,6 +2,7 @@ import logging
 import tensorflow as tf
 from tensorflow.python.data.ops import iterator_ops
 from tensorflow.python.keras.engine import training_utils
+from tensorflow.python.keras.callbacks import ModelCheckpoint
 
 import tarantella
 import tarantella.optimizers.synchronous_distributed_optimizer as distributed_optimizers
@@ -302,7 +303,7 @@ class Model(tf.keras.models.Model):
     self.done_broadcast = True
 
 
-class TntModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
+class TntModelCheckpoint(tf.python.keras.callbacks.ModelCheckpoint):
   def __init__(self, keras_model_checkpoint, underlying_optimizer, distributed_optimizer):
     super(TntModelCheckpoint, self).__init__(keras_model_checkpoint.filepath)
     self.underlying_optimizer = underlying_optimizer
