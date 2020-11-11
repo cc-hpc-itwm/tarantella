@@ -323,7 +323,6 @@ class TntModelCheckpoint(tf.python.keras.callbacks.ModelCheckpoint):
     self._chief_worker_only = keras_model_checkpoint._chief_worker_only
     self._supports_tf_logs = True
     self.monitor = keras_model_checkpoint.monitor
-    self.verbose = keras_model_checkpoint.verbose
     self.filepath = keras_model_checkpoint.filepath
     self.save_best_only = keras_model_checkpoint.save_best_only
     self.save_weights_only = keras_model_checkpoint.save_weights_only
@@ -335,6 +334,10 @@ class TntModelCheckpoint(tf.python.keras.callbacks.ModelCheckpoint):
     self.period = keras_model_checkpoint.period
     self.monitor_op = keras_model_checkpoint.monitor_op
     self.best = keras_model_checkpoint.best
+
+    # only master rank should save and thus print messages
+    self.verbose = keras_model_checkpoint.verbose \
+                     if tarantella.get_rank() == tarantella.get_master_rank() else 0
 
   def on_train_begin(self, logs=None):
     # As of TF 2.3, this only uses `self.model.load_weights`
