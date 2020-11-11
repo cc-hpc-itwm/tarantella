@@ -28,6 +28,7 @@ class Model(tf.keras.models.Model):
     self.model = model
     self.input_shapes = None
     self.done_broadcast = False
+    self.compiled = False
     self.broadcaster = None
 
     self.orig_optimizer = None
@@ -80,6 +81,7 @@ class Model(tf.keras.models.Model):
               weighted_metrics=None,
               **kwargs):
     self.done_broadcast = False
+    self.compiled = True
 
     # Store original parameters to save the model later
     self.orig_optimizer = optimizer
@@ -254,11 +256,17 @@ class Model(tf.keras.models.Model):
         self.model.summary(*args, **kwargs)
 
   def _setup_for_execution(self, exec_type, x, y, args_dict):
+    self._assert_compile_has_been_called()
     self._set_verbose_all_ranks(exec_type, args_dict)
     self._validate_datasets(x, y)
     self._validate_batch_size_argument(exec_type, args_dict)
     self._set_input_shapes(x)
     self._broadcast_weights_if_necessary()
+
+  def _assert_compile_has_been_called(self):
+    if self.compiled == False:
+      raise RuntimeError("`tnt.Model` has to be compiled first "
+                         "using `tnt.Model.compile`")
 
   def _set_verbose_all_ranks(self, exec_type, args_dict):
     if not 'verbose' in args_dict:
