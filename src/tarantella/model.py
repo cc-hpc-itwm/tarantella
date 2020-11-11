@@ -103,12 +103,13 @@ class Model(tf.keras.models.Model):
   def fit(self,
           x = None,
           y = None,
+          callbacks = None,
           validation_data = None,
           tnt_micro_batch_size = None,
           tnt_validation_micro_batch_size = None,
           tnt_distribute_dataset = True,
           **kwargs):
-    self._setup_for_execution('fit', x, y, kwargs)
+    self._setup_for_execution('fit', x, y, callbacks, kwargs)
 
     if tnt_distribute_dataset:
       distributed_x = ds.DistributedDataset(dataset = x,
@@ -135,15 +136,19 @@ class Model(tf.keras.models.Model):
             user_micro_batch_size = tnt_validation_micro_batch_size,
             is_training = False)
 
-    return self.model.fit(x, validation_data = validation_data, **kwargs)
+    return self.model.fit(x,
+                          validation_data = validation_data,
+                          callbacks = callbacks,
+                          **kwargs)
     
   def evaluate(self,
                x = None,
                y = None,
+               callbacks = None,
                tnt_micro_batch_size = None,
                tnt_distribute_dataset = True,
                **kwargs):
-    self._setup_for_execution('evaluate', x, y, kwargs)
+    self._setup_for_execution('evaluate', x, y, callbacks, kwargs)
 
     if tnt_distribute_dataset:
       test_dataset = ds.DistributedDataset(dataset = x,
@@ -157,14 +162,15 @@ class Model(tf.keras.models.Model):
       logging.getLogger().info(
       "[rank %d] Automatic dataset distribution is disabled." % (self.rank))
 
-    return self.model.evaluate(x, **kwargs)
+    return self.model.evaluate(x, callbacks = callbacks, **kwargs)
 
   def predict(self,
               x = None,
+              callbacks = None,
               tnt_micro_batch_size = None,
               tnt_distribute_dataset = True,
               **kwargs):
-    self._setup_for_execution('predict', x, None, kwargs)
+    self._setup_for_execution('predict', x, None, callbacks, kwargs)
 
     if tnt_distribute_dataset:
       test_dataset = ds.DistributedDataset(dataset = x,
@@ -177,7 +183,7 @@ class Model(tf.keras.models.Model):
     else:
       logging.getLogger().info(
       "[rank %d] Automatic dataset distribution is disabled." % (self.rank))
-    return self.model.predict(x, **kwargs)
+    return self.model.predict(x, callbacks = callbacks, **kwargs)
 
   def get_config(self):
     return self.model.get_config()
@@ -255,13 +261,14 @@ class Model(tf.keras.models.Model):
       if self.rank == self._master_rank:
         self.model.summary(*args, **kwargs)
 
-  def _setup_for_execution(self, exec_type, x, y, args_dict):
+  def _setup_for_execution(self, exec_type, x, y, callbacks, args_dict):
     self._assert_compile_has_been_called()
     self._set_verbose_all_ranks(exec_type, args_dict)
     self._validate_datasets(x, y)
     self._validate_batch_size_argument(exec_type, args_dict)
     self._set_input_shapes(x)
     self._broadcast_weights_if_necessary()
+    self._preprocess_callbacks(callbacks)
 
   def _assert_compile_has_been_called(self):
     if self.compiled == False:
@@ -309,6 +316,15 @@ class Model(tf.keras.models.Model):
     self.model.set_weights(weights)
 
     self.done_broadcast = True
+
+  def _preprocess_callbacks(self, callbacks):
+    if callbacks is not None:
+      for index, callback in enumerate(callbacks):
+        if isinstance(callback, tf.python.keras.callbacks.ModelCheckpoint):
+          tnt_callback = TntModelCheckpoint(keras_model_checkpoint = callback,
+                                            underlying_optimizer = self.orig_optimizer,
+                                            distributed_optimizer = self.dist_optimizer)
+          callbacks[index] = tnt_callback
 
 
 class TntModelCheckpoint(tf.python.keras.callbacks.ModelCheckpoint):

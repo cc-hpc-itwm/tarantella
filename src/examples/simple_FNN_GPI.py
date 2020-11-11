@@ -8,7 +8,6 @@ from tensorflow.keras import layers
 from models.utils import keras_utils as utils
 
 import tarantella as tnt
-from tarantella.model import TntModelCheckpoint
 
 
 def parse_args():
@@ -132,16 +131,13 @@ else:
 model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
     chk_path, monitor='val_acc', verbose=1, save_best_only=False,
     save_weights_only=save_weights_only, mode='auto', save_freq='epoch', options=None)
-tnt_model_checkpoint_callback = tnt.model.TntModelCheckpoint(keras_model_checkpoint = model_checkpoint_callback,
-                                                             underlying_optimizer = model.orig_optimizer,
-                                                             distributed_optimizer = model.dist_optimizer)
 
 history = model.fit(train_dataset,
                     epochs = args.number_epochs,
                     shuffle = False,
                     verbose = args.verbose,
                     validation_data=val_dataset,
-                    callbacks = [tnt_model_checkpoint_callback],
+                    callbacks = [model_checkpoint_callback],
                    )
 tnt_loss_accuracy = model.evaluate(test_dataset, verbose=0)
 
