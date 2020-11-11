@@ -10,6 +10,7 @@ variables: &global_variables
   RUNNER_HOME: /home/gitlab-runner
   BASE_ENVIRONMENT_SETUP: ${RUNNER_HOME}/workspace/setup-env.sh
   CONDA_ENVIRONMENT_DIR: ${RUNNER_HOME}/conda_env
+  LD_LIBRARY_PATH: ${CI_PROJECT_DIR}/build
 
 .tarantella_before_script: &tarantella_before_script
   - source ${BASE_ENVIRONMENT_SETUP}

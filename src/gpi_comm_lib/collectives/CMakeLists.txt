@@ -31,8 +31,11 @@ extended_add_library(NAME collectives
                 debug GPI2::GPI2dbg
                 tnt::gpiresources
             INCLUDE_DIRECTORIES
-                lib/
+                ${COLLECTIVES_SRC_DIR}/lib/
             COMPILE_OPTIONS
                 -Wno-unused-private-field
+            INSTALL
+            INSTALL_DESTINATION
+                ${INSTALL_LIB_DIR}
             POSITION_INDEPENDENT)
 

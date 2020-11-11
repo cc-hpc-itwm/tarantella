@@ -5,6 +5,12 @@ import os
 import subprocess
 import sys
 
+TNT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LIB_DIR = os.path.join(TNT_DIR, "lib/tarantella")
+PYLIB_DIR = os.path.join(TNT_DIR, "lib/tarantella/python")
+sys.path.append(LIB_DIR)
+sys.path.append(PYLIB_DIR)
+
 import runtime.file_management as file_man
 import runtime.logging_config as logging_config
 import runtime.platform_config as platform_config
@@ -97,10 +103,11 @@ class Tarantella:
 if __name__ == "__main__":
   args = parse_args()
   logging_config.setup_logging(logger, args.log_level)
-  
+
   nodes_list = platform_config.generate_nodes_list(args.hostfile)
   num_gpus, num_cpus = platform_config.generate_num_devices_per_node(npernode = args.npernode,
                                                                       use_gpus = args.use_gpus)
+  env_config.update_environment_paths(LIB_DIR)
 
   tarantella = Tarantella(nodes_list, num_gpus, num_cpus, args.app, args.log_dir, args.log_all)
   tarantella.run()

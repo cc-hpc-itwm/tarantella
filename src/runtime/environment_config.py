@@ -1,5 +1,5 @@
 import os
-import logging
+import sys
 
 import tensorflow as tf
 
@@ -9,6 +9,13 @@ def get_logging_variables(log_level, log_all, user_log_dir):
            "TNT_LOG_DIR" : str(user_log_dir)
           }
           
+def update_environment_paths(libraries_path):
+  os.environ["PYTHONPATH"]=os.pathsep.join(sys.path)
+
+  for var_name in ["LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH"]:
+    os.environ[var_name] = os.pathsep.join([libraries_path,
+                                            os.environ.get(var_name, "")])
+
 def collect_environment_variables():
   env = {}
   for var in ['PATH', 'PYTHONPATH', 'LD_LIBRARY_PATH', 'DYLD_LIBRARY_PATH']:
