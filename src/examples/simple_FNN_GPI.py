@@ -8,6 +8,7 @@ from tensorflow.keras import layers
 from models.utils import keras_utils as utils
 
 import tarantella as tnt
+from tarantella.model import TntModelCheckpoint
 
 
 def parse_args():
@@ -123,18 +124,24 @@ log_file = "logs/profiler/gpi-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%
 
 runtime_callback = utils.RuntimeProfiler(batch_size = batch_size, logging_freq= 10, print_freq= 30)
 
-chk_path = "/home/labus/git/hpdlf/src/examples/checkpoints" # replace with your absolute path
-save_weights_only = True
+save_weights_only = False
+if save_weights_only:
+  chk_path = "/home/labus/git/hpdlf/src/examples/checkpoints/weights"
+else:
+  chk_path = "/home/labus/git/hpdlf/src/examples/checkpoints/chk_{epoch}"
 model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
     chk_path, monitor='val_acc', verbose=1, save_best_only=False,
     save_weights_only=save_weights_only, mode='auto', save_freq='epoch', options=None)
+tnt_model_checkpoint_callback = tnt.model.TntModelCheckpoint(keras_model_checkpoint = model_checkpoint_callback,
+                                                             underlying_optimizer = model.orig_optimizer,
+                                                             distributed_optimizer = model.dist_optimizer)
 
 history = model.fit(train_dataset,
                     epochs = args.number_epochs,
                     shuffle = False,
                     verbose = args.verbose,
                     validation_data=val_dataset,
-                    callbacks = [model_checkpoint_callback] if rank == master_rank else [],
+                    callbacks = [tnt_model_checkpoint_callback],
                    )
 tnt_loss_accuracy = model.evaluate(test_dataset, verbose=0)
 
@@ -154,3 +161,16 @@ if save_weights_only:
   new_model_accuracy = new_model.evaluate(test_dataset, verbose=0)
   if rank == master_rank:
     print("New model [test_loss, accuracy] = ", new_model_accuracy)
+
+# Restore Tarantella model from checkpoint
+if not save_weights_only:
+  model_path = "/home/labus/git/hpdlf/src/examples/checkpoints/chk_" + str(args.number_epochs)
+  reconstructed_model = tnt.models.load_model(model_path)
+  # TODO: Automatically compile in `tnt.models.load_model`
+  reconstructed_model.compile(optimizer=opt,
+                              loss=keras.losses.SparseCategoricalCrossentropy(),
+                              metrics=[keras.metrics.SparseCategoricalAccuracy()],
+                             )
+  reconstructed_loss_accuracy = reconstructed_model.evaluate(test_dataset, verbose=0)
+  if rank == master_rank:
+    print("Reconstructed Tarantella [test_loss, accuracy] = ", reconstructed_loss_accuracy)

@@ -36,6 +36,7 @@ class Model(tf.keras.models.Model):
     self.orig_sample_weight_mode = None
     self.orig_weighted_metrics = None
 
+    self.dist_optimizer = None
     self.default_shuffle_seed = 42
 
     # support for TF 2.0 -- 2.3
@@ -91,8 +92,8 @@ class Model(tf.keras.models.Model):
     self.orig_sample_weight_mode = sample_weight_mode
     self.orig_weighted_metrics = weighted_metrics
 
-    dist_optimizer = tarantella.distributed_optimizers.SynchDistributedOptimizer(self.orig_optimizer)
-    return self.model.compile(optimizer = dist_optimizer,
+    self.dist_optimizer = tarantella.distributed_optimizers.SynchDistributedOptimizer(self.orig_optimizer)
+    return self.model.compile(optimizer = self.dist_optimizer,
                               loss = self.orig_loss,
                               metrics = self.orig_metrics,
                               loss_weights = self.orig_loss_weights,
@@ -303,3 +304,45 @@ class Model(tf.keras.models.Model):
     self.model.set_weights(weights)
 
     self.done_broadcast = True
+
+
+class TntModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
+  def __init__(self, keras_model_checkpoint, underlying_optimizer, distributed_optimizer):
+    super(TntModelCheckpoint, self).__init__(keras_model_checkpoint.filepath)
+    self.underlying_optimizer = underlying_optimizer
+    self.distributed_optimizer = distributed_optimizer
+
+    # set member variables from ModelCheckpoint instance
+    self.validation_data = keras_model_checkpoint.validation_data
+    self.model = keras_model_checkpoint.model
+    self._chief_worker_only = keras_model_checkpoint._chief_worker_only
+    self._supports_tf_logs = True
+    self.monitor = keras_model_checkpoint.monitor
+    self.verbose = keras_model_checkpoint.verbose
+    self.filepath = keras_model_checkpoint.filepath
+    self.save_best_only = keras_model_checkpoint.save_best_only
+    self.save_weights_only = keras_model_checkpoint.save_weights_only
+    self.save_freq = keras_model_checkpoint.save_freq
+    self.epochs_since_last_save = keras_model_checkpoint.epochs_since_last_save
+    self._batches_seen_since_last_saving = keras_model_checkpoint._batches_seen_since_last_saving
+    self._last_batch_seen = 0
+    self.load_weights_on_restart = keras_model_checkpoint.load_weights_on_restart
+    self.period = keras_model_checkpoint.period
+    self.monitor_op = keras_model_checkpoint.monitor_op
+    self.best = keras_model_checkpoint.best
+
+  def on_train_begin(self, logs=None):
+    # As of TF 2.3, this only uses `self.model.load_weights`
+    super().on_train_begin(logs)
+
+  def on_train_batch_end(self, batch, logs=None):
+    # set the optimizer to the underlying to save a plain keras model
+    self.model.optimizer = self.underlying_optimizer
+    super().on_train_batch_end(batch, logs)
+    self.model.optimizer = self.distributed_optimizer
+
+  def on_epoch_end(self, epoch, logs=None):
+    # set the optimizer to the underlying to save a plain keras model
+    self.model.optimizer = self.underlying_optimizer
+    super().on_epoch_end(epoch, logs)
+    self.model.optimizer = self.distributed_optimizer
