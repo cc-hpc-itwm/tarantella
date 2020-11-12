@@ -41,6 +41,11 @@ def parse_args():
                     dest = "use_gpus",
                     action='store_false',
                     default = True)
+  parser.add_argument("--output-all-devices",
+                    help="Enable output from all devices (e.g., training info)",
+                    dest = "output_all",
+                    action='store_true',
+                    default = False)
   parser.add_argument("--log-all-devices",
                     help="Enable logging on all devices",
                     dest = "log_all",
@@ -60,11 +65,12 @@ logging to files within the Tarantella library",
   return args
 
 class Tarantella:
-  def __init__(self, hostlist, num_gpus_per_node, num_cpus_per_node, command_list,
-               log_dir, log_all):
+  def __init__(self, hostlist, num_gpus_per_node, num_cpus_per_node,
+               command_list, log_all, output_all):
     self.log_level = logging.getLevelName(logger.level)
     self.log_dir = log_dir
     self.log_all = log_all
+    self.output_all = output_all
 
     self.hostlist = hostlist
     self.command_list = command_list
@@ -85,8 +91,8 @@ class Tarantella:
                   env_config.gen_exports_from_dict(env_config.collect_tensorflow_variables()) + \
                   env_config.gen_exports_from_dict(env_config.collect_tarantella_variables()) + \
                   env_config.gen_exports_from_dict(env_config.get_logging_variables(self.log_level,
-                                                                                    self.log_dir,
-                                                                                    self.log_all))
+                                                                                    self.log_all,
+                                                                                    self.output_all))
 
     command = "python %s" % (' '.join(self.command_list))
     return file_man.GPIScriptFile(header, environment, command, dir = os.getcwd())
@@ -109,5 +115,6 @@ if __name__ == "__main__":
                                                                       use_gpus = args.use_gpus)
   env_config.update_environment_paths(LIB_DIR)
 
-  tarantella = Tarantella(nodes_list, num_gpus, num_cpus, args.app, args.log_dir, args.log_all)
+  tarantella = Tarantella(nodes_list, num_gpus, num_cpus, args.script,
+                          args.log_all, args.output_all)
   tarantella.run()
