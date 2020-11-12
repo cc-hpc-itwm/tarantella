@@ -90,7 +90,6 @@ PYBIND11_MODULE(GPICommLib, m)
                                               tensor_infos,
                                               root_rank));
         }),
-        // ensure the `context` object is not garbage-collected as long as the SynchCommunicator is alive
         py::keep_alive<1, 2>())
     .def("broadcast",
         [](tarantella::TensorBroadcaster &tb, std::vector<py::array>& tensor_list)
@@ -102,6 +101,20 @@ PYBIND11_MODULE(GPICommLib, m)
             tensor_ptrs.emplace_back(info.ptr);
           }
           tb.exec_broadcast(tensor_ptrs);
+        });
+
+  py::class_<tarantella::collectives::Barrier::GPIBarrierAllRanks>(m, "Barrier")
+    .def(py::init(
+        [](tarantella::GPI::Context&)
+        {
+          return std::unique_ptr<tarantella::collectives::Barrier::GPIBarrierAllRanks>(
+            new tarantella::collectives::Barrier::GPIBarrierAllRanks());
+        }),
+        py::keep_alive<1, 2>())
+    .def("blocking_barrier_all_ranks",
+        [](tarantella::collectives::Barrier::GPIBarrierAllRanks &barrier)
+        {
+          barrier.blocking_barrier();
         });
 
   py::class_<tarantella::PipelineCommunicator>(m, "PipelineCommunicator")
