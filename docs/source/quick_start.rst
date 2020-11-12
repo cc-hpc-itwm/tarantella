@@ -164,14 +164,139 @@ By default, ``tarantella`` will log on the :ref:`master rank <ranks-label>` only
 This can be changed by using the ``--log-on-all-devices`` option which will create log files
 for each :ref:`rank <ranks-label>` individually.
 
-Model checkpointing
-^^^^^^^^^^^^^^^^^^^
+Save and load Tarantella models
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Storing and loading your trained ``Tarantella.Modell`` is simple.
+Storing and loading your trained ``Tarantella.Modell`` is very simple.
 
-.. todo::
+Tarantella supports all the different ways, in which you can load and store a ``keras.Model``
+(for a guide look for instance `here <https://www.tensorflow.org/guide/keras/save_and_serialize>`__).
+In particular, you can:
 
-  * add more description
+* save the whole model (including the architecture, the weights and the state of the optimizer)
+* save the model's architecture/configuration only
+* save the model's weights only
+
+Whole-model saving and loading
+------------------------------
+
+Saving the entire model including the architecture, weights and optimizer can be done via
+
+.. code-block:: python
+
+   model = ...  # get `tnt.Model`
+   model.save('path/to/location')
+
+Alternatively, you could use ``tnt.models.save_model('path/to/location')``, which works
+on both ``keras.Model`` s and ``tnt.Model`` s.
+
+You can than load your model back using
+
+.. code-block:: python
+
+   import tarantella as tnt
+   model = tnt.models.load_model('path/to/location')
+
+which will return an instance of ``tnt.Model``.
+
+.. caution::
+
+   At the moment, you will need to re-compile your model after loading.
+
+This is again done with
+
+.. code-block:: python
+
+   model.compile(optimizer = keras.optimizers.SGD(learning_rate=args.learning_rate),
+                 loss = keras.losses.SparseCategoricalCrossentropy(),
+                 metrics = [keras.metrics.SparseCategoricalAccuracy()])
+
+or similar.
+
+Architecture saving and loading
+-------------------------------
+
+If you only want to save the configuration (that is the architecture) of your model
+(in memory), you can use one of the following functions: ``tnt.Model.get_config``,
+``tnt.Model.to_json`` and ``tnt.Model.to_yaml``.
+The architecture without its original weights and optimizer can then be restore
+using ``tnt.Model.from_config``/``tnt.models.model_from_config``,
+``tnt.models.model_from_json`` and ``tnt.models.model_from_yaml``, respectively.
+
+Here is an example:
+
+.. code-block:: python
+
+   import tarantella as tnt
+   model = ...  # get `tnt.Model`
+   config = model.get_config()
+   new_model = tnt.models.model_from_config(config)
+
+The same can be achieved through cloning:
+
+.. code-block:: python
+
+   import tarantella as tnt
+   model = ...  # get `tnt.Model`
+   new_model = tnt.models.clone_model(model)
+
+
+Weights saving and loading
+--------------------------
+
+Storing and loading the weights of a model to/from memory can be done
+using the functions ``tnt.Model.get_weights`` and ``tnt.Model.set_weights``,
+respectively. Saving and loading weights to/from disk is done
+using the functions ``tnt.Model.save_weights`` and ``tnt.Model.load_weights``,
+respectively.
+
+Here is an example, how this can be used to restore a model:
+
+.. code-block:: python
+
+   import tarantella as tnt
+   model = ...  # get `tnt.Model`
+   config = model.get_config()
+   weights = model.get_weights()
+
+   # initialize a new model with original model's weights
+   new_model = tnt.models.model_from_config(config)
+   new_model.set_weights(weights)
+
+Checkpointing via callbacks
+---------------------------
+
+Apart from saving and loading models manually, Tarantella also supports checkpointing
+via Keras' ``ModelCheckpoint`` callback, as it is described for instance
+`here <https://www.tensorflow.org/guide/keras/train_and_evaluate#checkpointing_models>`__.
+
+.. code-block:: python
+
+   import tensorflow as tf
+   import tarantella as tnt
+
+   model = ...  # get `tnt.Model`
+
+   checkpoint_path = 'path/to/checkpoint/location'
+   model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+     filepath=checkpoint_path, monitor='val_acc', verbose=1, save_best_only=False,
+     save_weights_only=False, mode='auto', save_freq='epoch', options=None)
+
+   model.fit(train_dataset,
+             validation_data = val_dataset,
+             epochs = 2,
+             callbacks = [model_checkpoint_callback])
+
+
+.. note::
+
+  All saving to the filesystem (including ``tnt.Model.save`` and ``tnt.Model.save_weights``)
+  by Tarantella will only be done on the master rank.
+
+This is the default and will yield correct behavior when you are using a distributed filesystem.
+If you wish to explicitly save on all devices you can pass ``tnt_save_all_devices = True``
+to ``tnt.Model.save``, ``tnt.Model.save_weights`` and ``tnt.models.save_model``.
+
 
 .. _using-distributed-datasets-label:
 
@@ -226,6 +351,13 @@ and issue a ``WARNING`` message. This behavior will be fixed in the next release
 This guarantees that the input data is shuffled the same way on all devices,
 when no ``seed`` is given, which is necessary for consistency.
 However, when a random ``seed`` is provided by the user, Tarantella will use that one instead.
+
+Callbacks
+^^^^^^^^^
+
+.. todo::
+
+   fill in
 
 Important points
 ^^^^^^^^^^^^^^^^
