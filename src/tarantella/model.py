@@ -30,6 +30,7 @@ class Model(tf.keras.models.Model):
     self.done_broadcast = False
     self.compiled = False
     self.broadcaster = None
+    self.barrier = tarantella.Barrier()
 
     self.orig_optimizer = None
     self.orig_loss = None
@@ -200,12 +201,13 @@ class Model(tf.keras.models.Model):
     return self.model.to_yaml(**kwargs)
 
   def save_weights(self, filepath, tnt_save_all_devices = False, **kwargs):
-    # FIXME: Needs barrier
     if tnt_save_all_devices:
       self.model.save_weights(filepath, **kwargs)
     else:
       if self.rank == self._master_rank:
         self.model.save_weights(filepath, **kwargs)
+    # make sure, every rank can load the model after function exit
+    self.barrier.synchronize()
 
   def load_weights(self, filepath, **kwargs):
     # loaded weights from the same source will be identical on all ranks
@@ -227,12 +229,13 @@ class Model(tf.keras.models.Model):
     return self.model.get_weights()
 
   def save(self, filepath, tnt_save_all_devices = False, **kwargs):
-    # FIXME: Needs barrier
     if tnt_save_all_devices:
       self._save(filepath, kwargs)
     else:
       if self.rank == self._master_rank:
         self._save(filepath, kwargs)
+    # make sure, every rank can load the model after function exit
+    self.barrier.synchronize()
 
   def _save(self, filepath, args_dict):
     # 1. Re-compile underlying `Keras.model` w/ underlying optimizer
