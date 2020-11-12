@@ -78,6 +78,9 @@ def get_rank():
 def get_master_rank():
   return 0
 
+def is_master_rank():
+  return get_rank() == get_master_rank()
+
 def get_size():
   return global_context.size
 

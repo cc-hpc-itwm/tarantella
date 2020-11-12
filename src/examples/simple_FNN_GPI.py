@@ -57,7 +57,6 @@ def create_dataset_from_arrays(samples, labels, batch_size):
 args = parse_args()
 
 tnt.init(args.ngpus_per_node)
-master_rank = tnt.get_master_rank()
 rank = tnt.get_rank()
 comm_size = tnt.get_size()
 
@@ -111,7 +110,7 @@ test_dataset = create_dataset_from_arrays(x_test, y_test, batch_size)
 history = reference_model.fit(train_dataset,
                               epochs = args.number_epochs,
                               shuffle = False,
-                              verbose = args.verbose if rank == master_rank else 0,
+                              verbose = args.verbose if tnt.is_master_rank() else 0,
                               validation_data=val_dataset)
 reference_loss_accuracy = reference_model.evaluate(test_dataset,
                                                    verbose=0)
@@ -141,7 +140,7 @@ history = model.fit(train_dataset,
                    )
 tnt_loss_accuracy = model.evaluate(test_dataset, verbose=0)
 
-if rank == master_rank:
+if tnt.is_master_rank():
   print("Reference [test_loss, accuracy] = ", reference_loss_accuracy)
   print("Tarantella[test_loss, accuracy] = ", tnt_loss_accuracy)
 
@@ -155,7 +154,7 @@ if save_weights_only:
                    )
   new_model.load_weights(filepath = chk_path)
   new_model_accuracy = new_model.evaluate(test_dataset, verbose=0)
-  if rank == master_rank:
+  if tnt.is_master_rank():
     print("New model [test_loss, accuracy] = ", new_model_accuracy)
 
 # Restore Tarantella model from checkpoint
@@ -168,5 +167,5 @@ if not save_weights_only:
                               metrics=[keras.metrics.SparseCategoricalAccuracy()],
                              )
   reconstructed_loss_accuracy = reconstructed_model.evaluate(test_dataset, verbose=0)
-  if rank == master_rank:
+  if tnt.is_master_rank():
     print("Reconstructed Tarantella [test_loss, accuracy] = ", reconstructed_loss_accuracy)

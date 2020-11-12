@@ -8,7 +8,7 @@ import tarantella
 import tarantella.optimizers.synchronous_distributed_optimizer as distributed_optimizers
 import tarantella.datasets.distributed_dataset as ds
 
-model_implemented_methods = ['model', 'rank', 'comm_size', '_master_rank',
+model_implemented_methods = ['model', 'rank', 'comm_size',
                              'call', 'build', 'done_broadcast', 'set_weights', 'load_weights',
                              'get_weights', '_broadcast_weights_if_necessary', '_broadcast_weights',
                              'broadcaster', 'default_shuffle_seed',
@@ -21,7 +21,6 @@ class Model(tf.keras.models.Model):
       raise RuntimeError("""Cannot initialize a Model before the Tarantella library.
       Please call "tarantella.init()" first.
       """)
-    self._master_rank = tarantella.get_master_rank()
     self.rank = tarantella.get_rank()
     self.comm_size = tarantella.get_size()
 
@@ -204,7 +203,7 @@ class Model(tf.keras.models.Model):
     if tnt_save_all_devices:
       self.model.save_weights(filepath, **kwargs)
     else:
-      if self.rank == self._master_rank:
+      if tarantella.is_master_rank():
         self.model.save_weights(filepath, **kwargs)
 
   def load_weights(self, filepath, **kwargs):
@@ -231,7 +230,7 @@ class Model(tf.keras.models.Model):
     if tnt_save_all_devices:
       self._save(filepath, kwargs)
     else:
-      if self.rank == self._master_rank:
+      if tarantella.is_master_rank():
         self._save(filepath, kwargs)
 
   def _save(self, filepath, args_dict):
@@ -258,7 +257,7 @@ class Model(tf.keras.models.Model):
     if tarantella.global_tnt_config.output_on_all_devices:
       self.model.summary(*args, **kwargs)
     else:
-      if self.rank == self._master_rank:
+      if tarantella.is_master_rank():
         self.model.summary(*args, **kwargs)
 
   def _setup_for_execution(self, exec_type, x, y, callbacks, args_dict):
@@ -279,7 +278,7 @@ class Model(tf.keras.models.Model):
     if not 'verbose' in args_dict:
       args_dict['verbose'] = self.tf_default_verbose[exec_type]
     if not tarantella.global_tnt_config.output_on_all_devices:
-      if self.rank != self._master_rank:
+      if not tarantella.is_master_rank():
         args_dict['verbose'] = 0
 
   def _validate_datasets(self, x, y):
@@ -310,7 +309,8 @@ class Model(tf.keras.models.Model):
     weights = self.get_weights()
 
     if not self.broadcaster:
-      self.broadcaster = tarantella.TensorBroadcaster(weights, self._master_rank)
+      self.broadcaster = tarantella.TensorBroadcaster(weights,
+                                                      tarantella.get_master_rank())
 
     self.broadcaster.broadcast(weights)
     self.model.set_weights(weights)
@@ -352,8 +352,7 @@ class TntModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
     self.best = keras_model_checkpoint.best
 
     # only master rank should save and thus print messages
-    self.verbose = keras_model_checkpoint.verbose \
-                     if tarantella.get_rank() == tarantella.get_master_rank() else 0
+    self.verbose = keras_model_checkpoint.verbose if tarantella.is_master_rank() else 0
 
   def on_train_begin(self, logs=None):
     # As of TF 2.3, this only uses `self.model.load_weights`
