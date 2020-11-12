@@ -1,4 +1,3 @@
-import logging
 import tensorflow as tf
 from tensorflow.python.data.ops import dataset_ops as ds
 
@@ -72,11 +71,10 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
 
   def shuffle_with_seed(self, dataset, ds_kwargs):
     if not 'seed' in ds_kwargs or ds_kwargs['seed'] is None:
-      logger.warn("[rank {}] Shuffling with fixed shuffle seed {}.".format(self.rank,
-                                                                          self.shuffle_seed))
+      logger.warn("Shuffling with fixed shuffle seed {}.".format(self.shuffle_seed))
       ds_kwargs['seed'] = self.shuffle_seed
     else:
-      logger.debug("[rank {}] Shuffling with shuffle seed {}.".format(self.rank, ds_kwargs['seed']))
+      logger.debug("Shuffling with shuffle seed {}.".format(ds_kwargs['seed']))
     return dataset.shuffle(**ds_kwargs)
 
   def distributed_batch(self, dataset, batch_size, micro_batch_size):
@@ -91,16 +89,16 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
 
       # Total number of samples is not multiple of the batch size
       if num_samples % batch_size != 0:
-        logger.warn("[rank {}] Number of samples ({}) is not a multiple of batch size.\
- Removing the last incomplete batch from the dataset.".format(self.rank, num_samples))
+        logger.warn("Number of samples ({}) is not a multiple of batch size.\
+ Removing the last incomplete batch from the dataset.".format(num_samples))
         num_samples_multiple = (num_samples // batch_size) * batch_size
         dataset = dataset.take(num_samples_multiple)
 
     dataset = self.batching_info.apply(dataset, new_batch_size = micro_batch_size)
     dataset = dataset.shard(num_shards=self.num_ranks, index = self.rank)
 
-    logger.info("[rank {}] Using batch size = {}, micro batch size = {}.".format(self.rank,
-                                                              batch_size, micro_batch_size))
+    logger.info("Using batch size = {}, micro batch size = {}.".format(
+                batch_size, micro_batch_size))
     return dataset
 
   def get_microbatch_size(self, batch_size):
@@ -111,6 +109,6 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
       raise ValueError("[DistributedDataset] Batch size ({}) is not a multiple".format(batch_size) +
                        "of the number of ranks {}".format(self.num_ranks))
 
-    logging.debug("[rank {}] Batch size ({}) is a multiple of the number of ranks {}.".format(
-                  self.rank, batch_size, self.num_ranks))
+    logger.debug("Batch size ({}) is a multiple of the number of ranks {}.".format(
+                 batch_size, self.num_ranks))
     return int(batch_size // self.num_ranks)
