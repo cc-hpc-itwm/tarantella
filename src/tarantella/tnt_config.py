@@ -1,5 +1,4 @@
 import enum
-import logging
 import os
 
 class TNTConfig(enum.Enum):

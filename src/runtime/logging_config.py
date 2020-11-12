@@ -10,10 +10,11 @@ def setup_logging(logger, log_level, rank = 0, is_master_rank = True,
     do_logging = is_master_rank
 
   if log_on_all_devices:
-    formatter = logging.Formatter('[%(name)s] %(levelname)s: [rank %(rank)d]: %(pathname)s:%(lineno)d: %(message)s')
+    tnt_formatter_prefix = '[%(name)s] %(levelname)s: [rank %(rank)d] '
   else:
-    formatter = logging.Formatter('[%(name)s] %(levelname)s: %(pathname)s:%(lineno)d: %(message)s')
+    tnt_formatter_prefix = '[%(name)s] %(levelname)s: '
 
+  formatter = logging.Formatter(tnt_formatter_prefix + '%(pathname)s:%(lineno)d: %(message)s')
   logger.setLevel(log_level)
   logger.addFilter(TntLoggingFilter(rank, do_logging))
 
@@ -22,7 +23,9 @@ def setup_logging(logger, log_level, rank = 0, is_master_rank = True,
   handler.setFormatter(formatter)
   logger.addHandler(handler)
 
-  tf_config.setup_logging(log_level)
+  tf_config.setup_logging(log_level = log_level,
+                          formatter_prefix = tnt_formatter_prefix,
+                          logging_filter = TntLoggingFilter(rank, do_logging))
 
 class TntLoggingFilter(logging.Filter):
   def __init__(self, rank, do_logging):
