@@ -2,12 +2,13 @@ import logging
 import tensorflow as tf
 from tensorflow.python.data.ops import iterator_ops
 from tensorflow.python.keras.engine import training_utils
+from tensorflow.python.keras.callbacks import ModelCheckpoint
 
 import tarantella
 import tarantella.optimizers.synchronous_distributed_optimizer as distributed_optimizers
 import tarantella.datasets.distributed_dataset as ds
 
-model_implemented_methods = ['model', 'rank', 'comm_size', '_master_rank',
+model_implemented_methods = ['model', 'rank', 'comm_size',
                              'call', 'build', 'done_broadcast', 'set_weights', 'load_weights',
                              'get_weights', '_broadcast_weights_if_necessary', '_broadcast_weights',
                              'broadcaster', 'default_shuffle_seed',
@@ -20,13 +21,13 @@ class Model(tf.keras.models.Model):
       raise RuntimeError("""Cannot initialize a Model before the Tarantella library.
       Please call "tarantella.init()" first.
       """)
-    self._master_rank = 0
     self.rank = tarantella.get_rank()
     self.comm_size = tarantella.get_size()
 
     self.model = model
     self.input_shapes = None
     self.done_broadcast = False
+    self.compiled = False
     self.broadcaster = None
 
     self.orig_optimizer = None
@@ -36,6 +37,7 @@ class Model(tf.keras.models.Model):
     self.orig_sample_weight_mode = None
     self.orig_weighted_metrics = None
 
+    self.dist_optimizer = None
     self.default_shuffle_seed = 42
 
     # support for TF 2.0 -- 2.3
@@ -43,10 +45,6 @@ class Model(tf.keras.models.Model):
                                'evaluate' : 1,
                                'predict' : 0,
                               }
-
-  @property
-  def master_rank(self):
-    return self._master_rank
 
   def call(self, inputs):
     return self.model.call(inputs)
@@ -82,6 +80,7 @@ class Model(tf.keras.models.Model):
               weighted_metrics=None,
               **kwargs):
     self.done_broadcast = False
+    self.compiled = True
 
     # Store original parameters to save the model later
     self.orig_optimizer = optimizer
@@ -91,8 +90,8 @@ class Model(tf.keras.models.Model):
     self.orig_sample_weight_mode = sample_weight_mode
     self.orig_weighted_metrics = weighted_metrics
 
-    dist_optimizer = tarantella.distributed_optimizers.SynchDistributedOptimizer(self.orig_optimizer)
-    return self.model.compile(optimizer = dist_optimizer,
+    self.dist_optimizer = tarantella.distributed_optimizers.SynchDistributedOptimizer(self.orig_optimizer)
+    return self.model.compile(optimizer = self.dist_optimizer,
                               loss = self.orig_loss,
                               metrics = self.orig_metrics,
                               loss_weights = self.orig_loss_weights,
@@ -103,12 +102,13 @@ class Model(tf.keras.models.Model):
   def fit(self,
           x = None,
           y = None,
+          callbacks = None,
           validation_data = None,
           tnt_micro_batch_size = None,
           tnt_validation_micro_batch_size = None,
           tnt_distribute_dataset = True,
           **kwargs):
-    self._setup_for_execution('fit', x, y, kwargs)
+    self._setup_for_execution('fit', x, y, callbacks, kwargs)
 
     if tnt_distribute_dataset:
       distributed_x = ds.DistributedDataset(dataset = x,
@@ -135,15 +135,19 @@ class Model(tf.keras.models.Model):
             user_micro_batch_size = tnt_validation_micro_batch_size,
             is_training = False)
 
-    return self.model.fit(x, validation_data = validation_data, **kwargs)
+    return self.model.fit(x,
+                          validation_data = validation_data,
+                          callbacks = callbacks,
+                          **kwargs)
     
   def evaluate(self,
                x = None,
                y = None,
+               callbacks = None,
                tnt_micro_batch_size = None,
                tnt_distribute_dataset = True,
                **kwargs):
-    self._setup_for_execution('evaluate', x, y, kwargs)
+    self._setup_for_execution('evaluate', x, y, callbacks, kwargs)
 
     if tnt_distribute_dataset:
       test_dataset = ds.DistributedDataset(dataset = x,
@@ -157,14 +161,15 @@ class Model(tf.keras.models.Model):
       logging.getLogger().info(
       "[rank %d] Automatic dataset distribution is disabled." % (self.rank))
 
-    return self.model.evaluate(x, **kwargs)
+    return self.model.evaluate(x, callbacks = callbacks, **kwargs)
 
   def predict(self,
               x = None,
+              callbacks = None,
               tnt_micro_batch_size = None,
               tnt_distribute_dataset = True,
               **kwargs):
-    self._setup_for_execution('predict', x, None, kwargs)
+    self._setup_for_execution('predict', x, None, callbacks, kwargs)
 
     if tnt_distribute_dataset:
       test_dataset = ds.DistributedDataset(dataset = x,
@@ -177,7 +182,7 @@ class Model(tf.keras.models.Model):
     else:
       logging.getLogger().info(
       "[rank %d] Automatic dataset distribution is disabled." % (self.rank))
-    return self.model.predict(x, **kwargs)
+    return self.model.predict(x, callbacks = callbacks, **kwargs)
 
   def get_config(self):
     return self.model.get_config()
@@ -198,7 +203,7 @@ class Model(tf.keras.models.Model):
     if tnt_save_all_devices:
       self.model.save_weights(filepath, **kwargs)
     else:
-      if self.rank == self._master_rank:
+      if tarantella.is_master_rank():
         self.model.save_weights(filepath, **kwargs)
 
   def load_weights(self, filepath, **kwargs):
@@ -225,7 +230,7 @@ class Model(tf.keras.models.Model):
     if tnt_save_all_devices:
       self._save(filepath, kwargs)
     else:
-      if self.rank == self._master_rank:
+      if tarantella.is_master_rank():
         self._save(filepath, kwargs)
 
   def _save(self, filepath, args_dict):
@@ -252,21 +257,28 @@ class Model(tf.keras.models.Model):
     if tarantella.global_tnt_config.output_on_all_devices:
       self.model.summary(*args, **kwargs)
     else:
-      if self.rank == self._master_rank:
+      if tarantella.is_master_rank():
         self.model.summary(*args, **kwargs)
 
-  def _setup_for_execution(self, exec_type, x, y, args_dict):
+  def _setup_for_execution(self, exec_type, x, y, callbacks, args_dict):
+    self._assert_compile_has_been_called()
     self._set_verbose_all_ranks(exec_type, args_dict)
     self._validate_datasets(x, y)
     self._validate_batch_size_argument(exec_type, args_dict)
     self._set_input_shapes(x)
     self._broadcast_weights_if_necessary()
+    self._preprocess_callbacks(callbacks)
+
+  def _assert_compile_has_been_called(self):
+    if self.compiled == False:
+      raise RuntimeError("`tnt.Model` has to be compiled first "
+                         "using `tnt.Model.compile`")
 
   def _set_verbose_all_ranks(self, exec_type, args_dict):
     if not 'verbose' in args_dict:
       args_dict['verbose'] = self.tf_default_verbose[exec_type]
     if not tarantella.global_tnt_config.output_on_all_devices:
-      if self.rank != self._master_rank:
+      if not tarantella.is_master_rank():
         args_dict['verbose'] = 0
 
   def _validate_datasets(self, x, y):
@@ -297,9 +309,63 @@ class Model(tf.keras.models.Model):
     weights = self.get_weights()
 
     if not self.broadcaster:
-      self.broadcaster = tarantella.TensorBroadcaster(weights, self._master_rank)
+      self.broadcaster = tarantella.TensorBroadcaster(weights,
+                                                      tarantella.get_master_rank())
 
     self.broadcaster.broadcast(weights)
     self.model.set_weights(weights)
 
     self.done_broadcast = True
+
+  def _preprocess_callbacks(self, callbacks):
+    if callbacks is not None:
+      for index, callback in enumerate(callbacks):
+        if isinstance(callback, tf.keras.callbacks.ModelCheckpoint):
+          tnt_callback = TntModelCheckpoint(keras_model_checkpoint = callback,
+                                            underlying_optimizer = self.orig_optimizer,
+                                            distributed_optimizer = self.dist_optimizer)
+          callbacks[index] = tnt_callback
+
+
+class TntModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
+  def __init__(self, keras_model_checkpoint, underlying_optimizer, distributed_optimizer):
+    super(TntModelCheckpoint, self).__init__(keras_model_checkpoint.filepath)
+    self.underlying_optimizer = underlying_optimizer
+    self.distributed_optimizer = distributed_optimizer
+
+    # set member variables from ModelCheckpoint instance
+    self.validation_data = keras_model_checkpoint.validation_data
+    self.model = keras_model_checkpoint.model
+    self._chief_worker_only = keras_model_checkpoint._chief_worker_only
+    self._supports_tf_logs = True
+    self.monitor = keras_model_checkpoint.monitor
+    self.filepath = keras_model_checkpoint.filepath
+    self.save_best_only = keras_model_checkpoint.save_best_only
+    self.save_weights_only = keras_model_checkpoint.save_weights_only
+    self.save_freq = keras_model_checkpoint.save_freq
+    self.epochs_since_last_save = keras_model_checkpoint.epochs_since_last_save
+    self._batches_seen_since_last_saving = keras_model_checkpoint._batches_seen_since_last_saving
+    self._last_batch_seen = 0
+    self.load_weights_on_restart = keras_model_checkpoint.load_weights_on_restart
+    self.period = keras_model_checkpoint.period
+    self.monitor_op = keras_model_checkpoint.monitor_op
+    self.best = keras_model_checkpoint.best
+
+    # only master rank should save and thus print messages
+    self.verbose = keras_model_checkpoint.verbose if tarantella.is_master_rank() else 0
+
+  def on_train_begin(self, logs=None):
+    # As of TF 2.3, this only uses `self.model.load_weights`
+    super().on_train_begin(logs)
+
+  def on_train_batch_end(self, batch, logs=None):
+    # set the optimizer to the underlying to save a plain keras model
+    self.model.optimizer = self.underlying_optimizer
+    super().on_train_batch_end(batch, logs)
+    self.model.optimizer = self.distributed_optimizer
+
+  def on_epoch_end(self, epoch, logs=None):
+    # set the optimizer to the underlying to save a plain keras model
+    self.model.optimizer = self.underlying_optimizer
+    super().on_epoch_end(epoch, logs)
+    self.model.optimizer = self.distributed_optimizer
