@@ -2,12 +2,15 @@ import numpy as np
 import tensorflow as tf
 import GPICommLib
 
+import tarantella.tnt_config as tnt_config
+global_context = None
+global_tnt_config = tnt_config.TarantellaConfiguration()
+
 import logging
 logger = logging.getLogger("TNT_LIB")
 
 import runtime.logging_config as logging_config
 import runtime.tf_config as tf_config
-import tarantella.tnt_config as tnt_config
 from tarantella.model import Model
 import tarantella.optimizers as optimizers
 import tarantella.optimizers.synchronous_distributed_optimizer as distributed_optimizers
@@ -15,9 +18,6 @@ from tnt_tfops import tnt_ops
 from tarantella import models
 
 import sys
-
-global_context = None
-global_tnt_config = tnt_config.TarantellaConfiguration()
 
 def setup_gpus(rank, ngpus = None):
   """Checks whether there are GPUs available on the machine and assigns one
@@ -62,12 +62,14 @@ def setup_gpus(rank, ngpus = None):
 def init(devices_per_node = None):
   global global_context
   if global_context is None:
-    logging_config.setup_logging(logger, global_tnt_config.log_level)
     global_context = GPICommLib.GPIContext()
+
+    logging_config.setup_logging(logger, global_tnt_config.log_level,
+                                 get_rank(), get_rank() == 0,
+                                 global_tnt_config.log_on_all_devices,)
 
     if devices_per_node is None:
       devices_per_node = global_tnt_config.devices_per_node
-    else:
       logger.warn("Overriding the default number of devices per node to {}".format(
                                devices_per_node))
     setup_gpus(global_context.rank, ngpus = devices_per_node)
