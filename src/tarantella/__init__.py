@@ -99,6 +99,13 @@ class TensorBroadcaster():
   def broadcast(self, tensor_list):
     self.broadcaster.broadcast(tensor_list)
 
+class Barrier():
+  def __init__(self):
+    self.barrier = GPICommLib.Barrier(global_context)
+
+  def synchronize(self):
+    self.barrier.blocking_barrier_all_ranks()
+
 class SynchCommunicator():
   def __init__(self, global_context):
     self.context = global_context
