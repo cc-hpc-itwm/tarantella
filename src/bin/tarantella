@@ -101,7 +101,8 @@ class Tarantella:
 
   def generate_executable_script(self):
     # create execution script
-    header = "#!/bin/bash"
+    header = "#!/bin/bash\n"
+    header += "cd {}".format(os.path.abspath(os.getcwd()))
 
     environment = env_config.gen_exports_from_dict(env_config.collect_environment_variables()) + \
                   env_config.gen_exports_from_dict(env_config.collect_tensorflow_variables()) + \
