@@ -320,14 +320,14 @@ class Model(tf.keras.models.Model):
   def _preprocess_callbacks(self, callbacks):
     if callbacks is not None:
       for index, callback in enumerate(callbacks):
-        if isinstance(callback, tf.python.keras.callbacks.ModelCheckpoint):
+        if isinstance(callback, tf.keras.callbacks.ModelCheckpoint):
           tnt_callback = TntModelCheckpoint(keras_model_checkpoint = callback,
                                             underlying_optimizer = self.orig_optimizer,
                                             distributed_optimizer = self.dist_optimizer)
           callbacks[index] = tnt_callback
 
 
-class TntModelCheckpoint(tf.python.keras.callbacks.ModelCheckpoint):
+class TntModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
   def __init__(self, keras_model_checkpoint, underlying_optimizer, distributed_optimizer):
     super(TntModelCheckpoint, self).__init__(keras_model_checkpoint.filepath)
     self.underlying_optimizer = underlying_optimizer
