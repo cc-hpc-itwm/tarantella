@@ -1,4 +1,3 @@
-import logging
 import tensorflow as tf
 from tensorflow.python.data.ops import iterator_ops
 from tensorflow.python.keras.engine import training_utils
@@ -7,6 +6,7 @@ from tensorflow.python.keras.callbacks import ModelCheckpoint
 import tarantella
 import tarantella.optimizers.synchronous_distributed_optimizer as distributed_optimizers
 import tarantella.datasets.distributed_dataset as ds
+from tarantella import logger
 
 model_implemented_methods = ['model', 'rank', 'comm_size',
                              'call', 'build', 'done_broadcast', 'set_weights', 'load_weights',
@@ -120,9 +120,8 @@ class Model(tf.keras.models.Model):
             user_micro_batch_size = tnt_micro_batch_size,
             is_training = True)
     else:
-      logging.getLogger().info(
-        "[rank %d] Automatic dataset distribution is disabled." % (self.rank),
-        "Make sure the dataset is sharded manually across ranks.")
+      logger.info("Automatic dataset distribution is disabled.",
+                  "Make sure the dataset is sharded manually across ranks.")
 
     # Always switch off shuffling
     kwargs["shuffle"] = False
@@ -159,8 +158,7 @@ class Model(tf.keras.models.Model):
               user_micro_batch_size = tnt_micro_batch_size,
               is_training = False)
     else:
-      logging.getLogger().info(
-      "[rank %d] Automatic dataset distribution is disabled." % (self.rank))
+      logger.info("Automatic dataset distribution is disabled.")
 
     return self.model.evaluate(x, callbacks = callbacks, **kwargs)
 
@@ -181,8 +179,7 @@ class Model(tf.keras.models.Model):
                user_micro_batch_size = tnt_micro_batch_size,
                is_training = False)
     else:
-      logging.getLogger().info(
-      "[rank %d] Automatic dataset distribution is disabled." % (self.rank))
+      logger.info("Automatic dataset distribution is disabled.")
     return self.model.predict(x, callbacks = callbacks, **kwargs)
 
   def get_config(self):

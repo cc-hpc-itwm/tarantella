@@ -269,65 +269,65 @@ def test_with_drop_remainder(apply_transformations, dataset_generator,
       validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank)
 
 
-# @pytest.mark.parametrize("apply_transformations", transformation_test_cases)
-# @pytest.mark.parametrize("dataset_generator", [np_arrays_from_range])
-# @pytest.mark.parametrize("comm_size", [1,3,4])
-# @pytest.mark.parametrize("micro_batch_size", [5])
-# @pytest.mark.parametrize("num_batches", [4])
-# @pytest.mark.parametrize("size_final_batch", [0, 1, 6, 11])
-# def test_no_drop_remainder(apply_transformations, dataset_generator,
-#                            comm_size, micro_batch_size, num_batches,
-#                            size_final_batch):
-#   batch_size = comm_size * micro_batch_size
-#   num_samples = num_batches * batch_size + size_final_batch
-#   (x_train, y_train) = dataset_generator(num_samples)
+@pytest.mark.parametrize("apply_transformations", transformation_test_cases)
+@pytest.mark.parametrize("dataset_generator", [np_arrays_from_range])
+@pytest.mark.parametrize("comm_size", [1,3,4])
+@pytest.mark.parametrize("micro_batch_size", [5])
+@pytest.mark.parametrize("num_batches", [4])
+@pytest.mark.parametrize("size_final_batch", [0, 1, 6, 11])
+def test_no_drop_remainder(apply_transformations, dataset_generator,
+                           comm_size, micro_batch_size, num_batches,
+                           size_final_batch):
+  batch_size = comm_size * micro_batch_size
+  num_samples = num_batches * batch_size + size_final_batch
+  (x_train, y_train) = dataset_generator(num_samples)
 
-#   reference_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train))
-#   tnt_dataset =  tf.data.Dataset.from_tensor_slices((x_train, y_train))
+  reference_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train))
+  tnt_dataset =  tf.data.Dataset.from_tensor_slices((x_train, y_train))
 
-#   # Dataset should behve like the sequential dataset with `drop_ramainder=True`
-#   tnt_dataset = apply_transformations(tnt_dataset,
-#                                       batch_size = batch_size,
-#                                       drop_remainder=False)
+  # Dataset should behve like the sequential dataset with `drop_ramainder=True`
+  tnt_dataset = apply_transformations(tnt_dataset,
+                                      batch_size = batch_size,
+                                      drop_remainder=False)
 
-#   for rank in range(comm_size):   # verify each rank separately
-#     # load local dataset for `rank`
-#     dist_dataset = ds.DistributedDataset(tnt_dataset,
-#                                           num_ranks = comm_size,
-#                                           rank = rank)
-#     local_dataset = dist_dataset.distribute_dataset_across_ranks()
-#     micro_batch_size = dist_dataset.get_microbatch_size(batch_size)
+  for rank in range(comm_size):   # verify each rank separately
+    # load local dataset for `rank`
+    dist_dataset = ds.DistributedDataset(tnt_dataset,
+                                          num_ranks = comm_size,
+                                          rank = rank)
+    local_dataset = dist_dataset.distribute_dataset_across_ranks()
+    micro_batch_size = dist_dataset.get_microbatch_size(batch_size)
 
-#     # rebuild reference dataset each time to prevent
-#     # shuffling effects for repeated iterations
-#     ref_dataset = apply_transformations(reference_dataset,
-#                                         batch_size = batch_size,
-#                                         drop_remainder=True)
-#     validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank)
+    # rebuild reference dataset each time to prevent
+    # shuffling effects for repeated iterations
+    ref_dataset = apply_transformations(reference_dataset,
+                                        batch_size = batch_size,
+                                        drop_remainder=True)
+    validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank)
 
 
-# @pytest.mark.parametrize("apply_transformations", transformation_test_cases)
-# @pytest.mark.parametrize("dataset_generator", [np_arrays_from_range])
-# @pytest.mark.parametrize("comm_size", [3, 4])
-# @pytest.mark.parametrize("micro_batch_size", [5])
-# @pytest.mark.parametrize("size_batch_remainder", [1, 7, 11])
-# def test_batch_not_multiple_num_ranks(apply_transformations, dataset_generator,
-#                                       comm_size, micro_batch_size,
-#                                       size_batch_remainder):
-#   batch_size = comm_size * micro_batch_size + size_batch_remainder
-#   num_samples = 4 * batch_size
-#   (x_train, y_train) = dataset_generator(num_samples)
+@pytest.mark.parametrize("apply_transformations", transformation_test_cases)
+@pytest.mark.parametrize("dataset_generator", [np_arrays_from_range])
+@pytest.mark.parametrize("comm_size", [3, 4])
+@pytest.mark.parametrize("micro_batch_size", [5])
+@pytest.mark.parametrize("size_batch_remainder", [1, 7, 11])
+def test_batch_not_multiple_num_ranks(apply_transformations, dataset_generator,
+                                      comm_size, micro_batch_size,
+                                      size_batch_remainder):
+  batch_size = comm_size * micro_batch_size + size_batch_remainder
+  num_samples = 4 * batch_size
+  (x_train, y_train) = dataset_generator(num_samples)
 
-#   tnt_dataset =  tf.data.Dataset.from_tensor_slices((x_train, y_train))
-#   tnt_dataset = apply_transformations(tnt_dataset,
-#                                       batch_size = batch_size,
-#                                       drop_remainder=True)
+  tnt_dataset =  tf.data.Dataset.from_tensor_slices((x_train, y_train))
+  tnt_dataset = apply_transformations(tnt_dataset,
+                                      batch_size = batch_size,
+                                      drop_remainder=True)
 
-#   for rank in range(comm_size):   # verify each rank separately
-#     dist_dataset = ds.DistributedDataset(tnt_dataset,
-#                                           num_ranks = comm_size,
-#                                           rank = rank)
-#     # distributing the dataset should fail because the batch size is not a
-#     # multiple of the number of ranks
-#     with pytest.raises(ValueError):
-#       local_dataset = dist_dataset.distribute_dataset_across_ranks()
+  for rank in range(comm_size):   # verify each rank separately
+    dist_dataset = ds.DistributedDataset(tnt_dataset,
+                                          num_ranks = comm_size,
+                                          rank = rank)
+    # distributing the dataset should fail because the batch size is not a
+    # multiple of the number of ranks
+    with pytest.raises(ValueError):
+      local_dataset = dist_dataset.distribute_dataset_across_ranks()

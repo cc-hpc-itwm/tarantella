@@ -1,5 +1,4 @@
 import enum
-import logging
 import os
 
 class TNTConfig(enum.Enum):
@@ -16,8 +15,8 @@ class TarantellaConfigurationDefaults:
   def config(self):
     default_config = { TNTConfig.TNT_DEVICES_PER_NODE : None,
                        TNTConfig.TNT_FUSION_THRESHOLD : 32 * 1024,
-                       TNTConfig.TNT_OUTPUT_ON_ALL_DEVICES : False,
-                       TNTConfig.TNT_LOG_ON_ALL_DEVICES : False,
+                       TNTConfig.TNT_OUTPUT_ON_ALL_DEVICES : 'False',
+                       TNTConfig.TNT_LOG_ON_ALL_DEVICES : 'False',
                        TNTConfig.TNT_TENSORBOARD_ON_ALL_DEVICES : "False",
                        TNTConfig.TNT_LOG_DIR : None,
                        TNTConfig.TNT_LOG_LEVEL : "WARN",
@@ -55,11 +54,13 @@ class TarantellaConfiguration:
 
   @property
   def output_on_all_devices(self):
-    return self.get_variable_or_default(TNTConfig.TNT_OUTPUT_ON_ALL_DEVICES)
+    value_string = self.get_variable_or_default(TNTConfig.TNT_OUTPUT_ON_ALL_DEVICES)
+    return value_string.lower() == 'true'
 
   @property
   def log_on_all_devices(self):
-    return self.get_variable_or_default(TNTConfig.TNT_LOG_ON_ALL_DEVICES)
+    value_string = self.get_variable_or_default(TNTConfig.TNT_LOG_ON_ALL_DEVICES)
+    return value_string.lower() == 'true'
 
   @property
   def tensorboard_on_all_devices(self):

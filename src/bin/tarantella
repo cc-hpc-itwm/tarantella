@@ -2,6 +2,7 @@
 import argparse
 import logging
 import os
+import shutil
 import subprocess
 import sys
 
@@ -11,6 +12,12 @@ PYLIB_DIR = os.path.join(TNT_DIR, "lib/tarantella/python")
 sys.path.append(LIB_DIR)
 sys.path.append(PYLIB_DIR)
 
+try:
+  import runtime
+except ModuleNotFoundError as e:
+  raise RuntimeError("[CLI] Cannot find Tarantella `runtime` module; \
+make sure the `tarantella` script is started from an installed version.") from e
+
 import runtime.file_management as file_man
 import runtime.logging_config as logging_config
 import runtime.platform_config as platform_config
@@ -19,52 +26,92 @@ from runtime import logger
 
 def parse_args():
   parser = argparse.ArgumentParser()
+  singlenode_group = parser.add_argument_group('Single-node execution')
+  singlenode_group.add_argument("-n",
+                    help="number of TensorFlow instances to start on the local node",
+                    dest = "npernode",
+                    metavar = "N",
+                    type = int,
+                    default = None)
   multinode_group = parser.add_argument_group('Multi-node execution')
   multinode_group.add_argument("--hostfile",
                       dest = "hostfile",
-                      help="Path to the list of nodes (hostnames) on which to execute the code",
+                      help="path to the list of nodes (hostnames) on which to execute the SCRIPT",
                       default = None)
-  multinode_group.add_argument("--n-per-node", "--device-per-node",
-                    help="Number of devices (i.e., either GPUs or CPUs) to be used per node",
-                    dest = "npernode",
-                    type = int,
-                    default = None)
-  singlenode_group = parser.add_argument_group('Single-node execution')
-  singlenode_group.add_argument("-n",
-                    help="Number of processes to start on the local node",
+  multinode_group.add_argument("--n-per-node", "--devices-per-node",
+                    help="number of devices (i.e., either GPUs or processes on CPUs) to be used on each node",
                     dest = "npernode",
                     type = int,
                     default = None)
 
   parser.add_argument("--no-gpu",
-                    help="Disable GPU usage",
+                    help="disallow GPU usage",
                     dest = "use_gpus",
                     action='store_false',
                     default = True)
+  parser.add_argument("--output-all-devices",
+                    help="enable output on all devices (e.g., training info)",
+                    dest = "output_all",
+                    action='store_true',
+                    default = False)
   parser.add_argument("--log-all-devices",
-                    help="Enable logging on all devices",
+                    help="enable library logging messages on all devices",
                     dest = "log_all",
                     action='store_true',
                     default = False)
-  parser.add_argument("--log-dir",
-                    help="Logging directory; if specified, it will enable \
-logging to files within the Tarantella library",
-                    dest = "log_dir",
-                    default = None)
   log_levels = ('DEBUG', 'INFO', 'WARNING', 'ERROR')
-  parser.add_argument('--log-level', default='INFO', choices=log_levels)
-  parser.add_argument('app', nargs='+')
+  parser.add_argument('--log-level', default='WARNING', choices=log_levels,
+                      help = "logging level for library messages")
+  parser.add_argument("--dry-run",
+                    help="print generated files and execution command",
+                    dest = "dry_run",
+                    action='store_true',
+                    default = False)
+  parser.add_argument('script', nargs='+',metavar='-- SCRIPT')
   args = parser.parse_args()
-
-  
   return args
 
+def tnt_run_message(command_list, hostfile_path, exec_script_path):
+  msg = ""
+  if not hostfile_path is None:
+    msg += "\n{}\nGenerated hostfile:\n".format("="*80)
+    with open(hostfile_path, 'r') as f:
+      msg += "============= {} =============\n{}\n".format(hostfile_path,
+                                                           "".join(f.readlines()))
+  if not exec_script_path is None:
+    msg += "\n{}\nGenerated script:\n".format("="*80)
+    with open(exec_script_path, 'r') as f:
+      msg += "============= {} =============\n{}\n".format(exec_script_path,
+                                                           "".join(f.readlines()))
+  msg += "\n{}".format("="*80)
+  msg += "\nCommand:\n\t{}\n".format(" ".join(command_list))
+  return msg
+
+def generate_dry_run_message(command_list, hostfile_path, exec_script_path):
+  msg = "\n{}".format("="*80)
+  msg += "\n{0}{1}DRY RUN {1}{0}\n".format("="*6, " "*30)
+  msg += tnt_run_message(command_list, hostfile_path, exec_script_path)
+  return msg
+
+def generate_run_error_message(e, hostfile_path = None,
+                               executed_script_path = None):
+  error_string = ""
+  if not e.stdout is None:
+    error_string += "============= STDOUT =============\n{}\n".format(e.stdout)
+  if not e.stderr is None:
+    error_string += "============= STDERR =============\n{}\n".format(e.stderr)
+  error_string += tnt_run_message(e.cmd, hostfile_path = hostfile_path,
+                                  exec_script_path = executed_script_path)
+  error_string += "[CLI] Execution failed with status {}".format(e.returncode)
+  return error_string
+
+
 class Tarantella:
-  def __init__(self, hostlist, num_gpus_per_node, num_cpus_per_node, command_list,
-               log_dir, log_all):
+  def __init__(self, hostlist, num_gpus_per_node, num_cpus_per_node,
+               command_list, log_all, output_all):
     self.log_level = logging.getLevelName(logger.level)
-    self.log_dir = log_dir
     self.log_all = log_all
+    self.output_all = output_all
 
     self.hostlist = hostlist
     self.command_list = command_list
@@ -79,26 +126,42 @@ class Tarantella:
 
   def generate_executable_script(self):
     # create execution script
-    header = "#!/bin/bash"
+    header = "#!/bin/bash\n"
+    header += "cd {}".format(os.path.abspath(os.getcwd()))
 
     environment = env_config.gen_exports_from_dict(env_config.collect_environment_variables()) + \
                   env_config.gen_exports_from_dict(env_config.collect_tensorflow_variables()) + \
                   env_config.gen_exports_from_dict(env_config.collect_tarantella_variables()) + \
                   env_config.gen_exports_from_dict(env_config.get_logging_variables(self.log_level,
-                                                                                    self.log_dir,
-                                                                                    self.log_all))
+                                                                                    self.log_all,
+                                                                                    self.output_all))
 
-    command = "python %s" % (' '.join(self.command_list))
+    command = "python {}".format(' '.join(self.command_list))
     return file_man.GPIScriptFile(header, environment, command, dir = os.getcwd())
 
-  def run(self):
+  def run(self, dry_run = False):
     with self.hostfile, self.executable_script:
       command_list = ["gaspi_run", "-n", str(self.nranks),
                       "-m", self.hostfile.name,
-                      self.executable_script.name]
-      result = subprocess.run(command_list,
-                  check = True,
-                  stdout=None, stderr=None,)
+                      self.executable_script.filename]
+
+      if dry_run:
+        print(generate_dry_run_message(command_list, self.hostfile.name,
+                                       self.executable_script.filename))
+        return
+
+      path_to_gpi = shutil.which("gaspi_run")
+      if path_to_gpi is None:
+        sys.exit("[CLI] Cannot execute `gaspi_run`; make sure it is added to the current `PATH`.")
+
+      try:
+        result = subprocess.run(command_list,
+                    check = True,
+                    cwd = os.getcwd(),
+                    stdout = None, stderr = None,)
+      except subprocess.CalledProcessError as e:
+        sys.exit(generate_run_error_message(e, self.hostfile.name,
+                                            self.executable_script.filename))
 
 if __name__ == "__main__":
   args = parse_args()
@@ -106,8 +169,9 @@ if __name__ == "__main__":
 
   nodes_list = platform_config.generate_nodes_list(args.hostfile)
   num_gpus, num_cpus = platform_config.generate_num_devices_per_node(npernode = args.npernode,
-                                                                      use_gpus = args.use_gpus)
+                                                                     use_gpus = args.use_gpus)
   env_config.update_environment_paths(LIB_DIR)
 
-  tarantella = Tarantella(nodes_list, num_gpus, num_cpus, args.app, args.log_dir, args.log_all)
-  tarantella.run()
+  tarantella = Tarantella(nodes_list, num_gpus, num_cpus, args.script,
+                          args.log_all, args.output_all)
+  tarantella.run(args.dry_run)
