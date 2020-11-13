@@ -430,7 +430,6 @@ Instead of using custom training loops, please use ``Model.fit(...)``.
    with the exception of ``tf.keras.optimizers.Ftrl``.
 
 Since the ``Ftrl`` optimizer does not use batches, it is not supported in Tarantella.
-How to use your custom gradient-based optimizer is explained :ref:`here <custom-optimizers-label>`.
 
 
 .. rubric:: Footnotes
