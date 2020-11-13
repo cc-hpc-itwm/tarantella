@@ -128,6 +128,12 @@ model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
     chk_path, monitor='val_acc', verbose=1, save_best_only=False,
     save_weights_only=save_weights_only, mode='auto', save_freq='epoch', options=None)
 
+# LearningRateScheduler
+def scheduler(epoch, learning_rate):
+  return learning_rate * tf.math.exp(-0.1)
+learning_rate_scheduler_callback_reference = tf.keras.callbacks.LearningRateScheduler(scheduler, verbose = 0)
+learning_rate_scheduler_callback = tf.keras.callbacks.LearningRateScheduler(scheduler, verbose = 1)
+
 # Reference model
 # ---------------
 history = reference_model.fit(train_dataset,
@@ -135,6 +141,7 @@ history = reference_model.fit(train_dataset,
                               shuffle = False,
                               verbose = args.verbose if tnt.is_master_rank() else 0,
                               validation_data = val_dataset,
+                              callbacks = [learning_rate_scheduler_callback_reference],
                              )
 reference_loss_accuracy = reference_model.evaluate(test_dataset,
                                                    verbose=0)
@@ -146,7 +153,8 @@ history = tnt_model.fit(train_dataset,
                         shuffle = False,
                         verbose = args.verbose,
                         validation_data = val_dataset,
-                        callbacks = [model_checkpoint_callback],
+                        callbacks = [model_checkpoint_callback,
+                                     learning_rate_scheduler_callback],
                        )
 tnt_loss_accuracy = tnt_model.evaluate(test_dataset, verbose=0)
 
