@@ -115,15 +115,15 @@ test_dataset = create_dataset_from_arrays(x_test, y_test, batch_size)
 # ---------
 
 # TensorBoard
-log_dir = "/home/labus/git/hpdlf/src/examples/logs"
+log_dir = "logs"
 tensorboard_callback = keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
 
 # ModelCheckpoint
 save_weights_only = False
 if save_weights_only:
-  chk_path = "/home/labus/git/hpdlf/src/examples/checkpoints/weights"
+  chk_path = "checkpoints/weights"
 else:
-  chk_path = "/home/labus/git/hpdlf/src/examples/checkpoints/chk_{epoch}"
+  chk_path = "checkpoints/chk_{epoch}"
 model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
     chk_path, monitor='val_acc', verbose=1, save_best_only=False,
     save_weights_only=save_weights_only, mode='auto', save_freq='epoch', options=None)
@@ -180,7 +180,7 @@ if save_weights_only:
 
 # Restore Tarantella model from checkpoint
 if not save_weights_only:
-  model_path = "/home/labus/git/hpdlf/src/examples/checkpoints/chk_" + str(args.number_epochs)
+  model_path = "checkpoints/chk_" + str(args.number_epochs)
   reconstructed_model = tnt.models.load_model(model_path)
   # TODO: Automatically compile in `tnt.models.load_model`
   reconstructed_model.compile(optimizer = sgd_reconstructed,
