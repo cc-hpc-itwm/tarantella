@@ -1,13 +1,13 @@
 .. _quick-start-label:
 
-Quick start
+Quick Start
 ===========
 
 This section explains how to get started using Tarantella to distributedly
 train an existing TensorFlow 2/Keras model.
-First we will examine what changes to your code have to be made, before we will look into
+First, we will examine what changes have to be made to your code, before we will look into
 the execution of your script with ``tarantella`` on the command line.
-Finally, we will state in more detail what features Tarantella currently supports and
+Finally, we will present the features Tarantella currently supports and
 what important points need to be taken into account when using Tarantella.
 
 Code example: LeNet-5 on MNIST
@@ -15,8 +15,8 @@ Code example: LeNet-5 on MNIST
 
 After having :ref:`build and installed <installation-label>` Tarantella
 we are ready to add distributed training support to an existing TensorFlow 2/Keras model.
-We will first illustrate all the necessary steps, using the well-know example of
-**LeNet-5** on the **MNIST** dataset. Although, this is not necessarily a good use case
+We will first illustrate all the necessary steps, using the well-known example of
+**LeNet-5** on the **MNIST** dataset. Although this is not necessarily a good use case
 to take full advantage of Tarantella's capabilities, it will allow you to simply
 copy-paste the code snippets and try them out, even on your laptop.
   
@@ -27,8 +27,8 @@ copy-paste the code snippets and try them out, even on your laptop.
    :linenos:
    :emphasize-lines: 3,9,13
 
-As you can see from the marked lines in the code snippet above, in the simplest case
-you only need to add *3 lines of code* to train your model distributedly using Tarantella!
+As you can see from the marked lines in the code snippet,
+you only need to add *3 lines of code* to train LeNet-5 distributedly using Tarantella!
 Let us go through the code in some more detail, in order to understand what is going on.
 
 First we need to import the Tarantella library:
@@ -53,21 +53,20 @@ Note that this should be done before executing any other code. Next, we need to 
 **That's it!**
 
 All the necessary steps to distribute training and datasets will now automatically be handled by Tarantella.
-In particular, we run ``model.compile`` on our ``model`` to generate a (distributed) compute graph,
-the same way we did with Keras before.
+In particular, we still run ``model.compile`` on the new ``model`` to generate a compute graph,
+just as we would have done with a typical Keras model.
 
-Next, we load the MNIST data for training, validation and testing, and
+Next, we load the MNIST data for training and testing, and
 create ``Dataset`` s from it. Note that we ``batch`` the dataset for training.
 This will guarantee that Tarantella is able to distribute the data later on in the correct way.
 Also note that the ``batch_size`` used here, is the same as for the original model,
-that is the global batch size.  For details concerning local and global batch sizes have a look
+that is the *global* batch size.  For details concerning local and global batch sizes have a look
 :ref:`here <global-vs-local-batch-size-label>`.
 
-Now we are able to train our ``model`` using ``model.fit``. This, as well, is identical
-to the standard Keras interface. Note, however, that Tarantella is taking care of proper
+Now we are able to train our ``model`` using ``model.fit``, in the same familiar
+way used by the standard Keras interface. Note, however, that Tarantella is taking care of proper
 distribution of the ``train_dataset`` in the background. All the possibilities of how to
 feed datasets to Tarantella are explained in more detail below.
-
 Lastly, we can evaluate the final accuracy of our ``model`` on the ``test_dataset`` using
 ``model.evaluate``.
 
@@ -78,34 +77,34 @@ Executing your model with ``tarantella``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Next, let's execute our model distributedly using ``tarantella`` on the command line.
-The simplest way to do that is by passing the python script of our model to ``tarantella``:
+The simplest way to do that is by passing the Python script of the model to ``tarantella``:
 
 .. code-block:: bash
 
-   tarantella model.py
+   tarantella -- model.py
 
 This will execute our model distributedly on a single node, using all the available GPUs.
-In case, no GPUs can be found, ``tarantella`` will executed in serial mode on the CPU,
-and an ``INFO`` message will be issued. In case you have GPUs available, but
+In case no GPUs can be found, ``tarantella`` will executed in serial mode on the CPU,
+and an ``WARNING`` message will be issued. In case you have GPUs available, but
 want to execute ``tarantella`` on CPUs nonetheless, you can specify the ``--no-gpu`` option.
 
 .. code-block:: bash
 
-   tarantella --no-gpu model.py
+   tarantella --no-gpu -- model.py
 
 We can also set command line parameters for the python script ``model.py``, which have to
 succeed the name of the script:
 
 .. code-block:: bash
 
-   tarantella --no-gpu model.py --batch_size=64 --learning_rate=0.01
+   tarantella --no-gpu -- model.py --batch_size=64 --learning_rate=0.01
 
 On a single node, we can also explicitly specify the number of TensorFlow instances
 we want to use. This is done with the ``-n`` option:
 
 .. code-block:: bash
 
-   tarantella -n 4 model.py --batch_size=64
+   tarantella -n 4 -- model.py --batch_size=64
 
 Here, ``tarantella`` would try to execute distributedly on 4 GPUs.
 If there are not enough GPUs available, ``tarantella`` will print a ``WARNING``
@@ -114,8 +113,8 @@ If there are no GPUs installed or the ``--no-gpu`` option is use,
 ``tarantella`` will not print a ``WARNING``.
 
 Next, let's run ``tarantella`` on multiple nodes. In order to do this,
-we need to provide ``tarantella`` with a ``hostfile`` that includes
-the ``hostname`` s of the nodes that shall be used:
+we need to provide ``tarantella`` with a ``hostfile`` that contains
+the ``hostname`` s of the nodes that we want to use:
 
 .. code-block:: bash
 
@@ -123,15 +122,15 @@ the ``hostname`` s of the nodes that shall be used:
    name_of_node_1
    name_of_node_2
 
-With this ``hostfile`` we can run tarantella on multiple nodes:
+With this ``hostfile`` we can run ``tarantella`` on multiple nodes:
 
 .. code-block:: bash
 
-   tarantella --hostfile hostfile model.py
+   tarantella --hostfile hostfile -- model.py
 
 In this case, ``tarantella`` uses *all* GPUs it can find.
-If no GPUs are available ``tarantella`` will start *one* TensorFlow instance
-per node on the CPUs, and issue an ``INFO`` message. 
+If no GPUs are available, ``tarantella`` will start *one* TensorFlow instance
+per node on the CPUs, and will issue an ``WARNING`` message. 
 Again, this can be disabled by explicitly using the ``--no-gpu``
 option.
 
@@ -140,15 +139,15 @@ explicitly with the option ``--n-per-node=<number>``:
 
 .. code-block:: bash
 
-   tarantella --hostfile hostfile --n-per-node=4 --no-gpu model.py --batch_size=64
+   tarantella --hostfile hostfile --n-per-node=4 --no-gpu -- model.py --batch_size=64
 
 In this example, ``tarantella`` would execute 4 instances of TensorFlow on the CPUs
 of each node specified in ``hostfile``.
 
 .. caution::
 
-   ``tarantella`` requires all names in the ``hostfile`` to be **unique**,
-   and all nodes to be **identical** (number and type of CPUs and GPUs).
+   ``tarantella`` requires all the names in the ``hostfile`` be **unique**,
+   and all nodes be **homogeneous** (number and type of CPUs and GPUs).
 
 In addition, ``tarantella`` can be run with different levels of logging output.
 The log-levels that are available are ``INFO``, ``WARNING``, ``DEBUG`` and ``ERROR``,
@@ -156,18 +155,23 @@ and can be set with ``--log-level``:
 
 .. code-block:: bash
 
-   tarantella --hostfile hostfile --log-level=INFO model.py
+   tarantella --hostfile hostfile --log-level=INFO -- model.py
 
-The directory where to put the log files can be specified with ``--log-dir=<your_log_dir>``.
-It will be created if necessary and existing files will be overwritten, in case it already exists.
 By default, ``tarantella`` will log on the :ref:`master rank <ranks-label>` only.
-This can be changed by using the ``--log-on-all-devices`` option which will create log files
-for each :ref:`rank <ranks-label>` individually.
+This can be changed by using the ``--log-on-all-devices`` option which will print
+log messages for each :ref:`rank <ranks-label>` individually.
+
+.. todo::
+
+   * ``--output-on-all-devices``
+   * ``--dry-run``
+   * ``--fusion-threshold`` (link to advanced topics)
+   * [optional] ENVIRONMENT variables (``TNT_TENSORBOARD_ON_ALL_DEVICES``)
 
 Save and load Tarantella models
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Storing and loading your trained ``Tarantella.Modell`` is very simple.
+Storing and loading your trained ``Tarantella.Model`` is very simple.
 
 Tarantella supports all the different ways, in which you can load and store a ``keras.Model``
 (for a guide look for instance `here <https://www.tensorflow.org/guide/keras/save_and_serialize>`__).
@@ -405,21 +409,11 @@ There is a number of points you should be aware of when using Tarantella.
    ``tnt.init()`` needs to be called **after** ``import tarantella as tnt``, but **before**
    any other statement.
 
-This will make sure, GASPIs communication infrastructure is correctly initialized.
+This will make sure, the GPI-2 communication infrastructure is correctly initialized.
 
 .. note::
 
-   Tarantella only supports one ``Keras.Model`` to be transformed into a ``Tarantella.Model``
-   per program.
-
-This should not limit the expressiveness of your models, however. In case you want to
-use several DNNs in the same model (e.g., to build a GAN), simply construct several
-``Keras.Model`` s and combine them into a single one by calling them explicitly, as described e.g.
-`here <https://www.tensorflow.org/guide/keras/functional#all_models_are_callable_just_like_layers>`_.
-
-.. note::
-
-  * Tarantella does not support custom training loops.
+   Tarantella does not support custom training loops.
 
 Instead of using custom training loops, please use ``Model.fit(...)``.
 

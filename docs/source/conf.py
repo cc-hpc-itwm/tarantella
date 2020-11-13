@@ -65,3 +65,8 @@ except:
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+html_title = release
+html_theme_options = dict()
+html_theme_options ['logo_only'] = False
+html_theme_options['display_version']= True
+html_logo = "pics/tnt_logo.png"
