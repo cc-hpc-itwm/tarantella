@@ -6,6 +6,7 @@ class TNTConfig(enum.Enum):
   TNT_DEVICES_PER_NODE = 'TNT_DEVICES_PER_NODE'
   TNT_OUTPUT_ON_ALL_DEVICES = 'TNT_OUTPUT_ON_ALL_DEVICES'
   TNT_LOG_ON_ALL_DEVICES = 'TNT_LOG_ON_ALL_DEVICES'
+  TNT_TENSORBOARD_ON_ALL_DEVICES = 'TNT_TENSORBOARD_ON_ALL_DEVICES'
   TNT_LOG_DIR = 'TNT_LOG_DIR'
   TNT_LOG_LEVEL = 'TNT_LOG_LEVEL'
   TNT_FUSION_THRESHOLD = 'TNT_FUSION_THRESHOLD'
@@ -17,6 +18,7 @@ class TarantellaConfigurationDefaults:
                        TNTConfig.TNT_FUSION_THRESHOLD : 32 * 1024,
                        TNTConfig.TNT_OUTPUT_ON_ALL_DEVICES : False,
                        TNTConfig.TNT_LOG_ON_ALL_DEVICES : False,
+                       TNTConfig.TNT_TENSORBOARD_ON_ALL_DEVICES : "False",
                        TNTConfig.TNT_LOG_DIR : None,
                        TNTConfig.TNT_LOG_LEVEL : "WARN",
                      }
@@ -58,6 +60,11 @@ class TarantellaConfiguration:
   @property
   def log_on_all_devices(self):
     return self.get_variable_or_default(TNTConfig.TNT_LOG_ON_ALL_DEVICES)
+
+  @property
+  def tensorboard_on_all_devices(self):
+    value_string = self.get_variable_or_default(TNTConfig.TNT_TENSORBOARD_ON_ALL_DEVICES)
+    return value_string.lower() == "true"
 
   @property
   def log_dir(self):

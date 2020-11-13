@@ -322,12 +322,29 @@ class Model(tf.keras.models.Model):
 
   def _preprocess_callbacks(self, callbacks):
     if callbacks is not None:
+      remove_tensorboard_index = None
+
       for index, callback in enumerate(callbacks):
         if isinstance(callback, tf.keras.callbacks.ModelCheckpoint):
           tnt_callback = TntModelCheckpoint(keras_model_checkpoint = callback,
                                             underlying_optimizer = self.orig_optimizer,
                                             distributed_optimizer = self.dist_optimizer)
           callbacks[index] = tnt_callback
+
+        elif isinstance(callback, tf.keras.callbacks.LearningRateScheduler):
+          if not tarantella.global_tnt_config.output_on_all_devices:
+            if not tarantella.is_master_rank():
+              callback.verbose = 0
+
+        elif isinstance(callback, tf.keras.callbacks.TensorBoard):
+          if tarantella.global_tnt_config.tensorboard_on_all_devices:
+            callback.log_dir += '/rank_{}'.format(self.rank)
+          else:
+            if not tarantella.is_master_rank():
+              remove_tensorboard_index = index
+
+      if remove_tensorboard_index is not None:
+        del callbacks[remove_tensorboard_index]
 
 
 class TntModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
