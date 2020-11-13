@@ -5,6 +5,12 @@ import tensorflow as tf
 
 TARANTELLA_ENV_VAR_PREFIX = "TNT_"
 
+def get_tnt_variables_from_args(args):
+  tnt_vars = dict()
+  if args.fusion_threshold_kb is not None:
+    tnt_vars['TNT_FUSION_THRESHOLD'] = int(args.fusion_threshold_kb) * 1024
+  return tnt_vars
+
 def get_logging_variables(log_level, log_all, output_all):
   return { "TNT_LOG_LEVEL" : str(log_level),
            "TNT_LOG_ON_ALL_DEVICES" : str(log_all),

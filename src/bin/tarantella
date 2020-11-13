@@ -13,6 +13,11 @@ sys.path.append(LIB_DIR)
 sys.path.append(PYLIB_DIR)
 
 try:
+  from version import tnt_version
+except:
+  tnt_version = "Unknown version"
+
+try:
   import runtime
 except ModuleNotFoundError as e:
   raise RuntimeError("[CLI] Cannot find Tarantella `runtime` module; \
@@ -25,7 +30,7 @@ import runtime.environment_config as env_config
 from runtime import logger
 
 def parse_args():
-  parser = argparse.ArgumentParser()
+  parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter)
   singlenode_group = parser.add_argument_group('Single-node execution')
   singlenode_group.add_argument("-n",
                     help="number of TensorFlow instances to start on the local node",
@@ -62,11 +67,19 @@ def parse_args():
   log_levels = ('DEBUG', 'INFO', 'WARNING', 'ERROR')
   parser.add_argument('--log-level', default='WARNING', choices=log_levels,
                       help = "logging level for library messages")
+  parser.add_argument("--fusion-threshold",
+                    help="tensor fusion threshold [kilobytes]",
+                    dest = "fusion_threshold_kb",
+                    type = int,
+                    default = None)
   parser.add_argument("--dry-run",
                     help="print generated files and execution command",
                     dest = "dry_run",
                     action='store_true',
                     default = False)
+  parser.add_argument("--version",
+                    action='version',
+                    version=generate_version_message())
   parser.add_argument('script', nargs='+',metavar='-- SCRIPT')
   args = parser.parse_args()
   return args
@@ -105,16 +118,21 @@ def generate_run_error_message(e, hostfile_path = None,
   error_string += "[CLI] Execution failed with status {}".format(e.returncode)
   return error_string
 
+def generate_version_message():
+  msg = ["Tarantella {}".format(tnt_version),
+         "Path: {}".format(os.path.dirname(os.path.abspath(__file__))),
+         "Copyright (C) 2020 Fraunhofer"]
+  return "\n".join(msg)
 
 class Tarantella:
-  def __init__(self, hostlist, num_gpus_per_node, num_cpus_per_node,
-               command_list, log_all, output_all):
+  def __init__(self, hostlist, num_gpus_per_node, num_cpus_per_node, args):
+    self.args = args
     self.log_level = logging.getLevelName(logger.level)
-    self.log_all = log_all
-    self.output_all = output_all
+    self.log_all = args.log_all
+    self.output_all = args.output_all
 
     self.hostlist = hostlist
-    self.command_list = command_list
+    self.command_list = args.script
 
     self.npernode = num_gpus_per_node
     if self.npernode == 0:
@@ -132,6 +150,7 @@ class Tarantella:
     environment = env_config.gen_exports_from_dict(env_config.collect_environment_variables()) + \
                   env_config.gen_exports_from_dict(env_config.collect_tensorflow_variables()) + \
                   env_config.gen_exports_from_dict(env_config.collect_tarantella_variables()) + \
+                  env_config.gen_exports_from_dict(env_config.get_tnt_variables_from_args(self.args)) +\
                   env_config.gen_exports_from_dict(env_config.get_logging_variables(self.log_level,
                                                                                     self.log_all,
                                                                                     self.output_all))
@@ -172,6 +191,5 @@ if __name__ == "__main__":
                                                                      use_gpus = args.use_gpus)
   env_config.update_environment_paths(LIB_DIR)
 
-  tarantella = Tarantella(nodes_list, num_gpus, num_cpus, args.script,
-                          args.log_all, args.output_all)
+  tarantella = Tarantella(nodes_list, num_gpus, num_cpus, args)
   tarantella.run(args.dry_run)
