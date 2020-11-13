@@ -67,7 +67,9 @@ val_size = args.val_size
 test_size = args.test_size
 shuffle_seed = 12
 
-# MODEL
+# MODELS
+# ======
+
 # Reference model
 tf.random.set_seed(42)
 inputs = keras.Input(shape=(28,28,1,), name='input')
@@ -77,51 +79,46 @@ x = layers.Dense(200, activation='relu')(x)
 outputs = layers.Dense(10, activation='softmax', name='softmax')(x)
 reference_model = keras.Model(inputs=inputs, outputs=outputs)
 
-# Building the graph
-# Specify the training configuration (optimizer, loss, metrics) & compile
-opt = keras.optimizers.SGD(learning_rate=args.learning_rate)
-reference_model.compile(optimizer=opt,
+# Tarantella model
+tf.random.set_seed(42) # re-seed to get the same initial weights as in reference
+tnt_model = tnt.models.clone_model(reference_model)
+
+# Optimizer
+sgd_reference = keras.optimizers.SGD(learning_rate = args.learning_rate)
+sgd_tnt = keras.optimizers.SGD(learning_rate = args.learning_rate)
+
+# COMPILE
+# =======
+
+reference_model.compile(optimizer = sgd_reference,
                         loss=keras.losses.SparseCategoricalCrossentropy(),
                         metrics=[keras.metrics.SparseCategoricalAccuracy()],
                        )
-              
-# Tarantella model
-tf.random.set_seed(42)
-model = tnt.models.clone_model(reference_model)
 
-# Building the graph
-# Specify the training configuration (optimizer, loss, metrics) & compile
-opt = keras.optimizers.SGD(learning_rate=args.learning_rate)
-model.compile(optimizer=opt,
-              loss=keras.losses.SparseCategoricalCrossentropy(),
-              metrics=[keras.metrics.SparseCategoricalAccuracy()],
-             )
-model.summary()
+tnt_model.compile(optimizer = sgd_tnt,
+                  loss=keras.losses.SparseCategoricalCrossentropy(),
+                  metrics=[keras.metrics.SparseCategoricalAccuracy()],
+                 )
 
-# DATA LOADING & PRE-PROCESSING
-# Load MNIST dataset
+# DATASET
+# =======
+
 (x_train, y_train), (x_val, y_val), (x_test, y_test) = mnist_as_np_arrays(train_size, val_size, test_size)
 train_dataset = create_dataset_from_arrays(x_train, y_train, batch_size).shuffle(len(x_train), shuffle_seed)
 val_dataset = create_dataset_from_arrays(x_val, y_val, batch_size)
 test_dataset = create_dataset_from_arrays(x_test, y_test, batch_size)
 
 # TRAINING
-# Reference model
-history = reference_model.fit(train_dataset,
-                              epochs = args.number_epochs,
-                              shuffle = False,
-                              verbose = args.verbose if tnt.is_master_rank() else 0,
-                              validation_data=val_dataset)
-reference_loss_accuracy = reference_model.evaluate(test_dataset,
-                                                   verbose=0)
+# ========
 
-# Tarantella model
-# Start the training w/ logging
-log_file = "logs/profiler/gpi-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "/rank" + str(rank)
-#tensorboard_callback = keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+# Callbacks
+# ---------
 
-runtime_callback = utils.RuntimeProfiler(batch_size = batch_size, logging_freq= 10, print_freq= 30)
+# TensorBoard
+# log_file = "logs/profiler/gpi-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "/rank" + str(rank)
+# tensorboard_callback = keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
 
+# ModelCheckpoint
 save_weights_only = False
 if save_weights_only:
   chk_path = "/home/labus/git/hpdlf/src/examples/checkpoints/weights"
@@ -131,41 +128,58 @@ model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
     chk_path, monitor='val_acc', verbose=1, save_best_only=False,
     save_weights_only=save_weights_only, mode='auto', save_freq='epoch', options=None)
 
-history = model.fit(train_dataset,
-                    epochs = args.number_epochs,
-                    shuffle = False,
-                    verbose = args.verbose,
-                    validation_data=val_dataset,
-                    callbacks = [model_checkpoint_callback],
-                   )
-tnt_loss_accuracy = model.evaluate(test_dataset, verbose=0)
+# Reference model
+# ---------------
+history = reference_model.fit(train_dataset,
+                              epochs = args.number_epochs,
+                              shuffle = False,
+                              verbose = args.verbose if tnt.is_master_rank() else 0,
+                              validation_data = val_dataset,
+                             )
+reference_loss_accuracy = reference_model.evaluate(test_dataset,
+                                                   verbose=0)
+
+# Tarantella model
+# ----------------
+history = tnt_model.fit(train_dataset,
+                        epochs = args.number_epochs,
+                        shuffle = False,
+                        verbose = args.verbose,
+                        validation_data = val_dataset,
+                        callbacks = [model_checkpoint_callback],
+                       )
+tnt_loss_accuracy = tnt_model.evaluate(test_dataset, verbose=0)
 
 if tnt.is_master_rank():
   print("Reference [test_loss, accuracy] = ", reference_loss_accuracy)
   print("Tarantella[test_loss, accuracy] = ", tnt_loss_accuracy)
 
+# RECONSTRUCT SAVED MODEL
+# =======================
+
+sgd_reconstructed = keras.optimizers.SGD(learning_rate = args.learning_rate)
+
 # Save tnt.Model configuration, initialize new model, and load weights from checkpoint
 if save_weights_only:
-  config = model.get_config()
-  new_model = tnt.models.model_from_config(config)
-  new_model.compile(optimizer=opt,
+  config = tnt_model.get_config()
+  reconstructed_model = tnt.models.model_from_config(config)
+  reconstructed_model.compile(optimizer = sgd_reconstructed,
                     loss=keras.losses.SparseCategoricalCrossentropy(),
                     metrics=[keras.metrics.SparseCategoricalAccuracy()],
                    )
-  new_model.load_weights(filepath = chk_path)
-  new_model_accuracy = new_model.evaluate(test_dataset, verbose=0)
-  if tnt.is_master_rank():
-    print("New model [test_loss, accuracy] = ", new_model_accuracy)
+  reconstructed_model.load_weights(filepath = chk_path)
 
 # Restore Tarantella model from checkpoint
 if not save_weights_only:
   model_path = "/home/labus/git/hpdlf/src/examples/checkpoints/chk_" + str(args.number_epochs)
   reconstructed_model = tnt.models.load_model(model_path)
   # TODO: Automatically compile in `tnt.models.load_model`
-  reconstructed_model.compile(optimizer=opt,
+  reconstructed_model.compile(optimizer = sgd_reconstructed,
                               loss=keras.losses.SparseCategoricalCrossentropy(),
                               metrics=[keras.metrics.SparseCategoricalAccuracy()],
                              )
-  reconstructed_loss_accuracy = reconstructed_model.evaluate(test_dataset, verbose=0)
-  if tnt.is_master_rank():
-    print("Reconstructed Tarantella [test_loss, accuracy] = ", reconstructed_loss_accuracy)
+
+reconstructed_loss_accuracy = reconstructed_model.evaluate(test_dataset, verbose=0)
+
+if tnt.is_master_rank():
+  print("Reconstructed model [test_loss, accuracy] = ", reconstructed_loss_accuracy)
