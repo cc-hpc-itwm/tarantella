@@ -263,6 +263,8 @@ Here is an example, how this can be used to restore a model:
    new_model = tnt.models.model_from_config(config)
    new_model.set_weights(weights)
 
+.. _checkpointing-via-callbacks-label:
+
 Checkpointing via callbacks
 ---------------------------
 
@@ -355,9 +357,43 @@ However, when a random ``seed`` is provided by the user, Tarantella will use tha
 Callbacks
 ^^^^^^^^^
 
-.. todo::
+At the moment, Tarantella fully supports 3 of the
+`Keras callbacks <https://www.tensorflow.org/api_docs/python/tf/keras/callbacks>`__:
 
-   fill in
+* ``tf.keras.callbacks.LearningRateScheduler``
+* ``tf.keras.callbacks.ModelCheckpoint``
+* ``tf.keras.callbacks.TensorBoard``
+
+The ``LearningRateScheduler`` takes a ``schedule`` which will change the learning rate
+on each of the devices used (for detailed explanation, cf.
+`here <https://www.tensorflow.org/api_docs/python/tf/keras/callbacks/LearningRateScheduler>`__
+and
+`here <https://www.tensorflow.org/guide/keras/train_and_evaluate#using_learning_rate_schedules>`__
+).
+If ``verbose=1`` is set, Tarantella will only print on one device by default.
+This behavior can be changed by passing ``--output-on-all-devices`` to ``tarantella``.
+
+``ModelCheckpoint`` can be used to automatically checkpoint the state of the model
+during training. For an example look :ref:`here <checkpointing-via-callbacks-label>`,
+and into the
+`Keras documentation <https://www.tensorflow.org/api_docs/python/tf/keras/callbacks/ModelCheckpoint>`__.
+
+The ``TensorBoard`` callback can be used to collect training information for visualization
+in `TensorBoard <https://www.tensorflow.org/tensorboard>`__. By default, Tarantella
+will only collect (device local) information on one device. If you want to collect
+the local information on all devices use the environment variable ``TNT_TENSORBOARD_ON_ALL_DEVICES``:
+
+.. code-block:: bash
+
+   TNT_TENSORBOARD_ON_ALL_DEVICES=true tarantella -- model.py
+
+.. note::
+
+   At the moment, all of the other Keras callbacks will be executed on all devices with
+   local information only.
+
+For instance, the ``BaseLogger`` callback will be executed on each and every rank,
+and will log the acculumated metric averages for the local (micro-batch) information.
 
 Important points
 ^^^^^^^^^^^^^^^^
