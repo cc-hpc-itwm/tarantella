@@ -65,7 +65,7 @@ def init(devices_per_node = None):
     global_context = GPICommLib.GPIContext()
 
     logging_config.setup_logging(logger, global_tnt_config.log_level,
-                                 get_rank(), get_rank() == 0,
+                                 get_rank(), is_master_rank(),
                                  global_tnt_config.log_on_all_devices,)
 
     if devices_per_node is None:
