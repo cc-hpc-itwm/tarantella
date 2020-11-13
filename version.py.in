@@ -1,0 +1,2 @@
+global tnt_version
+tnt_version = "@PROJECT_VERSION@"
