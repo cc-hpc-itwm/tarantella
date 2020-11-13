@@ -26,6 +26,12 @@ from runtime import logger
 
 def parse_args():
   parser = argparse.ArgumentParser()
+  singlenode_group = parser.add_argument_group('Single-node execution')
+  singlenode_group.add_argument("-n",
+                    help="Number of processes to start on the local node",
+                    dest = "npernode",
+                    type = int,
+                    default = None)
   multinode_group = parser.add_argument_group('Multi-node execution')
   multinode_group.add_argument("--hostfile",
                       dest = "hostfile",
@@ -36,15 +42,9 @@ def parse_args():
                     dest = "npernode",
                     type = int,
                     default = None)
-  singlenode_group = parser.add_argument_group('Single-node execution')
-  singlenode_group.add_argument("-n",
-                    help="Number of processes to start on the local node",
-                    dest = "npernode",
-                    type = int,
-                    default = None)
 
   parser.add_argument("--no-gpu",
-                    help="Disable GPU usage",
+                    help="Disallow GPU usage",
                     dest = "use_gpus",
                     action='store_false',
                     default = True)
@@ -54,30 +54,54 @@ def parse_args():
                     action='store_true',
                     default = False)
   parser.add_argument("--log-all-devices",
-                    help="Enable logging on all devices",
+                    help="Enable library logging messages on all devices",
                     dest = "log_all",
                     action='store_true',
                     default = False)
   log_levels = ('DEBUG', 'INFO', 'WARNING', 'ERROR')
-  parser.add_argument('--log-level', default='WARNING', choices=log_levels)
-  parser.add_argument('script', nargs='+')
+  parser.add_argument('--log-level', default='WARNING', choices=log_levels,
+                      help = "Logging level for library messages")
+  parser.add_argument("--dry-run",
+                    help="Print generated files and execution command",
+                    dest = "dry_run",
+                    action='store_true',
+                    default = False)
+  parser.add_argument('script', nargs='+',metavar='-- script')
   args = parser.parse_args()
   return args
 
-def generate_run_error_string(e, executed_script_path = None):
+def tnt_run_message(command_list, hostfile_path, exec_script_path):
+  msg = ""
+  if not hostfile_path is None:
+    msg += "\n{}\nGenerated hostfile:\n".format("="*80)
+    with open(hostfile_path, 'r') as f:
+      msg += "============= {} =============\n{}\n".format(hostfile_path,
+                                                           "".join(f.readlines()))
+  if not exec_script_path is None:
+    msg += "\n{}\nGenerated script:\n".format("="*80)
+    with open(exec_script_path, 'r') as f:
+      msg += "============= {} =============\n{}\n".format(exec_script_path,
+                                                           "".join(f.readlines()))
+  msg += "\n{}".format("="*80)
+  msg += "\nCommand:\n\t{}\n".format(" ".join(command_list))
+  return msg
+
+def generate_dry_run_message(command_list, hostfile_path, exec_script_path):
+  msg = "\n{}".format("="*80)
+  msg += "\n{0}{1}DRY RUN {1}{0}\n".format("="*6, " "*30)
+  msg += tnt_run_message(command_list, hostfile_path, exec_script_path)
+  return msg
+
+def generate_run_error_message(e, hostfile_path = None,
+                               executed_script_path = None):
   error_string = ""
   if not e.stdout is None:
     error_string += "============= STDOUT =============\n{}\n".format(e.stdout)
   if not e.stderr is None:
     error_string += "============= STDERR =============\n{}\n".format(e.stderr)
-  if not executed_script_path is None:
-    error_string += "\n{}\nExecuted script:\n".format("="*80)
-    with open(executed_script_path, 'r') as f:
-      error_string += "============= {} =============\n{}\n".format(executed_script_path,
-                                                                    "".join(f.readlines()))
-  error_string += "\n{}".format("="*80)
-  error_string += "\nCommand:\n\t{}\n".format(" ".join(e.cmd))
-  error_string += "[CLI] Execution failed with status {}\n".format(e.returncode)
+  error_string += tnt_run_message(e.cmd, hostfile_path = hostfile_path,
+                                  exec_script_path = executed_script_path)
+  error_string += "[CLI] Execution failed with status {}".format(e.returncode)
   return error_string
 
 
@@ -111,25 +135,32 @@ class Tarantella:
                                                                                     self.log_all,
                                                                                     self.output_all))
 
-    command = "python %s" % (' '.join(self.command_list))
+    command = "python {}".format(' '.join(self.command_list))
     return file_man.GPIScriptFile(header, environment, command, dir = os.getcwd())
 
-  def run(self):
-    path_to_gpi = shutil.which("gaspi_run")
-    if path_to_gpi is None:
-      sys.exit("[CLI] Cannot execute `gaspi_run`; make sure it is added to the current `PATH`.")
-
+  def run(self, dry_run = False):
     with self.hostfile, self.executable_script:
       command_list = ["gaspi_run", "-n", str(self.nranks),
                       "-m", self.hostfile.name,
                       self.executable_script.filename]
+
+      if dry_run:
+        print(generate_dry_run_message(command_list, self.hostfile.name,
+                                       self.executable_script.filename))
+        return
+
+      path_to_gpi = shutil.which("gaspi_run")
+      if path_to_gpi is None:
+        sys.exit("[CLI] Cannot execute `gaspi_run`; make sure it is added to the current `PATH`.")
+
       try:
         result = subprocess.run(command_list,
                     check = True,
                     cwd = os.getcwd(),
                     stdout = None, stderr = None,)
       except subprocess.CalledProcessError as e:
-        sys.exit(generate_run_error_string(e, self.executable_script.filename))
+        sys.exit(generate_run_error_message(e, self.hostfile.name,
+                                            self.executable_script.filename))
 
 if __name__ == "__main__":
   args = parse_args()
@@ -142,4 +173,4 @@ if __name__ == "__main__":
 
   tarantella = Tarantella(nodes_list, num_gpus, num_cpus, args.script,
                           args.log_all, args.output_all)
-  tarantella.run()
+  tarantella.run(args.dry_run)
