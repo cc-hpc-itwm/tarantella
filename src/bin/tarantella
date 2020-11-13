@@ -28,45 +28,46 @@ def parse_args():
   parser = argparse.ArgumentParser()
   singlenode_group = parser.add_argument_group('Single-node execution')
   singlenode_group.add_argument("-n",
-                    help="Number of processes to start on the local node",
+                    help="number of TensorFlow instances to start on the local node",
                     dest = "npernode",
+                    metavar = "N",
                     type = int,
                     default = None)
   multinode_group = parser.add_argument_group('Multi-node execution')
   multinode_group.add_argument("--hostfile",
                       dest = "hostfile",
-                      help="Path to the list of nodes (hostnames) on which to execute the code",
+                      help="path to the list of nodes (hostnames) on which to execute the SCRIPT",
                       default = None)
   multinode_group.add_argument("--n-per-node", "--devices-per-node",
-                    help="Number of devices (i.e., either GPUs or CPUs) to be used per node",
+                    help="number of devices (i.e., either GPUs or processes on CPUs) to be used on each node",
                     dest = "npernode",
                     type = int,
                     default = None)
 
   parser.add_argument("--no-gpu",
-                    help="Disallow GPU usage",
+                    help="disallow GPU usage",
                     dest = "use_gpus",
                     action='store_false',
                     default = True)
   parser.add_argument("--output-all-devices",
-                    help="Enable output from all devices (e.g., training info)",
+                    help="enable output on all devices (e.g., training info)",
                     dest = "output_all",
                     action='store_true',
                     default = False)
   parser.add_argument("--log-all-devices",
-                    help="Enable library logging messages on all devices",
+                    help="enable library logging messages on all devices",
                     dest = "log_all",
                     action='store_true',
                     default = False)
   log_levels = ('DEBUG', 'INFO', 'WARNING', 'ERROR')
   parser.add_argument('--log-level', default='WARNING', choices=log_levels,
-                      help = "Logging level for library messages")
+                      help = "logging level for library messages")
   parser.add_argument("--dry-run",
-                    help="Print generated files and execution command",
+                    help="print generated files and execution command",
                     dest = "dry_run",
                     action='store_true',
                     default = False)
-  parser.add_argument('script', nargs='+',metavar='-- script')
+  parser.add_argument('script', nargs='+',metavar='-- SCRIPT')
   args = parser.parse_args()
   return args
 
