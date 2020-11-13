@@ -115,8 +115,8 @@ test_dataset = create_dataset_from_arrays(x_test, y_test, batch_size)
 # ---------
 
 # TensorBoard
-# log_file = "logs/profiler/gpi-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "/rank" + str(rank)
-# tensorboard_callback = keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+log_dir = "/home/labus/git/hpdlf/src/examples/logs"
+tensorboard_callback = keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
 
 # ModelCheckpoint
 save_weights_only = False
@@ -154,7 +154,8 @@ history = tnt_model.fit(train_dataset,
                         verbose = args.verbose,
                         validation_data = val_dataset,
                         callbacks = [model_checkpoint_callback,
-                                     learning_rate_scheduler_callback],
+                                     learning_rate_scheduler_callback,
+                                     tensorboard_callback],
                        )
 tnt_loss_accuracy = tnt_model.evaluate(test_dataset, verbose=0)
 
