@@ -22,7 +22,7 @@ copyright = '2020 Fraunhofer'
 author = 'Peter Labus, Alexandra Carpen-Amarie, Martin Kuehn'
 
 # The full version, including alpha/beta/rc tags
-release = 'v0.3'
+release = '0'
 
 
 # -- General configuration ---------------------------------------------------
@@ -30,12 +30,12 @@ release = 'v0.3'
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-import sphinx_rtd_theme
-extensions = [
-        'sphinx.ext.todo',
-        'sphinx_rtd_theme',
-        #'sphinx.ext.autodoc', # extracts docs from doc-strings in python
-]
+extensions = ['sphinx.ext.todo']
+try:
+  import sphinx_rtd_theme
+  extensions += ['sphinx_rtd_theme']
+except:
+  pass
 
 # Display TODOs by setting to True
 todo_include_todos = True
@@ -55,7 +55,11 @@ exclude_patterns = []
 # a list of builtin themes.
 #
 # html_theme = 'alabaster' # default
-html_theme = "sphinx_rtd_theme"
+try:
+  import sphinx_rtd_theme
+  html_theme = "sphinx_rtd_theme"
+except:
+  pass
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
