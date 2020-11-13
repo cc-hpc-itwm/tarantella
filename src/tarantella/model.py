@@ -328,6 +328,11 @@ class Model(tf.keras.models.Model):
                                             underlying_optimizer = self.orig_optimizer,
                                             distributed_optimizer = self.dist_optimizer)
           callbacks[index] = tnt_callback
+        elif isinstance(callback, tf.keras.callbacks.LearningRateScheduler):
+          if not tarantella.global_tnt_config.output_on_all_devices:
+            if not tarantella.is_master_rank():
+              callback.verbose = 0
+
 
 
 class TntModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
