@@ -58,6 +58,22 @@ For more information, please also read :ref:`using distributed datasets <using-d
 Setting Tensor Fusion threshold
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Tarantella automatically uses :ref:`Tensor Fusion <tensor-fusion-label>` with a default
+threshold of 32kB. This threshold specifies the minimal size of local buffers in *allreduce*
+communication operations used to accumulate partial gradients during *backpropagation*.
+
+Note that the threshold value implies a trade-off between the potential to utilize network
+bandwidth, and the overlap of computation and communication during *backpropagation*. The
+larger the threshold, the more bandwidth-bound the *allreduce* algorithm will get, but
+the less potential there will be to overlap its execution with kernel computation.
+Also note, that the ideal threshold value will generally depend on the number of nodes used.
+
+To change the default value, you can pass a threshold value in kB to ``tarantella``:
+
+.. code-block:: bash
+
+   tarantella --hostfile hostfile --fusion-threshold=<FUSION_THRESHOLD_KB> -- model.py
+
 
 .. _reproducibility-label:
 
