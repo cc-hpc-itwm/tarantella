@@ -122,10 +122,17 @@ To change the default value, you can pass a threshold value in kB to ``tarantell
 Reproducibility
 ^^^^^^^^^^^^^^^
 
-.. todo::
+Reproducibility is a very important prerequisite to obtain meaningful results in
+scientific computing and research. Unfortunately, using stochastic algorithms,
+pseudo random generators and having to deal with the pitfalls of floating-point arithmetics,
+it is particularly difficult to achieve reproducibility in Deep Learning research.
 
-  * using ranks
-  * setting local batch size
-  * setting fusion threshold
-  * reproducability (tf.random.set_seed, something with GPUs, something with datasets @Alex)
+In order to be able to reproduce results obtained with TensorFlow, when running in
+a multi-node/multi-device setting with Tarantella, one needs to meet at least 
+the following requirements:
+
+* set the random seed with ``tf.random.set_seed(seed)``
+* set the shuffle seeds when using ``tf.data.Dataset`` with ``shuffle(seed=seed)``
+* set the environment variable ``os.environ['TF_CUDNN_DETERMINISTIC']='1'``
+* make sure that datasets are a multiple of ``batch_size`` long
 
