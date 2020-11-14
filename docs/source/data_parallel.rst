@@ -182,6 +182,9 @@ of a ``rank``. Details on how to do this can be found in the
 
 .. [Uppal] https://towardsdatascience.com/curse-of-batch-normalization-8e6dd20bc304
 
+.. [McCandlish] McCandlish, Sam, et al. "An empirical model of large-batch training." arXiv preprint arXiv:1812.06162 (2018).
+
+
 .. rubric:: Footnotes
 
 .. [#footnote_random_seeds] This is strictly true, only when all randomness in TensorFlow is
