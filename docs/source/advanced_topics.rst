@@ -4,10 +4,52 @@ Advanced Topics
 This guide covers a number of advanced topics, such as
 performance, reproducibility and user customization.
 
+
 .. _ranks-label:
 
 GASPI ranks
 ^^^^^^^^^^^
+
+In order to execute distributed DNN training, Tarantella starts multiple processes
+on different devices. These processes will be assigned different IDs by the GASPI
+communication library, in order to organize communication and synchronization between
+the different devices. These IDs are called *ranks*. Usually, Tarantella abstracts away
+the concept of *ranks*, in such a way that Tarantella's user interface is essentially
+the same as Keras' user interface.
+
+However, sometimes it is useful, to execute a specific part of code only on one
+or a subgroup of all ranks. In particular, one sometimes wants to execute a code
+block on the devices that started ``tarantella``, the so-called *master rank*.
+
+To access ranks, Tarantella provides the following functions
+
+* ``tnt.get_rank()``
+* ``tnt.get_size()``
+* ``tnt.get_master_rank()``
+* ``tnt.is_master_rank()``
+
+``tnt.get_rank()`` returns the ID of the local rank.
+``tnt.get_size()`` returns the total number of ranks.
+``tnt.get_master_rank()`` and ``tnt.is_master_rank()`` return the ID of the master rank
+and a boolean for whether the local rank is the master rank or not, respectively.
+
+Here is a simple example, when using the master rank can be useful to print notifications
+only once to ``stdout``:
+
+.. code-block:: python
+
+   if tnt.is_master_rank():
+     print("Printing from the master rank")
+
+In the same vein, you might want to use ranks to execute :ref:`callbacks <callbacks-label>` for logging 
+only on one rank:
+
+.. code-block:: python
+
+   history_callback = tf.keras.callbacks.History()
+   tnt_model.fit(train_dataset,
+                 callbacks = [history_callback] if tnt.is_master_rank() else [])
+
 
 
 Using local batch sizes
