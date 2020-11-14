@@ -161,12 +161,21 @@ By default, ``tarantella`` will log on the :ref:`master rank <ranks-label>` only
 This can be changed by using the ``--log-on-all-devices`` option which will print
 log messages for each :ref:`rank <ranks-label>` individually.
 
-.. todo::
+Similarly, by default ``tarantella`` will print outputs from functions like ``fit``,
+``evaluate`` and ``predict``, as well as callbacks only on the master rank.
+Sometimes, it might be useful to print outputs from all devices (e.g., for debugging),
+which can be switched on with the ``--output-on-all-devices`` option.
 
-   * ``--output-on-all-devices``
-   * ``--dry-run``
-   * ``--fusion-threshold`` (link to advanced topics)
-   * [optional] ENVIRONMENT variables (``TNT_TENSORBOARD_ON_ALL_DEVICES``)
+``tarantella`` uses GPI-2's ``gaspi_run`` internally, taking care of ``export`` ing
+environment variables, and generating an execution script from the user inputs.
+Details of this process can be monitored using the ``--dry-run`` option.
+
+Lastly, you can overwrite the *Tensor Fusion* threshold ``tarantella`` uses 
+with ``--fusion-threshold FUSION_THRESHOLD_KB``
+(cf. :ref:`here <tensor-fusion-label>` and :ref:`here <tensor-fusion-threshold-label>`),
+and set and number of environment variables, most notably
+``TNT_TENSORBOARD_ON_ALL_DEVICES``, as explained
+:ref:`here <callbacks-label>`.
 
 Save and load Tarantella models
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -357,6 +366,8 @@ and issue a ``WARNING`` message. This behavior will be fixed in the next release
 This guarantees that the input data is shuffled the same way on all devices,
 when no ``seed`` is given, which is necessary for consistency.
 However, when a random ``seed`` is provided by the user, Tarantella will use that one instead.
+
+.. _callbacks-label:
 
 Callbacks
 ^^^^^^^^^

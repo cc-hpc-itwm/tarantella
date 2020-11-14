@@ -39,6 +39,8 @@ The final, accumulated gradients are only expected once the entire *backpropagat
 This drastically mitigates the communication overhead introduced by the need to synchronize
 the different devices, and leads to higher scalability.
 
+.. _tensor-fusion-label:
+
 Tensor Fusion
 -------------
 
