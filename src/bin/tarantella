@@ -49,17 +49,17 @@ def parse_args():
                     type = int,
                     default = None)
 
-  parser.add_argument("--no-gpu",
+  parser.add_argument("--no-gpu", "--no-gpus",
                     help="disallow GPU usage",
                     dest = "use_gpus",
                     action='store_false',
                     default = True)
-  parser.add_argument("--output-all-devices",
+  parser.add_argument("--output-on-all-devices",
                     help="enable output on all devices (e.g., training info)",
                     dest = "output_all",
                     action='store_true',
                     default = False)
-  parser.add_argument("--log-all-devices",
+  parser.add_argument("--log-on-all-devices",
                     help="enable library logging messages on all devices",
                     dest = "log_all",
                     action='store_true',
