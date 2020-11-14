@@ -70,8 +70,6 @@ def init(devices_per_node = None):
 
     if devices_per_node is None:
       devices_per_node = global_tnt_config.devices_per_node
-      logger.warn("Overriding the default number of devices per node to {}".format(
-                               devices_per_node))
     setup_gpus(global_context.rank, ngpus = devices_per_node)
   
 def get_rank():
