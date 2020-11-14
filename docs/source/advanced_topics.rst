@@ -1,4 +1,4 @@
-Advanced topics
+Advanced Topics
 ===============
 
 This guide covers a number of advanced topics, such as

@@ -1,6 +1,6 @@
 .. _bug-reports-label:
 
-Bug reports
+Bug Reports
 ===========
 
 To report a bug please open an `issue on GitHub <https://github.com/cc-hpc-itwm/tarantella/issues>`_.
@@ -18,7 +18,7 @@ least the following points:
 
 .. _feature-requests-label:
 
-Feature requests
+Feature Requests
 ================
 
 For contributions other than modifications to the source code, as for
