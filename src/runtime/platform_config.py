@@ -38,20 +38,16 @@ def generate_num_gpus_per_node(npernode = None):
 
   else: # the user requested a specific number of devices
     if num_physical_gpus < npernode:
-      # not enough GPUs
-      raise ValueError("[generate_num_gpus_per_node] \
-      Not enough GPUs for the requested {} devices per node".format(npernode))
-    num_devices = num_physical_gpus
+      logger.debug("Not enough GPUs for the requested {} devices per node".format(npernode))
+      num_devices = 0
+    else:
+      num_devices = num_physical_gpus
   return num_devices
 
 def generate_num_devices_per_node(npernode = None, use_gpus = True):
   num_gpus = 0
   if use_gpus:
-    try:
-      num_gpus = generate_num_gpus_per_node(npernode)
-    except:
-      logger.warn("Cannot find {0} available GPUs per node as \
-requested; using {0} ranks on CPUs instead".format(npernode))
+    num_gpus = generate_num_gpus_per_node(npernode)
 
   num_cpus = 0
   if num_gpus == 0:
@@ -59,4 +55,9 @@ requested; using {0} ranks on CPUs instead".format(npernode))
       num_cpus = 1
     else:
       num_cpus = npernode
+
+  if use_gpus and num_gpus <= 0:
+    logger.warn("Cannot find {0} available GPUs per node as \
+requested; using {0} ranks on CPUs instead".format(num_cpus))
+
   return num_gpus, num_cpus

@@ -20,7 +20,7 @@ except:
 try:
   import runtime
 except ModuleNotFoundError as e:
-  raise RuntimeError("[CLI] Cannot find Tarantella `runtime` module; \
+  raise RuntimeError("[TNT_CLI] Cannot find Tarantella `runtime` module; \
 make sure the `tarantella` script is started from an installed version.") from e
 
 import runtime.file_management as file_man
@@ -49,17 +49,17 @@ def parse_args():
                     type = int,
                     default = None)
 
-  parser.add_argument("--no-gpu",
+  parser.add_argument("--no-gpu", "--no-gpus",
                     help="disallow GPU usage",
                     dest = "use_gpus",
                     action='store_false',
                     default = True)
-  parser.add_argument("--output-all-devices",
+  parser.add_argument("--output-on-all-devices",
                     help="enable output on all devices (e.g., training info)",
                     dest = "output_all",
                     action='store_true',
                     default = False)
-  parser.add_argument("--log-all-devices",
+  parser.add_argument("--log-on-all-devices",
                     help="enable library logging messages on all devices",
                     dest = "log_all",
                     action='store_true',
@@ -115,7 +115,7 @@ def generate_run_error_message(e, hostfile_path = None,
     error_string += "============= STDERR =============\n{}\n".format(e.stderr)
   error_string += tnt_run_message(e.cmd, hostfile_path = hostfile_path,
                                   exec_script_path = executed_script_path)
-  error_string += "[CLI] Execution failed with status {}".format(e.returncode)
+  error_string += "[TNT_CLI] Execution failed with status {}".format(e.returncode)
   return error_string
 
 def generate_version_message():
@@ -135,12 +135,17 @@ class Tarantella:
     self.command_list = args.script
 
     self.npernode = num_gpus_per_node
+    device_type = "GPUs"
     if self.npernode == 0:
       self.npernode = num_cpus_per_node
+      device_type = "CPU processes"
 
     self.nranks = len(hostlist) * self.npernode
     self.hostfile = file_man.HostFile(self.hostlist, self.npernode)
     self.executable_script = self.generate_executable_script()
+    logger.info("Starting Tarantella on {} devices ({} nodes x {} {})".format(self.nranks,
+                 len(self.hostlist), self.npernode, device_type))
+
 
   def generate_executable_script(self):
     # create execution script
@@ -171,7 +176,7 @@ class Tarantella:
 
       path_to_gpi = shutil.which("gaspi_run")
       if path_to_gpi is None:
-        sys.exit("[CLI] Cannot execute `gaspi_run`; make sure it is added to the current `PATH`.")
+        sys.exit("[TNT_CLI] Cannot execute `gaspi_run`; make sure it is added to the current `PATH`.")
 
       try:
         result = subprocess.run(command_list,
