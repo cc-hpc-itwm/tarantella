@@ -132,7 +132,8 @@ a multi-node/multi-device setting with Tarantella, one needs to meet at least
 the following requirements:
 
 * set the random seed with ``tf.random.set_seed(seed)``
-* set the shuffle seeds when using ``tf.data.Dataset`` with ``shuffle(seed=seed)``
 * set the environment variable ``os.environ['TF_CUDNN_DETERMINISTIC']='1'``
-* make sure that datasets are a multiple of ``batch_size`` long
+* set the shuffle seeds when using ``tf.data.Dataset`` with ``shuffle(seed=seed)`` and ``list_files(seed=seed)``
+* set the ``deterministic`` parameter to ``True`` in ``Dataset`` transformations such as ``interleave`` and ``map``
+* make sure, the number of samples in your datasets equal a multiple of ``batch_size``
 
