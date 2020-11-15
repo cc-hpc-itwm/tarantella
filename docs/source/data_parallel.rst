@@ -184,6 +184,9 @@ of a ``rank``. Details on how to do this can be found in the
 
 .. [McCandlish] McCandlish, Sam, et al. "An empirical model of large-batch training." arXiv preprint arXiv:1812.06162 (2018).
 
+.. [He] He, Kaiming, et al. "Deep residual learning for image recognition." Proceedings of the IEEE conference on computer vision and pattern recognition. 2016.
+
+.. [Vaswani] Vaswani, Ashish, et al. "Attention is all you need." Advances in neural information processing systems. 2017.
 
 .. rubric:: Footnotes
 
