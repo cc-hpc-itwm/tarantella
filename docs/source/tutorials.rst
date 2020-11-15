@@ -19,13 +19,13 @@ Prerequisites
 -------------
 
 The tutorial models can be downloaded from the 
-`Tnt Models repository <https://github.com/cc-hpc-itwm/tnt_models>`_
+`Tnt Models repository <https://github.com/cc-hpc-itwm/tarantella_models>`_
 
 .. code-block:: bash
 
     export TNT_MODELS_PATH=/your/installation/path
     cd ${TNT_MODELS_PATH}
-    git clone https://github.com/cc-hpc-itwm/tnt_models
+    git clone https://github.com/cc-hpc-itwm/tarantella_models
 
 To use these models, install the the following dependencies:
 
@@ -124,7 +124,7 @@ In particular, the ImageNet dataset is loaded and preprocessed as follows:
 
 The 
 `imagenet_preprocessing.input_fn
-<https://github.com/cc-hpc-itwm/tnt_models/blob/master/models/resnet/image_preprocessing.py>`_
+<https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/resnet/imagenet_preprocessing.py>`_
 function takes the input files in ``data_dir``, loads the training samples and processes 
 them into TensorFlow datasets.
 
@@ -197,7 +197,7 @@ Run the Transformer with Tarantella
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The Tranformer training scheme can be found
-`here <https://github.com/cc-hpc-itwm/tnt_models/models/transformer/transformer_tnt.py>`__,
+`here <https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/transformer/transformer_tnt.py>`__,
 and has to be added to 
 the existing ``PYTHONPATH``:
 
