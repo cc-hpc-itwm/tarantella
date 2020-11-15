@@ -51,6 +51,7 @@ only on one rank:
                  callbacks = [history_callback] if tnt.is_master_rank() else [])
 
 
+.. _using-local-batch-sizes-label:
 
 Using local batch sizes
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -67,7 +68,12 @@ This is why it is in practice often advisable to scale the global batch size wit
 This will often lead to linear speedups in terms of the time to accuracy when increasing
 the number of devices used, at least up to some *critical batch size*, cf. [Shallue]_ and [McCandlish]_.
 Changing the batch size of the optimizer will however also imply the need to adapt the learning rate
-schedule. For details, cf. for instance the :ref:`ResNet-50 tutorial <resnet50-label>`.
+schedule.
+
+.. todo::
+  
+  Enable when the Tutorial is updated:
+  For details, cf. for instance the :ref:`ResNet-50 tutorial <resnet50-label>`.
 
 If you decide to scale the batch size with the number of nodes, Tarantella provides
 two different ways to achieve this easily. The first option is to multiply the local batch size

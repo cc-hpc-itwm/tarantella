@@ -230,12 +230,20 @@ Architecture saving and loading
 -------------------------------
 
 If you only want to save the configuration (that is the architecture) of your model
-(in memory), you can use one of the following functions: ``tnt.Model.get_config``,
-``tnt.Model.to_json`` and ``tnt.Model.to_yaml``.
-The architecture without its original weights and optimizer can then be restore
-using ``tnt.Model.from_config``/``tnt.models.model_from_config``,
-``tnt.models.model_from_json`` and ``tnt.models.model_from_yaml``, respectively.
+(in memory), you can use one of the following functions: 
 
+* ``tnt.Model.get_config``
+* ``tnt.Model.to_json``
+* ``tnt.Model.to_yaml``
+
+The architecture without its original weights and optimizer can then be restored
+using:
+
+* ``tnt.models.model_from_config`` / ``tnt.Model.from_config``
+* ``tnt.models.model_from_json``
+* ``tnt.models.model_from_yaml``
+
+respectively.
 Here is an example:
 
 .. code-block:: python
@@ -263,7 +271,7 @@ respectively. Saving and loading weights to/from disk is done
 using the functions ``tnt.Model.save_weights`` and ``tnt.Model.load_weights``,
 respectively.
 
-Here is an example, how this can be used to restore a model:
+Here is an example how this can be used to restore a model:
 
 .. code-block:: python
 
@@ -321,19 +329,20 @@ Using distributed datasets
 This section explains what needs to be done in order to use Tarantella's distributed datasets correctly.
 
 The recommended way in which to provide your dataset to Tarantella is by passing a
-batched ``tf.data.Dataset`` to ``tnt.Model.fit``.
+*batched* ``tf.data.Dataset`` to ``tnt.Model.fit``.
 In order to do this, create a ``Dataset`` and apply the ``batch``
 `transformation <https://www.tensorflow.org/api_docs/python/tf/data/Dataset#batch>`_
 using the (global) batch size to it. However, do not provide a value to ``batch_size``
-in ``tnt.Model.fit``, which will lead to an error.
+in ``tnt.Model.fit``, which would lead to double batching, and thus modified shapes
+for the input data.
 
 Tarantella also supports batched and unbatched ``Dataset`` s in ``tnt.Model.fit``
 when setting the ``tnt_micro_batch_size`` argument. This can be useful to obtain
-maximal performance in multi-node execution, as shown
-:ref:`here <resnet50-label>`. Keep in mind however, that Tarantella still expects
+maximal performance in multi-node execution, as explained
+:ref:`here <using-local-batch-sizes-label>`. Keep in mind however, that Tarantella still expects
 the ``Dataset`` to be batched with the global batch size, and that the micro-batch
 size has to be consistent with the global batch size. [#footnote_consistent]_
-This is why, it is recommended to use unbatched ``Dataset`` s when setting
+This is why, it is recommended to use an unbatched ``Dataset`` when setting
 a ``tnt_micro_batch_size`` explicitly.
 
 Tarantella does not support any other way to feed data to ``fit`` at the moment.
@@ -349,7 +358,7 @@ There are a few important points when using distributed datasets in Tarantella:
 
    Batch size must be a multiple of the number of devices used.
 
-This issue is temporary, and will be fixed in the next release.
+This issue will be fixed in the next release.
 
 .. note::
 
@@ -420,7 +429,7 @@ There is a number of points you should be aware of when using Tarantella.
    ``tnt.init()`` needs to be called **after** ``import tarantella as tnt``, but **before**
    any other statement.
 
-This will make sure, the GPI-2 communication infrastructure is correctly initialized.
+This will make sure the GPI-2 communication infrastructure is correctly initialized.
 
 .. note::
 
