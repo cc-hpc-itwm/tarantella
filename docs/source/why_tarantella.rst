@@ -38,10 +38,7 @@ models can be made ready for distributed training with minimal effort
 Tarantella supports distributed training on GPU and pure CPU clusters,
 independently of the hardware vendors.
 
-Performance Results
--------------------
-
 .. todo::
 
-   [add plots]
+   Performance Results
 
