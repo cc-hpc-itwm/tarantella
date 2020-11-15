@@ -71,7 +71,7 @@ Lastly, we can evaluate the final accuracy of our ``model`` on the ``test_datase
 ``model.evaluate``.
 
 To test and run ``tarantella`` in the next section, you can find a full version of the above example
-`here <https://github.com/cc-hpc-itwm/tarantella/tree/main/docs/source/model.py>`__.
+`here <https://github.com/cc-hpc-itwm/tarantella/blob/master/docs/source/model.py>`__.
 
 Executing your model with ``tarantella``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
