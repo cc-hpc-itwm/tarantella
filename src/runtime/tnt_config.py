@@ -1,8 +1,10 @@
 import enum
 import os
 
+TARANTELLA_ENV_VAR_PREFIX = "TNT_"
+
 class TNTConfig(enum.Enum):
-  TNT_DEVICES_PER_NODE = 'TNT_DEVICES_PER_NODE'
+  TNT_GPUS_PER_NODE = 'TNT_GPUS_PER_NODE'
   TNT_OUTPUT_ON_ALL_DEVICES = 'TNT_OUTPUT_ON_ALL_DEVICES'
   TNT_LOG_ON_ALL_DEVICES = 'TNT_LOG_ON_ALL_DEVICES'
   TNT_TENSORBOARD_ON_ALL_DEVICES = 'TNT_TENSORBOARD_ON_ALL_DEVICES'
@@ -13,7 +15,7 @@ class TNTConfig(enum.Enum):
 class TarantellaConfigurationDefaults:
   @classmethod
   def config(self):
-    default_config = { TNTConfig.TNT_DEVICES_PER_NODE : None,
+    default_config = { TNTConfig.TNT_GPUS_PER_NODE : None,
                        TNTConfig.TNT_FUSION_THRESHOLD : 32 * 1024,
                        TNTConfig.TNT_OUTPUT_ON_ALL_DEVICES : 'False',
                        TNTConfig.TNT_LOG_ON_ALL_DEVICES : 'False',
@@ -35,7 +37,7 @@ def get_configuration_from_env(filter_prefix = None):
 
 class TarantellaConfiguration:
   def __init__(self):
-    self.tarantella_env_prefix = "TNT_"
+    self.tarantella_env_prefix = TARANTELLA_ENV_VAR_PREFIX
     self.config = get_configuration_from_env(self.tarantella_env_prefix)
 
   def get_variable_or_default(self, variable_name):
@@ -46,11 +48,11 @@ class TarantellaConfiguration:
     return value
 
   @property
-  def devices_per_node(self):
-    devices_per_node_string = self.get_variable_or_default(TNTConfig.TNT_DEVICES_PER_NODE)
-    if devices_per_node_string is None:
+  def gpus_per_node(self):
+    gpus_per_node_string = self.get_variable_or_default(TNTConfig.TNT_GPUS_PER_NODE)
+    if gpus_per_node_string is None:
       return None
-    return int(devices_per_node_string)
+    return int(gpus_per_node_string)
 
   @property
   def output_on_all_devices(self):

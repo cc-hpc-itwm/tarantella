@@ -127,24 +127,24 @@ def generate_version_message():
 class Tarantella:
   def __init__(self, hostlist, num_gpus_per_node, num_cpus_per_node, args):
     self.args = args
-    self.log_level = logging.getLevelName(logger.level)
-    self.log_all = args.log_all
-    self.output_all = args.output_all
 
     self.hostlist = hostlist
     self.command_list = args.script
+    self.num_gpus_per_node = num_gpus_per_node
 
-    self.npernode = num_gpus_per_node
+    # compute number of ranks per node to create the hostfile
+    npernode = num_gpus_per_node
     device_type = "GPUs"
-    if self.npernode == 0:
-      self.npernode = num_cpus_per_node
+    if npernode == 0:
+      npernode = num_cpus_per_node
       device_type = "CPU processes"
 
-    self.nranks = len(hostlist) * self.npernode
-    self.hostfile = file_man.HostFile(self.hostlist, self.npernode)
+    self.nranks = len(hostlist) * npernode
+    self.hostfile = file_man.HostFile(self.hostlist, npernode)
     self.executable_script = self.generate_executable_script()
+
     logger.info("Starting Tarantella on {} devices ({} nodes x {} {})".format(self.nranks,
-                 len(self.hostlist), self.npernode, device_type))
+                 len(self.hostlist), npernode, device_type))
 
 
   def generate_executable_script(self):
@@ -156,9 +156,7 @@ class Tarantella:
                   env_config.gen_exports_from_dict(env_config.collect_tensorflow_variables()) + \
                   env_config.gen_exports_from_dict(env_config.collect_tarantella_variables()) + \
                   env_config.gen_exports_from_dict(env_config.get_tnt_variables_from_args(self.args)) +\
-                  env_config.gen_exports_from_dict(env_config.get_logging_variables(self.log_level,
-                                                                                    self.log_all,
-                                                                                    self.output_all))
+                  env_config.gen_exports_from_dict(env_config.get_tnt_gpus(self.num_gpus_per_node))
 
     command = "python {}".format(' '.join(self.command_list))
     return file_man.GPIScriptFile(header, environment, command, dir = os.getcwd())

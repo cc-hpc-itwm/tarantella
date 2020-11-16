@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 import GPICommLib
 
-import tarantella.tnt_config as tnt_config
+import runtime.tnt_config as tnt_config
 global_context = None
 global_tnt_config = tnt_config.TarantellaConfiguration()
 
@@ -65,12 +65,12 @@ def init(devices_per_node = None):
 
     logging_config.setup_logging(logger, global_tnt_config.log_level,
                                  get_rank(), is_master_rank(),
-                                 global_tnt_config.log_on_all_devices,)
+                                 global_tnt_config.log_on_all_devices)
 
     # configure GPUs if a number of GPUs per node is specified, either as a parameter
     # or as a `TNT_GPUS_PER_NODE` environment variable
     if devices_per_node is None:
-      devices_per_node = global_tnt_config.devices_per_node
+      devices_per_node = global_tnt_config.gpus_per_node
     setup_gpus(global_context.rank, ngpus = devices_per_node)
 
 def get_rank():
