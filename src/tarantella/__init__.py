@@ -37,26 +37,30 @@ def setup_gpus(rank, ngpus = None):
     be used.
     """
   if ngpus is None or ngpus <= 0:
-    return
+    # Disable all GPUs
+    tf.config.experimental.set_visible_devices([], 'GPU')
+    visible_gpus = tf.config.experimental.get_visible_devices('GPU')
+    if visible_gpus and len(visible_gpus) > 0:
+      sys.exit("ERROR: [rank {}] Could not disable GPUs: {} GPUs still visible".format(
+               rank, len(visible_gpus)))
+  else: # try to use `ngpus` per node  
+    phys_gpus = tf_config.get_available_gpus()
+    if phys_gpus and len(phys_gpus) > 0:
+      target_gpu = rank % ngpus
+      if len(phys_gpus) < ngpus:
+        sys.exit("ERROR: rank {} cannot use GPU_id={} (only {} GPUs available)".format(
+                rank, target_gpu, len(phys_gpus)))
 
-  phys_gpus = tf_config.get_available_gpus()
-  if phys_gpus and len(phys_gpus) > 0:
-    target_gpu = rank % ngpus
-    if len(phys_gpus) < ngpus:
-      sys.exit("ERROR: rank %d cannot use GPU:%d (only %d GPUs available)"
-                % (rank, target_gpu, len(phys_gpus)))
-
-    try:
-      # memory growth has to be set only once on all availble GPUs
-      if target_gpu == 0:
-        for gpu in phys_gpus:
-          tf.config.experimental.set_memory_growth(gpu, True)
-      
-      # make sure only one GPU is visible per process
-      tf.config.experimental.set_visible_devices(phys_gpus[target_gpu], 'GPU')
-      logical_gpus = tf.config.experimental.list_logical_devices('GPU')
-    except RuntimeError:
-      raise RuntimeError("[Tarantella][init] Cannot configure GPUs")
+      try:
+        # memory growth has to be set only once on all availble GPUs
+        if target_gpu == 0:
+          for gpu in phys_gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        # make sure only one GPU is visible per process
+        tf.config.experimental.set_visible_devices(phys_gpus[target_gpu], 'GPU')
+      except RuntimeError:
+        raise RuntimeError("[Tarantella][init] Cannot configure GPUs")
+  logger.debug("Using device: {}".format(tf.config.experimental.get_visible_devices()))
 
 def init(devices_per_node = None):
   global global_context
