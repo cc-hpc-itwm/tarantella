@@ -34,19 +34,18 @@ def setup_gpus(rank, ngpus = None):
     rank: int, rank of the current process
     
     ngpus: int value specifying the maximum number of GPUs per node that will 
-    be used. A value of "None" implies that all GPUs available on the machine 
-    should be  assigned to ranks.  
+    be used.
     """
-  
+  if ngpus is None or ngpus <= 0:
+    return
+
   phys_gpus = tf_config.get_available_gpus()
   if phys_gpus and len(phys_gpus) > 0:
-    if ngpus:
-      target_gpu = rank % ngpus
-      if len(phys_gpus) < ngpus:
-        sys.exit("ERROR: rank %d cannot use GPU:%d (only %d GPUs available)" 
-                 % (rank, target_gpu, len(phys_gpus)))
-    else:
-      target_gpu = rank % len(phys_gpus)
+    target_gpu = rank % ngpus
+    if len(phys_gpus) < ngpus:
+      sys.exit("ERROR: rank %d cannot use GPU:%d (only %d GPUs available)"
+                % (rank, target_gpu, len(phys_gpus)))
+
     try:
       # memory growth has to be set only once on all availble GPUs
       if target_gpu == 0:
@@ -68,10 +67,12 @@ def init(devices_per_node = None):
                                  get_rank(), is_master_rank(),
                                  global_tnt_config.log_on_all_devices,)
 
+    # configure GPUs if a number of GPUs per node is specified, either as a parameter
+    # or as a `TNT_GPUS_PER_NODE` environment variable
     if devices_per_node is None:
       devices_per_node = global_tnt_config.devices_per_node
     setup_gpus(global_context.rank, ngpus = devices_per_node)
-  
+
 def get_rank():
   return global_context.rank
 
