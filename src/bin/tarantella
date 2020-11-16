@@ -9,8 +9,8 @@ import sys
 TNT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LIB_DIR = os.path.join(TNT_DIR, "lib/tarantella")
 PYLIB_DIR = os.path.join(TNT_DIR, "lib/tarantella/python")
-sys.path.append(LIB_DIR)
-sys.path.append(PYLIB_DIR)
+sys.path.insert(0, LIB_DIR)
+sys.path.insert(0, PYLIB_DIR)
 
 try:
   from version import tnt_version
