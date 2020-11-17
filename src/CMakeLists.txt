@@ -10,7 +10,7 @@ install(DIRECTORY ${TNT_PYTHON_DIRS}
 install(PROGRAMS ${SRC_DIR}/bin/tarantella
         DESTINATION ${INSTALL_BIN_DIR})
 
-set(VERSION_FILE_TEMPLATE ${CMAKE_SOURCE_DIR}/version.py.in)
+set(VERSION_FILE_TEMPLATE ${CMAKE_SOURCE_DIR}/cmake/version.py.in)
 set(VERSION_FILE ${CMAKE_BUILD_DIR}/version.py)
 configure_file(${VERSION_FILE_TEMPLATE} ${VERSION_FILE} @ONLY)
 install(FILES ${VERSION_FILE}
