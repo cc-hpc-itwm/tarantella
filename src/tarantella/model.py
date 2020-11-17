@@ -120,13 +120,13 @@ class Model(tf.keras.models.Model):
             user_micro_batch_size = tnt_micro_batch_size,
             is_training = True)
     else:
-      logger.info("Automatic dataset distribution is disabled.",
+      logger.info("Automatic dataset distribution is disabled."
                   "Make sure the dataset is sharded manually across ranks.")
 
     # Always switch off shuffling
     kwargs["shuffle"] = False
 
-    if validation_data:
+    if validation_data and tnt_distribute_dataset:
       distributed_validation_data = ds.DistributedDataset(dataset = validation_data,
                                                           num_ranks = self.comm_size,
                                                           rank = self.rank,
