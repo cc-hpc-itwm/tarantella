@@ -108,6 +108,7 @@ class Model(tf.keras.models.Model):
           tnt_micro_batch_size = None,
           tnt_validation_micro_batch_size = None,
           tnt_distribute_dataset = True,
+          tnt_distribute_validation_dataset = True,
           **kwargs):
     self._setup_for_execution('fit', x, y, callbacks, kwargs)
 
@@ -126,14 +127,17 @@ class Model(tf.keras.models.Model):
     # Always switch off shuffling
     kwargs["shuffle"] = False
 
-    if validation_data and tnt_distribute_dataset:
-      distributed_validation_data = ds.DistributedDataset(dataset = validation_data,
-                                                          num_ranks = self.comm_size,
-                                                          rank = self.rank,
-                                                          shuffle_seed = self.default_shuffle_seed)
-      validation_data = distributed_validation_data.distribute_dataset_across_ranks(
-            user_micro_batch_size = tnt_validation_micro_batch_size,
-            is_training = False)
+    if validation_data:
+      if tnt_distribute_validation_dataset:
+        distributed_validation_data = ds.DistributedDataset(dataset = validation_data,
+                                                            num_ranks = self.comm_size,
+                                                            rank = self.rank,
+                                                            shuffle_seed = self.default_shuffle_seed)
+        validation_data = distributed_validation_data.distribute_dataset_across_ranks(
+              user_micro_batch_size = tnt_validation_micro_batch_size,
+              is_training = False)
+      else:
+        logger.info("Automatic distribution for the validation dataset is disabled.")
 
     return self.model.fit(x,
                           validation_data = validation_data,
