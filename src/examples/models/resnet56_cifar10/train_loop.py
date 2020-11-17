@@ -173,10 +173,8 @@ def run(model, optimizer,
 
   kwargs = {}
   if tarantella_enabled():
-    kwargs = {'tnt_distribute_dataset': False}
-    verbose = 2
-  else:
-    verbose = 2 if rank == 0 else 0
+    kwargs = {'tnt_distribute_dataset': False,
+              'tnt_distribute_validation_dataset': False}
 
   history = model.fit(datasets['train'],
                       epochs=train_epochs,

@@ -41,7 +41,7 @@ def generate_num_gpus_per_node(npernode = None):
       logger.debug("Not enough GPUs for the requested {} devices per node".format(npernode))
       num_devices = 0
     else:
-      num_devices = num_physical_gpus
+      num_devices = npernode
   return num_devices
 
 def generate_num_devices_per_node(npernode = None, use_gpus = True):

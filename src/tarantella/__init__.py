@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 import GPICommLib
 
-import tarantella.tnt_config as tnt_config
+import runtime.tnt_config as tnt_config
 global_context = None
 global_tnt_config = tnt_config.TarantellaConfiguration()
 
@@ -34,30 +34,33 @@ def setup_gpus(rank, ngpus = None):
     rank: int, rank of the current process
     
     ngpus: int value specifying the maximum number of GPUs per node that will 
-    be used. A value of "None" implies that all GPUs available on the machine 
-    should be  assigned to ranks.  
+    be used.
     """
-  
-  phys_gpus = tf_config.get_available_gpus()
-  if phys_gpus and len(phys_gpus) > 0:
-    if ngpus:
+  if ngpus is None or ngpus <= 0:
+    # Disable all GPUs
+    tf.config.experimental.set_visible_devices([], 'GPU')
+    visible_gpus = tf.config.experimental.get_visible_devices('GPU')
+    if visible_gpus and len(visible_gpus) > 0:
+      sys.exit("ERROR: [rank {}] Could not disable GPUs: {} GPUs still visible".format(
+               rank, len(visible_gpus)))
+  else: # try to use `ngpus` per node  
+    phys_gpus = tf_config.get_available_gpus()
+    if phys_gpus and len(phys_gpus) > 0:
       target_gpu = rank % ngpus
       if len(phys_gpus) < ngpus:
-        sys.exit("ERROR: rank %d cannot use GPU:%d (only %d GPUs available)" 
-                 % (rank, target_gpu, len(phys_gpus)))
-    else:
-      target_gpu = rank % len(phys_gpus)
-    try:
-      # memory growth has to be set only once on all availble GPUs
-      if target_gpu == 0:
-        for gpu in phys_gpus:
-          tf.config.experimental.set_memory_growth(gpu, True)
-      
-      # make sure only one GPU is visible per process
-      tf.config.experimental.set_visible_devices(phys_gpus[target_gpu], 'GPU')
-      logical_gpus = tf.config.experimental.list_logical_devices('GPU')
-    except RuntimeError:
-      raise RuntimeError("[Tarantella][init] Cannot configure GPUs")
+        sys.exit("ERROR: rank {} cannot use GPU_id={} (only {} GPUs available)".format(
+                rank, target_gpu, len(phys_gpus)))
+
+      try:
+        # memory growth has to be set only once on all availble GPUs
+        if target_gpu == 0:
+          for gpu in phys_gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        # make sure only one GPU is visible per process
+        tf.config.experimental.set_visible_devices(phys_gpus[target_gpu], 'GPU')
+      except RuntimeError:
+        raise RuntimeError("[Tarantella][init] Cannot configure GPUs")
+  logger.debug("Using device: {}".format(tf.config.experimental.get_visible_devices()))
 
 def init(devices_per_node = None):
   global global_context
@@ -66,12 +69,14 @@ def init(devices_per_node = None):
 
     logging_config.setup_logging(logger, global_tnt_config.log_level,
                                  get_rank(), is_master_rank(),
-                                 global_tnt_config.log_on_all_devices,)
+                                 global_tnt_config.log_on_all_devices)
 
+    # configure GPUs if a number of GPUs per node is specified, either as a parameter
+    # or as a `TNT_GPUS_PER_NODE` environment variable
     if devices_per_node is None:
-      devices_per_node = global_tnt_config.devices_per_node
+      devices_per_node = global_tnt_config.gpus_per_node
     setup_gpus(global_context.rank, ngpus = devices_per_node)
-  
+
 def get_rank():
   return global_context.rank
 
