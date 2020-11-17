@@ -351,6 +351,9 @@ In particular, Numpy arrays, TensorFlow tensors and generators are not supported
 Tarantella's automatic data distribution can be switched off by passing
 ``tnt_distribute_dataset=False`` in ``tnt.Model.fit``, in which case Tarantella
 will issue an ``INFO`` message.
+If a validation dataset is passed to ``tnt.Model.fit``, it should also be batched
+with the global batch size. You can similarly switch off its automatic 
+micro-batching mechanism by setting ``tnt_distribute_validation_dataset=False``.
 
 There are a few important points when using distributed datasets in Tarantella:
 
