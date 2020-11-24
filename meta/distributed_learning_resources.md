@@ -75,6 +75,22 @@ Distributed Deep Learning Resources
 * K-FAC
 * distributed K-FAC, [paper](https://arxiv.org/pdf/1811.12019.pdf)
 
+### Asynchronous/stale gradient-based
+
+* https://arxiv.org/pdf/1802.09941.pdf
+  * Hoefler's review about parallel DL. In particular: Fig. 18 & 7.1 & 7.2 (and references therein)
+
+* https://arxiv.org/abs/1604.00981
+  * Some interesting comparison between synch and asynch distributed SGD.
+  * This paper seem to have led to asynchronous optimizers falling somewhat out of favour
+
+* https://proceedings.neurips.cc/paper/2013/hash/b7bb35b9c6ca2aee2df08cf09d7016c2-Abstract.html
+  * Probably the first paper on stale Parameter Server approaches
+
+* https://arxiv.org/pdf/1805.09767.pdf and https://arxiv.org/abs/1808.07217
+  * Two papers about local SGD (which is sort of the collectives equivalent to the stale parameter server approach).
+  * The introduction in the first paper explains the difference between asynchronous optimization using collectives and parameters servers, respectively, quite nicely.
+
 ### Tool boxes
 * BackPACK (pyTorch)
   * [webpage](https://backpack.pt/)
