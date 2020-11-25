@@ -75,6 +75,22 @@ Distributed Deep Learning Resources
 * K-FAC
 * distributed K-FAC, [paper](https://arxiv.org/pdf/1811.12019.pdf)
 
+### Asynchronous/stale gradient-based
+
+* https://arxiv.org/pdf/1802.09941.pdf
+  * Hoefler's review about parallel DL. In particular: Fig. 18 & 7.1 & 7.2 (and references therein)
+
+* https://arxiv.org/abs/1604.00981
+  * Some interesting comparison between synch and asynch distributed SGD.
+  * This paper seem to have led to asynchronous optimizers falling somewhat out of favour
+
+* https://proceedings.neurips.cc/paper/2013/hash/b7bb35b9c6ca2aee2df08cf09d7016c2-Abstract.html
+  * Probably the first paper on stale Parameter Server approaches
+
+* https://arxiv.org/pdf/1805.09767.pdf and https://arxiv.org/abs/1808.07217
+  * Two papers about local SGD (which is sort of the collectives equivalent to the stale parameter server approach).
+  * The introduction in the first paper explains the difference between asynchronous optimization using collectives and parameters servers, respectively, quite nicely.
+
 ### Tool boxes
 * BackPACK (pyTorch)
   * [webpage](https://backpack.pt/)
@@ -98,6 +114,10 @@ Distributed Deep Learning Resources
 
 ## Large scale training of (large) models
 
+### Generell
+* Microsoft Research [Project Fiddle](https://www.microsoft.com/en-us/research/project/fiddle/)
+* OpenAI & Microsoft [OpenAI blog post](https://openai.com/blog/microsoft/), [Microsoft blog post](https://news.microsoft.com/2019/07/22/openai-forms-exclusive-computing-partnership-with-microsoft-to-build-new-azure-ai-supercomputing-technologies/)
+
 ### Computer Vision:
 * ResNet50 benchmarks/records
   * [Sony in 224s blog post](https://news.developer.nvidia.com/sony-breaks-resnet-50-training-record-with-nvidia-v100-tensor-core-gpus/)
@@ -112,10 +132,10 @@ Distributed Deep Learning Resources
 * OpenAI [GPT-3: 175B](https://towardsdatascience.com/gpt-3-the-new-mighty-language-model-from-openai-a74ff35346fc), [paper](https://arxiv.org/abs/2005.14165)
 * OpenAI [Image-GPT](https://openai.com/blog/image-gpt/)
 
-### Generell
-* Microsoft Research [Project Fiddle](https://www.microsoft.com/en-us/research/project/fiddle/)
-* OpenAI & Microsoft [OpenAI blog post](https://openai.com/blog/microsoft/), [Microsoft blog post](https://news.microsoft.com/2019/07/22/openai-forms-exclusive-computing-partnership-with-microsoft-to-build-new-azure-ai-supercomputing-technologies/)
+### Deep Learning Scaling
+* Baidu paper [Deep Learning Scaling is Predictable, Empirically](https://arxiv.org/abs/1712.00409)
 * OpenAI blog [How AI training scales](https://openai.com/blog/science-of-ai/)
+* OpenAI paper [Scaling Laws for Autoregressive Generative Modeling](https://arxiv.org/abs/2010.14701)
 
 ### Large Models:
 * ZeRO & DeepSpeed [blog post](https://www.microsoft.com/en-us/research/blog/zero-deepspeed-new-system-optimizations-enable-training-models-with-over-100-billion-parameters/)
