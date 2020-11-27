@@ -1,25 +1,25 @@
 Tutorials
 =========
 
-This section delves into more advanced usage of Tarantella with the help of 
+This section delves into more advanced usage of Tarantella with the help of
 state-of-the-art models for two widely-used applications in Deep Learning:
 
 * Image classification: ResNet-50
 * Machine translation: Transformer
 
-The models shown here are adapted from the 
+The models shown here are adapted from the
 `TensorFlow Model Garden <https://github.com/tensorflow/models/tree/master/official>`_.
 While the model implementations and hyperparameters are unchanged to preserve
 compatibility with the TensorFlow official models, we provide simplified training
-schemes that allow for a seemless transition from basic serial training to distributed 
+schemes that allow for a seamless transition from basic serial training to distributed
 data parallelism using Tarantella.
 
 
 Prerequisites
 -------------
 
-The tutorial models can be downloaded from the 
-`Tnt Models repository <https://github.com/cc-hpc-itwm/tarantella_models>`_
+The tutorial models can be downloaded from the
+`Tnt Models repository <https://github.com/cc-hpc-itwm/tarantella_models>`_.
 
 .. code-block:: bash
 
@@ -52,8 +52,8 @@ ResNet-50
 
 Deep Residual Networks (ResNets) represented a breakthrough in the field of
 computer vision, enabling deeper and more complex deep convolutional networks.
-Introduced in [He]_, ResNet50 has become a standard model for image classification 
-tasks, and has be shown to scale to very large number of nodes in data parallel 
+Introduced in [He]_, ResNet50 has become a standard model for image classification
+tasks, and has been shown to scale to very large number of nodes in data parallel
 training [Goyal]_.
 
 Run Resnet-50 with Tarantella
@@ -64,11 +64,11 @@ Before running the model, we need to add it to the existing ``PYTHONPATH``.
 
     export PYTHONPATH=${TNT_MODELS_PATH}/models/resnet:${PYTHONPATH}
 
-Furthermore, the ``ImageNet`` dataset needs to be installed and available on 
+Furthermore, the ``ImageNet`` dataset needs to be installed and available on
 all the nodes that we want to use for training.
 TensorFlow provides convenience scripts to download datasets, in their ``datasets``
 package that is installed as a dependency for the TensorFlow Model Garden.
-Install ImageNet to your local machine as described 
+Install ImageNet to your local machine as described
 `here <https://github.com/tensorflow/datasets/blob/master/tensorflow_datasets/scripts/download_and_prepare.py>`_.
 
 .. code-block:: bash
@@ -88,75 +88,77 @@ We can now simply run the ResNet-50 as follows:
     -- ${TNT_MODELS_PATH}/models/resnet/resnet50_tnt.py --data_dir=${TNT_DATASETS_PATH} \
                                                         --batch_size=512 \
                                                         --train_epochs=90 \
-                                                        --epochs_between_evals=10 
+                                                        --epochs_between_evals=10
 
-The above command will train a ResNet-50 models on the 8 devices available in parallel 
+The above command will train a ResNet-50 models on the 8 devices available in parallel
 for ``90`` epochs, as suggested in [Goyal]_ to achieve convergence.
-The ``--epochs_between_evals`` parameter specifies the frequency of evaluations of the 
-``validation`` data performed in between training epochs.
+The ``--epochs_between_evals`` parameter specifies the frequency of evaluations of the
+*validation dataset* performed in between training epochs.
 
 Note the ``--batch_size`` parameter, which specifies the global batch size used in training.
 
 Implementation overview
 ^^^^^^^^^^^^^^^^^^^^^^^
-We will now look closer into the implementation of the ResNet-50 training scheme. 
+We will now look closer into the implementation of the ResNet-50 training scheme.
 The main training steps reside in the ``models/resnet/resnet50_tnt.py`` file.
 
-The most important step in enabling data parallelism with Tarantella is 
+The most important step in enabling data parallelism with Tarantella is
 to wrap the Keras model:
 
 .. code-block:: python
 
-    model = resnet_model.resnet50(num_classes=tf_imagenet_preprocessing.NUM_CLASSES)
+    model = resnet_model.resnet50(num_classes = imagenet_preprocessing.NUM_CLASSES)
     model = tnt.Model(model)
 
-The following operations can be used for training the model serially, as they do not 
-require any change.
+Next, the training procedure can simply be written down as it would be for a
+standard, TensorFlow-only model, as no changes are further required to train the
+model in a distributed manner.
+
 In particular, the ImageNet dataset is loaded and preprocessed as follows:
 
 .. code-block:: python
 
-    train_dataset = imagenet_preprocessing.input_fn(is_training=True,
-                                                    data_dir=flags_obj.data_dir,
-                                                    batch_size=flags_obj.batch_size,
+    train_dataset = imagenet_preprocessing.input_fn(is_training = True,
+                                                    data_dir = flags_obj.data_dir,
+                                                    batch_size = flags_obj.batch_size,
                                                     shuffle_seed = 42,
-                                                    drop_remainder=True)
+                                                    drop_remainder = True)
 
-The 
+The
 `imagenet_preprocessing.input_fn
 <https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/resnet/imagenet_preprocessing.py>`_
-function takes the input files in ``data_dir``, loads the training samples and processes 
+function reads the input files in ``data_dir``, loads the training samples, and processes
 them into TensorFlow datasets.
 
-The user only needs to pass the global ``batch_size`` value, and the Tarantella 
+The user only needs to pass the global ``batch_size`` value, and the Tarantella
 framework will ensure that the dataset is properly distributed among devices,
 such that:
 
   * each device will process an independent set of samples
   * each device will group the samples into micro batches, where the micro-batch
     size will be computed as ``batch_size / num_devices``
-  * each device will apply the same set of transformation to its imput samples as 
+  * each device will apply the same set of transformations to its imput samples as
     specified in the ``input_fn`` function.
 
-Before starting the training, the model is compiled to use a standard Keras optimizer 
+Before starting the training, the model is compiled to use a standard Keras optimizer
 and loss.
 
 .. code-block:: python
 
-    model.compile(optimizer=optimizer,
-                  loss='sparse_categorical_crossentropy',
-                  metrics=(['sparse_categorical_accuracy']))
+    model.compile(optimizer = optimizer,
+                  loss = 'sparse_categorical_crossentropy',
+                  metrics = (['sparse_categorical_accuracy']))
 
-We provide flags to enable the most commonly used Keras ``callbacks``, such as 
-the ``TensorBoard`` profiler, which can simply be passed to the ``fit`` function 
+We provide flags to enable the most commonly used Keras ``callbacks``, such as
+the ``TensorBoard`` profiler, which can simply be passed to the ``fit`` function
 of the Tarantella model.
 
 .. code-block:: python
 
-    callbacks.append(tf.keras.callbacks.TensorBoard(log_dir=flags_obj.model_dir,
-                                                    profile_batch=2))
+    callbacks.append(tf.keras.callbacks.TensorBoard(log_dir = flags_obj.model_dir,
+                                                    profile_batch = 2))
 
-If model checkpointing is required, it can be enabled through the ``ModelCheckpoint`` 
+If model checkpointing is required, it can be enabled through the ``ModelCheckpoint``
 callback as usual (cf. :ref:`checkpointing models with Tarantella <checkpointing-via-callbacks-label>`).
 
 .. code-block:: python
@@ -164,16 +166,16 @@ callback as usual (cf. :ref:`checkpointing models with Tarantella <checkpointing
     callbacks.append(tf.keras.callbacks.ModelCheckpoint(ckpt_full_path, save_weights_only=True))
 
 
-There is no need for any further changes to proceed with training:
+There is no need for any further changes to proceed with the distributed training:
 
 .. code-block:: python
 
     history = model.fit(train_dataset,
-                        epochs=flags_obj.train_epochs,
-                        callbacks=callbacks,
-                        validation_data=validation_dataset,
-                        validation_freq=flags_obj.epochs_between_evals,
-                        verbose=1)
+                        epochs = flags_obj.train_epochs,
+                        callbacks = callbacks,
+                        validation_data = validation_dataset,
+                        validation_freq = flags_obj.epochs_between_evals,
+                        verbose = 1)
 
 .. todo::
 
