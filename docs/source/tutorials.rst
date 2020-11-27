@@ -177,14 +177,85 @@ There is no need for any further changes to proceed with the distributed trainin
                         validation_freq = flags_obj.epochs_between_evals,
                         verbose = 1)
 
-.. todo::
 
-   Advanced topics:
+Advanced topics
+^^^^^^^^^^^^^^^
 
-   * scaling batch size with number of ranks (-> only mention here & link to advanced topics)
-   * introduce learning rate warm up
-   * introduce learning rate scaling (with #ranks)
+Scaling the batch size
+""""""""""""""""""""""
 
+Increasing the batch size provides a simple means to achieve significant training
+time speed-ups, as it leads to perfect scaling with respect to the steps required
+to achieve the target accuracy (up to some dataset- and model- dependent critical
+size, after which further increasing the batch size only brings diminishing returns)
+[Shallue]_.
+
+This observation, together with the fact the small local batch sizes decrease the
+efficiency of DNN operators, represent the basis for a standard technique in data
+parallelism: *using a fixed micro batch size and scaling the global batch size
+with the number of devices*.
+
+Tarantella provides multiple mechanisms to set the batch size, as presented in the
+`Quick Start guide <https://tarantella.readthedocs.io/en/latest/quick_start.html#using-distributed-datasets-label>`_.
+
+In the case of ResNet50, we specify the global batch size as a command line
+parameter, and let the framework divide the dataset into microbatches.
+
+
+Scaling the learning rate
+"""""""""""""""""""""""""
+
+To take full advantage of the abilitity to scale to large batch sizes, further
+hyperparameters need to be adjusted. The learning rate value is essential to fast
+convergence of stochastic gradient descent. The works of [Goyal]_ and [Shallue]_
+suggest to carefully tune the learning rate into what is called a *learning rate
+schedule*, that is, a set of learning rate values to be applied at specific moments
+in training.
+For instance, training should typically start with a large learning rate value that
+allows to explore more of the search space. The learning rate can then monotonically
+decay the closer the algorithm gets to convergence.
+In particular, the initial learning rate needs to be adapted to the size of the
+batch size.
+
+Thus, in the case of Resnet50, studies have shown that scaling the initial learning
+rate up with the number of devices (i.e., the global batch size) is plays an important
+role in quickly achieving convergence.
+
+In our Resnet50 example, we use the
+`PiecewiseConstantDecayWithWarmup <https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/resnet/resnet50_tnt.py#L20>`__
+schedule provided by the TensorFlow Models implementation, which is similar to the schedule
+introduced by [Goyal]_.
+The initial learning rate here is scaled up by a factor computed as:
+
+.. code-block:: bash
+
+  self.rescaled_lr = BASE_LEARNING_RATE * batch_size / base_lr_batch_size
+
+Here ``batch_size`` is the global batch size and ``base_lr_batch_size`` is a predefined batch size
+(set to ``256``) that corresponds to single-device training, effectively scaling the
+``BASE_LEARNING_RATE`` linearly with the number of devices used.
+
+Learning rate warm-up
+"""""""""""""""""""""
+
+Besides decaying the learning rate in a step-wise fashion over training epochs, some
+papers propose to first *warm-up* the learning rate during the first epochs, particularly
+when using large batches [Goyal]_.
+
+In our Resnet50 example, the `PiecewiseConstantDecayWithWarmup` schedule provided
+starts with a small value for the learning rate, which then increases at every step
+(i.e., iteration), for a number of initial
+`warmup_steps <https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/resnet/common.py#L30>`.
+The ``warmup_steps`` defaults to the number of iterations of the first five epochs, similar
+to the schedule proposed by [Goyal]_.
+After the ``warmup_steps`` are done, the learning rate value shoud reach the *scaled initial
+learning rate* introduced above.
+
+.. code-block:: python
+
+  def warmup_lr(step):
+    return self.rescaled_lr * (
+        tf.cast(step, tf.float32) / tf.cast(self.warmup_steps, tf.float32))
 
 .. _transformer-label:
 
