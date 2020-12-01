@@ -4,7 +4,7 @@ Tutorials
 This section delves into more advanced usage of Tarantella with the help of
 state-of-the-art models for two widely-used applications in Deep Learning:
 
-* Image classification: ResNet-50
+* Image classification: ResNet50
 * Machine translation: Transformer
 
 The models shown here are adapted from the
@@ -23,9 +23,11 @@ The tutorial models can be downloaded from the
 
 .. code-block:: bash
 
-    export TNT_MODELS_PATH=/your/installation/path
-    cd ${TNT_MODELS_PATH}
-    git clone https://github.com/cc-hpc-itwm/tarantella_models
+  cd /your/installation/path
+  git clone https://github.com/cc-hpc-itwm/tarantella_models
+
+  cd tarantella_models/src
+  export TNT_MODELS_PATH=`pwd`
 
 To use these models, install the the following dependencies:
 
@@ -47,7 +49,7 @@ Now we can install the final dependency,
 
 .. _resnet50-label:
 
-ResNet-50
+ResNet50
 ---------
 
 Deep Residual Networks (ResNets) represented a breakthrough in the field of
@@ -56,7 +58,7 @@ Introduced in [He]_, ResNet50 has become a standard model for image classificati
 tasks, and has been shown to scale to very large number of nodes in data parallel
 training [Goyal]_.
 
-Run Resnet-50 with Tarantella
+Run Resnet50 with Tarantella
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Before running the model, we need to add it to the existing ``PYTHONPATH``.
 
@@ -80,7 +82,7 @@ Install ImageNet to your local machine as described
 
 
 Let's assume we have access to two nodes (saved in ``hostfile``) equipped with 4 GPUs each.
-We can now simply run the ResNet-50 as follows:
+We can now simply run the ResNet50 as follows:
 
 .. code-block:: bash
 
@@ -90,7 +92,7 @@ We can now simply run the ResNet-50 as follows:
                                                         --train_epochs=90 \
                                                         --epochs_between_evals=10
 
-The above command will train a ResNet-50 models on the 8 devices available in parallel
+The above command will train a ResNet50 models on the 8 devices available in parallel
 for ``90`` epochs, as suggested in [Goyal]_ to achieve convergence.
 The ``--epochs_between_evals`` parameter specifies the frequency of evaluations of the
 *validation dataset* performed in between training epochs.
@@ -99,7 +101,7 @@ Note the ``--batch_size`` parameter, which specifies the global batch size used 
 
 Implementation overview
 ^^^^^^^^^^^^^^^^^^^^^^^
-We will now look closer into the implementation of the ResNet-50 training scheme.
+We will now look closer into the implementation of the ResNet50 training scheme.
 The main training steps reside in the ``models/resnet/resnet50_tnt.py`` file.
 
 The most important step in enabling data parallelism with Tarantella is
@@ -126,7 +128,7 @@ In particular, the ImageNet dataset is loaded and preprocessed as follows:
 
 The
 `imagenet_preprocessing.input_fn
-<https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/resnet/imagenet_preprocessing.py>`_
+<https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/resnet/imagenet_preprocessing.py#L20>`_
 function reads the input files in ``data_dir``, loads the training samples, and processes
 them into TensorFlow datasets.
 
@@ -202,7 +204,7 @@ parallelism: *using a fixed micro batch size and scaling the global batch size
 with the number of devices*.
 
 Tarantella provides multiple mechanisms to set the batch size, as presented in the
-`Quick Start guide <https://tarantella.readthedocs.io/en/latest/quick_start.html#using-distributed-datasets-label>`_.
+:ref:`Quick Start guide<using-distributed-datasets-label>`.
 
 In the case of ResNet50, we specify the global batch size as a command line
 parameter, and let the framework divide the dataset into microbatches.
@@ -224,11 +226,11 @@ decay the closer the algorithm gets to convergence.
 In particular, the initial learning rate needs to be adapted to the size of the
 batch size.
 
-Thus, in the case of Resnet50, studies have shown that scaling the initial learning
+Thus, in the case of ResNet50, studies have shown that scaling the initial learning
 rate up with the number of devices (i.e., the global batch size) is plays an important
 role in quickly achieving convergence.
 
-In our Resnet50 example, we use the
+In our ResNet50 example, we use the
 `PiecewiseConstantDecayWithWarmup <https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/resnet/resnet50_tnt.py#L20>`__
 schedule provided by the TensorFlow Models implementation, which is similar to the schedule
 introduced by [Goyal]_.
@@ -249,10 +251,11 @@ Besides decaying the learning rate in a step-wise fashion over training epochs, 
 papers propose to first *warm-up* the learning rate during the first epochs, particularly
 when using large batches [Goyal]_.
 
-In our Resnet50 example, the `PiecewiseConstantDecayWithWarmup` schedule provided
+In our ResNet50 example, the `PiecewiseConstantDecayWithWarmup` schedule provided
 starts with a small value for the learning rate, which then increases at every step
 (i.e., iteration), for a number of initial
-`warmup_steps <https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/resnet/common.py#L30>`.
+`warmup_steps <https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/resnet/common.py#L30>`_.
+
 The ``warmup_steps`` defaults to the number of iterations of the first five epochs, similar
 to the schedule proposed by [Goyal]_.
 After the ``warmup_steps`` are done, the learning rate value shoud reach the *scaled initial
