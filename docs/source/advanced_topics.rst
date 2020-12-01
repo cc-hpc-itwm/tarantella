@@ -70,10 +70,7 @@ the number of devices used, at least up to some *critical batch size*, cf. [Shal
 Changing the batch size of the optimizer will however also imply the need to adapt the learning rate
 schedule.
 
-.. todo::
-  
-  Enable when the Tutorial is updated:
-  For details, cf. for instance the :ref:`ResNet-50 tutorial <resnet50-label>`.
+For details, cf. for instance the :ref:`ResNet-50 tutorial<scale-learning-rate-label>`.
 
 If you decide to scale the batch size with the number of nodes, Tarantella provides
 two different ways to achieve this easily. The first option is to multiply the local batch size

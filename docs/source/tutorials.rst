@@ -207,6 +207,7 @@ Tarantella provides multiple mechanisms to set the batch size, as presented in t
 In the case of ResNet50, we specify the global batch size as a command line
 parameter, and let the framework divide the dataset into microbatches.
 
+.. _scale-learning-rate-label:
 
 Scaling the learning rate
 """""""""""""""""""""""""
