@@ -140,6 +140,12 @@ such that:
   * each device will apply the same set of transformations to its imput samples as
     specified in the ``input_fn`` function.
 
+The advantage of using the *automatic dataset distribution* mechanism of Tarantella
+is that users can reason about their I/O pipeline without taking care of the details
+about how to distribute it.
+Note however, that the batch size has to be a multiple of the number of ranks, so
+that it can be efficiently divided into micro-batches.
+
 Before starting the training, the model is compiled to use a standard Keras optimizer
 and loss.
 
@@ -262,8 +268,8 @@ learning rate* introduced above.
 Transformers
 ------------
 
-The Transformer is a Deep Neural Network widely used in the field of natural language processing (NLP),
-in particular for tasks such as machine translation.
+The Transformer is a Deep Neural Network widely used in the field of natural language
+processing (NLP), in particular for tasks such as machine translation.
 It was first proposed by [Vaswani]_.
 
 Run the Transformer with Tarantella
@@ -301,15 +307,16 @@ equipped with 4 GPUs each.
     tarantella --hostfile ./hostfile --devices-per-node 4 \
     -- ${TNT_MODELS_PATH}/models/transformer/transformer_tnt.py \
                          --data_dir=${WMT14_PATH} \
-                         --vocab_file=${WMT14_PATH}/vocab.ende.32768     
-                         --bleu_ref=${WMT14_PATH}/newstest2014.de 
-                         --bleu_source=${WMT14_PATH}/newstest2014.en 
-                         --param_set=big 
-                         --train_epochs=30
+                         --vocab_file=${WMT14_PATH}/vocab.ende.32768 \
+                         --bleu_ref=${WMT14_PATH}/newstest2014.de \
+                         --bleu_source=${WMT14_PATH}/newstest2014.en \
+                         --param_set=big \
+                         --train_epochs=30 \
+                         --epochs_between_evals=30 \
                          --batch_size=32736
 
 The above command will select the ``big`` model implementation and train it
-distributedly on the 8 specified devices.
+on the 8 specified devices in a distributed fashion.
 To reach the target accuracy, [Vaswani]_ specifies that the model needs to be 
 trained for ``30`` epochs.
 
@@ -318,7 +325,8 @@ tokens derived from the dataset. This is provided as the ``vocab_file`` paramete
 and is part of the pre-processed dataset.
 
 After training, one round of evaluation is conducted using the ``newstest2014``
-dataset to translate English sentences into German.
+dataset to translate English sentences into German. The frequency of evaluation
+rounds can be changed by updating the `epochs_between_evals` parameter.
 
 Implementation overview
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -331,27 +339,45 @@ extensive changes to work with Tarantella. However, we provide a simplified
 version to highlight the usage of Tarantella with Keras training loops.
 
 Thus, the Keras transformer model is created in
-``models/transformer/transformer_tnt.py`` and wrapped into a Tarantella model:
+`TransformerTntTask class
+<https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/transformer/transformer_tnt.py#L80>`_.
+Two different versions of the model are used, one for training (wrapped into
+a Tarantella model), and one for inference (serial Keras model).
 
 .. code-block:: python
 
-    model = resnet_model.resnet50(num_classes=tf_imagenet_preprocessing.NUM_CLASSES)
-    model = tnt.Model(model)
+  self.train_model = create_model(internal_model, self.params, is_train = True)
+  # Enable distributed training
+  self.train_model = tnt.Model(self.train_model)
 
-Data is loaded as follows, without any specific modification to trigger 
-distributed training:
+  # The inference model is wrapped as a different Keras model that does not use labels
+  self.predict_model = create_model(internal_model, self.params, is_train = False)
+
+Data distribution across ranks is performed in this case manually in the
+`data_pipeline.py
+<https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/transformer/data_pipeline.py>`_
+file, as explained in the
+:ref:`manually-distributed datasets<manually-distributed-datasets-label>` section.
+Alternatively, automatic dataset distribution is explained in the
+:ref:`Quick Start<using-distributed-datasets-label>`.
+
+To be able to manually split the dataset across ranks, we need access to **rank IDs**
+and **total number of ranks**, which are then passed to the `IO pipeline
+<https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/transformer/transformer_tnt.py#L134>`_.
+
+The :ref:`Advanced Topics<ranks-label>` section explains the API Tarantella
+exposes to access ranks.
 
 .. code-block:: python
 
-    train_ds = data_pipeline.train_input_fn(self.params)
+  train_ds = data_pipeline.train_input_fn(self.params,
+                                          shuffle_seed = 42,
+                                          num_ranks = tnt.get_size(),
+                                          rank = tnt.get_rank())
+
 
 Here, the ``data_pipeline.train_input_fn`` reads in the dataset and applies a series 
 of transformations to convert it into a batched set of sentences.
-The advantage of using the *automatic dataset distribution* mechanism of Tarantella
-is that users can reason about their I/O pipeline without taking care of the details
-about how to distribute it.
-Note however, that the batch size has to be a multiple of the number of ranks, so
-that it can be efficiently divided into micro-batches.
 
 Next, the user can also create callbacks, which can then be simply passed on to
 the training function.
@@ -365,13 +391,185 @@ Finally, we can call ``model.fit`` to start distributed training on all devices:
 .. code-block:: python
 
     history = model.fit(train_ds,
+                        tnt_distribute_dataset = False,
                         epochs=self.params["train_epochs"],
                         callbacks=callbacks,
                         verbose=1)
 
-.. todo::
+In the following sections we will show how we modify the ``fit`` loop to allow for
+a customized evaluation of the trained model.
 
-   Important points
-   
-   * Mixing Keras and Tarantella models
+Important points
+^^^^^^^^^^^^^^^^
 
+Customized behavior based on **rank**
+"""""""""""""""""""""""""""""""""""""
+
+Although all ranks participating in data parallel training use identical replicas
+of the same model and make progress in sync, there are cases when certain tasks
+should be executed on a specific rank (or group or ranks).
+To this end, Tarantella provides a number of functions to identify the rank ID
+and allow users to add customized behavior based on rank, as decribed in this
+:ref:`section<ranks-label>`.
+
+In the case of the Transformer model, we want to use the rank information to
+perform several tasks:
+
+* print logging messages
+
+.. code-block:: python
+
+    if tnt.is_master_rank():
+      logging.info("Start train")
+
+* enable certain callbacks only on one rank (e.g., profiling callbacks)
+
+.. code-block:: python
+
+    if tnt.is_master_rank():
+      if self.flags_obj.enable_time_history:
+        time_callback = keras_utils.TimeHistory(self.params["batch_size"],
+                                                self.params["num_sentences"],
+                                                logdir = None)
+        callbacks.append(time_callback)
+
+* distribute datasets manually among participating devices
+* execute other models, such as a modified, serial version of the Tarantella model for :ref:`inference<inference-master-rank-label>`.
+
+
+.. _manually-distributed-datasets-label:
+
+Using manually-distributed datasets
+"""""""""""""""""""""""""""""""""""
+
+Typically it is the task of the framework to automatically handle batched
+datasets, such that each rank only processes its share of the data, as explained in
+the :ref:`Quick Start guide<using-distributed-datasets-label>`.
+
+However, there are complex scenarios when the users might prefer to build the
+dataset slices corresponding to each rank themselves.
+Tarantella allows for the user to disable the automatic distribution mechanism
+by passing ``tnt_distribute_dataset = False`` to the ``model.fit`` function.
+
+This is how it is done in the case of the Transformer:
+
+.. code-block:: python
+
+    history = self.train_model.fit(train_ds,
+                                   callbacks = callbacks,
+                                   tnt_distribute_dataset = False,
+                                   initial_epoch = epoch,
+                                   epochs = epoch + min(self.params["epochs_between_evals"],
+                                                       self.params["train_epochs"]-epoch),
+                                   verbose = 2)
+
+Also note the use of ``initial_epoch`` and ``epochs``. This combination of parameters
+is necessary to allow evaluation rounds in between training epochs, when a validation
+dataset cannot be simply passed to ``model.fit``.
+In particular, our transformer implementation features a different model for
+inference, as described :ref:`below<mixed-models-label>`.
+
+Now that automatic distribution is disabled, let us take a look at how to split
+the dataset manually among devices.
+The input data processing is implemented in
+`data_pipeline.py
+<https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/transformer/data_pipeline.py>`_.
+
+In the case of the Transformer model, the global ``batch_size`` stands for the total
+number of input tokens processed in a single iteration.
+However, as the training is performed in (fixed-sized) sentences, our global
+``batch_size`` used for training will be in fact the number of sentences comprised
+in such a batch.
+
+Furthermore, we need to divide the number of sentences across ranks, such that
+each rank can work on a separated shard of ``micro_batch_size`` sentences.
+Finally, the dataset itself needs to be batched using the ``micro_batch_size`` and
+each device instructed to select its own shard:
+
+.. code-block:: python
+
+  number_batch_sentences = batch_size // max_length
+
+  micro_batch_size = number_batch_sentences // num_ranks
+
+  # Batch records and select only the shard (subset)
+  # corresponding to the current rank
+  dataset = dataset.padded_batch(micro_batch_size,
+                                ([max_length], [max_length]),
+                                drop_remainder=True)
+  dataset = dataset.shard(num_ranks, rank)
+
+
+
+.. _mixed-models-label:
+
+Mixing Keras and Tarantella models
+""""""""""""""""""""""""""""""""""
+
+An essential aspect of the Transformer model is that it operates on slightly different
+model versions during training and inference.
+While in training the model works on encoded tokens, inference requires translation
+to and from plain text. Thus, the model needs to use modified input and output layers
+for each of these tasks.
+
+To illustrate the way a Tarantella model can work alongside a typical Keras model, we
+only execute the training phase on the Transformer within a (distributed) Tarantella
+model.
+
+Take a look at the
+`model creation function
+<https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/transformer/transformer_tnt.py#L53>`_.
+It builds two different Keras models depending on whether training is enabled or not,
+both of them based on the same `internal model` (i.e., using the same learned weights).
+
+Now, when initializing our Transformer task, we only wrap one of the models as a ``tnt.Model``:
+
+.. code-block:: python
+
+  # Transformer model used both as Tarantella model (in training) and as a serial
+  # model for inference
+  internal_model = transformer.Transformer(self.params, name="transformer_v2")
+
+  # The train model includes an additional logits layer and a customized loss
+  self.train_model = create_model(internal_model, self.params, is_train = True)
+  # Enable distributed training
+  self.train_model = tnt.Model(self.train_model)
+
+  # The inference model is wrapped as a different Keras model that does not use labels
+  self.predict_model = create_model(internal_model, self.params, is_train = False)
+
+Training can now proceed as usual, by only calling the ``fit`` method on our ``train_model``.
+We can however design our training loop to stop every ``epochs_between_evals`` epochs,
+evaluate the training accuracy using the serial ``predict_model``, and then continue
+from where it left off.
+
+.. _inference-master-rank-label:
+
+.. code-block:: python
+
+  for epoch in range(0, self.params["train_epochs"], self.params["epochs_between_evals"]):
+    # as our dataset is distributed manually, disable the automatic Tarantella distribution
+    history = self.train_model.fit(train_ds,
+                                   callbacks = callbacks,
+                                   tnt_distribute_dataset = False,
+                                   initial_epoch = epoch,
+                                   epochs = epoch + min(self.params["epochs_between_evals"],
+                                                        self.params["train_epochs"]-epoch),
+                                   verbose = 2)
+
+    if tnt.is_master_rank():
+      eval_stats = self.eval()
+
+The ``self.eval()`` method performs the translation on the test dataset using the
+standard Keras ``predict_model``.
+
+.. code-block:: python
+
+  def eval(self):
+    ...
+    uncased_score, cased_score = transformer_main.evaluate_and_log_bleu(
+                                                  self.predict_model,
+                                                  self.params,
+                                                  self.flags_obj.bleu_source,
+                                                  self.flags_obj.bleu_ref,
+                                                  self.flags_obj.vocab_file)
