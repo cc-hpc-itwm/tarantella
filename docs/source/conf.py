@@ -10,9 +10,9 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+import os
+import sys
+sys.path.insert(0, os.path.abspath('../../cmake'))
 
 
 # -- Project information -----------------------------------------------------
@@ -22,8 +22,11 @@ copyright = '2020 Fraunhofer'
 author = 'Peter Labus, Alexandra Carpen-Amarie, Martin Kuehn'
 
 # The full version, including alpha/beta/rc tags
-release = '0'
-
+try:
+  from version import tnt_version
+  release = tnt_version
+except:
+  release = '0'
 
 # -- General configuration ---------------------------------------------------
 
