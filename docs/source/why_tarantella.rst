@@ -38,7 +38,85 @@ models can be made ready for distributed training with minimal effort
 Tarantella supports distributed training on GPU and pure CPU clusters,
 independently of the hardware vendors.
 
-.. todo::
 
-   Performance Results
+Performance Results
+-------------------
 
+To investigate the scalability of Tarantella distributed training with respect to the
+number of used devices, we performed several experiments across multiple machines and
+models used in the fields of computer vision and natural language processing.
+
+We show below some of the results we obtained when training two state-of-the-art models
+in parallel with Tarantella on two types of machines: the
+`HPC-DA <https://doc.zih.tu-dresden.de/hpc-wiki/bin/view/Compendium/HPCDA>`_ cluster
+of the `Technical University of Dresden <https://tu-dresden.de>`_
+is a machine designed for data science workloads, equipped with `6` GPUs per node, while
+`SuperMUC-NG <https://doku.lrz.de/display/PUBLIC/SuperMUC-NG>`_ from the
+`Leibniz Supercomputing Centre <https://www.lrz.de/english/>`_ is
+a typical HPC machine suitable for CPU-intensive simulations.
+The hardware details of the two machines used in our experiments are shown below.
+
+============  ====================================
+Name          Hardware specifications
+============  ====================================
+HPC-DA        - 32 IBM AC922 nodes
+
+              Each node is equipped with:
+
+              - 6x NVIDIA VOLTA V100 with 32GB HBM2
+              - 2 x IBM Power9 CPU (22 cores @2.80 GHz)
+
+              - NVLINK bandwidth 150 GB/s between GPUs and host
+              - Infiniband interconnect between nodes
+
+SuperMUC-NG   - 6,336 Thin compute nodes
+
+              Each node is equipped with:
+
+              - 2 x Intel Skylake Xeon Platinum 8174 (48 cores @3.10 GHz)
+              - 100 Gbit/s OmniPath network
+============  ====================================
+
+First we look at the speedups that Tarantella can achieve when scaling
+up the number of devices for the ResNet50 model trained with the ImageNet dataset.
+ResNet50 is one of the most studied deep neural networks for computer vision tasks,
+featuring `50` layers and over `23 million` trainable parameters.
+
+More specifically, Figure 1 illustrates the runtime per epoch on the `HPC-DA`
+cluster, when using up to `96` GPUs. Figure 2 showcases the same experiment performed
+on CPUs on the `SuperMUC-NG` machine, showing that training ResNet50 distributedly
+scales on up to `256` processes.
+Compared to the baseline single-device runtime of the ResNet50 model using
+TensorFlow 2.2, Tarantella succeeds in training the model **62x faster** on the
+CPU cluster and **57x faster** on the GPUs.
+   
+.. list-table::
+
+  * - .. figure:: pics/resnet50_epoch_runtimes_bs64_cpu.png
+
+        Figure 1. Training Resnet50 on CPU nodes
+
+    - .. figure:: pics/resnet50_epoch_runtimes_bs64_gpu.png
+
+        Figure 2. Training Resnet50 on GPUs
+
+
+The Transformer is another widely-popular model used mainly in the field of
+natural language processing (NLP).
+With more than `200 million` parameters, training the transformer (big) model
+heavily relies on data paralellism to achieve reasonable training times.
+We show that Tarantella distributed training also scales when using the Transformer
+for a translation task trained on the WMT14 English-German Translation dataset.
+
+Figure 3 gives an insight of the time savings that Tarantella-based training can
+attain on a GPU machine such as the `HPC-DA` cluster, reaching `17 minutes` for one
+epoch on `96` devices.
+
+.. figure:: pics/transformer_epoch_runtimes_bs4096_gpu.png
+   :width: 400
+   :alt: Transformer on GPUs
+
+   Figure 3. Training the Transformer (big) on GPUs
+
+To find out more about training such models with Tarantella, take a look at our
+:ref:`tutorials<tutorials-label>`.
