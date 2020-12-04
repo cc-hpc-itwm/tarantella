@@ -6,7 +6,7 @@ Tutorials
 This section delves into more advanced usage of Tarantella with the help of
 state-of-the-art models for two widely-used applications in Deep Learning:
 
-* Image classification: ResNet50
+* Image classification: ResNet-50
 * Machine translation: Transformer
 
 The models shown here are adapted from the
@@ -25,7 +25,7 @@ The tutorial models can be downloaded from the
 
 .. code-block:: bash
 
-  cd /your/installation/path
+  cd /your/models/path
   git clone https://github.com/cc-hpc-itwm/tarantella_models
 
   cd tarantella_models/src
@@ -51,16 +51,16 @@ Now we can install the final dependency,
 
 .. _resnet50-label:
 
-ResNet50
+ResNet-50
 ---------
 
 Deep Residual Networks (ResNets) represented a breakthrough in the field of
 computer vision, enabling deeper and more complex deep convolutional networks.
-Introduced in [He]_, ResNet50 has become a standard model for image classification
+Introduced in [He]_, ResNet-50 has become a standard model for image classification
 tasks, and has been shown to scale to very large number of nodes in data parallel
 training [Goyal]_.
 
-Run Resnet50 with Tarantella
+Run Resnet-50 with Tarantella
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Before running the model, we need to add it to the existing ``PYTHONPATH``.
 
@@ -84,7 +84,7 @@ Install ImageNet to your local machine as described
 
 
 Let's assume we have access to two nodes (saved in ``hostfile``) equipped with 4 GPUs each.
-We can now simply run the ResNet50 as follows:
+We can now simply run the ResNet-50 as follows:
 
 .. code-block:: bash
 
@@ -94,7 +94,7 @@ We can now simply run the ResNet50 as follows:
                                                         --train_epochs=90 \
                                                         --epochs_between_evals=10
 
-The above command will train a ResNet50 models on the 8 devices available in parallel
+The above command will train a ResNet-50 models on the 8 devices available in parallel
 for ``90`` epochs, as suggested in [Goyal]_ to achieve convergence.
 The ``--epochs_between_evals`` parameter specifies the frequency of evaluations of the
 *validation dataset* performed in between training epochs.
@@ -103,7 +103,7 @@ Note the ``--batch_size`` parameter, which specifies the global batch size used 
 
 Implementation overview
 ^^^^^^^^^^^^^^^^^^^^^^^
-We will now look closer into the implementation of the ResNet50 training scheme.
+We will now look closer into the implementation of the ResNet-50 training scheme.
 The main training steps reside in the ``models/resnet/resnet50_tnt.py`` file.
 
 The most important step in enabling data parallelism with Tarantella is
@@ -115,7 +115,7 @@ to wrap the Keras model:
     model = tnt.Model(model)
 
 Next, the training procedure can simply be written down as it would be for a
-standard, TensorFlow-only model, as no changes are further required to train the
+standard, TensorFlow-only model. No further changes are required to train the
 model in a distributed manner.
 
 In particular, the ImageNet dataset is loaded and preprocessed as follows:
@@ -150,7 +150,12 @@ about how to distribute it.
 Note however, that the batch size has to be a multiple of the number of ranks, so
 that it can be efficiently divided into micro-batches.
 
-Before starting the training, the model is compiled to use a standard Keras optimizer
+.. todo:: 
+
+  Re-write the above sentence when this is not a requirement anymore
+
+
+Before starting the training, the model is compiled using a standard Keras optimizer
 and loss.
 
 .. code-block:: python
@@ -176,7 +181,7 @@ callback as usual (cf. :ref:`checkpointing models with Tarantella <checkpointing
     callbacks.append(tf.keras.callbacks.ModelCheckpoint(ckpt_full_path, save_weights_only=True))
 
 
-There is no need for any further changes to proceed with the distributed training:
+There is no need for any further changes to proceed with distributed training:
 
 .. code-block:: python
 
@@ -197,10 +202,10 @@ Scaling the batch size
 Increasing the batch size provides a simple means to achieve significant training
 time speed-ups, as it leads to perfect scaling with respect to the steps required
 to achieve the target accuracy (up to some dataset- and model- dependent critical
-size, after which further increasing the batch size only brings diminishing returns)
+size, after which further increasing the batch size only leads to diminishing returns)
 [Shallue]_.
 
-This observation, together with the fact the small local batch sizes decrease the
+This observation, together with the fact that small local batch sizes decrease the
 efficiency of DNN operators, represent the basis for a standard technique in data
 parallelism: *using a fixed micro batch size and scaling the global batch size
 with the number of devices*.
@@ -208,7 +213,7 @@ with the number of devices*.
 Tarantella provides multiple mechanisms to set the batch size, as presented in the
 :ref:`Quick Start guide<using-distributed-datasets-label>`.
 
-In the case of ResNet50, we specify the global batch size as a command line
+In the case of ResNet-50, we specify the global batch size as a command line
 parameter, and let the framework divide the dataset into microbatches.
 
 .. _scale-learning-rate-label:
@@ -225,14 +230,14 @@ in training.
 For instance, training should typically start with a large learning rate value that
 allows to explore more of the search space. The learning rate can then monotonically
 decay the closer the algorithm gets to convergence.
-In particular, the initial learning rate needs to be adapted to the size of the
+The initial learning rate needs to be adapted to the size of the
 batch size.
 
-Thus, in the case of ResNet50, studies have shown that scaling the initial learning
-rate up with the number of devices (i.e., the global batch size) is plays an important
+Thus, in the case of ResNet-50, studies have shown that scaling the initial learning
+rate up with the global batch size (i.e., the number of devices) plays an important
 role in quickly achieving convergence.
 
-In our ResNet50 example, we use the
+In our ResNet-50 example, we use the
 `PiecewiseConstantDecayWithWarmup <https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/resnet/resnet50_tnt.py#L20>`__
 schedule provided by the TensorFlow Models implementation, which is similar to the schedule
 introduced by [Goyal]_.
@@ -242,8 +247,8 @@ The initial learning rate here is scaled up by a factor computed as:
 
   self.rescaled_lr = BASE_LEARNING_RATE * batch_size / base_lr_batch_size
 
-Here ``batch_size`` is the global batch size and ``base_lr_batch_size`` is a predefined batch size
-(set to ``256``) that corresponds to single-device training, effectively scaling the
+Here ``batch_size`` is the global batch size and ``base_lr_batch_size`` is the predefined batch size
+(set to ``256``) that corresponds to single-device training. This effectively scales the
 ``BASE_LEARNING_RATE`` linearly with the number of devices used.
 
 Learning rate warm-up
@@ -253,14 +258,14 @@ Besides decaying the learning rate in a step-wise fashion over training epochs, 
 papers propose to first *warm-up* the learning rate during the first epochs, particularly
 when using large batches [Goyal]_.
 
-In our ResNet50 example, the `PiecewiseConstantDecayWithWarmup` schedule provided
+In our ResNet-50 example, the `PiecewiseConstantDecayWithWarmup` schedule provided
 starts with a small value for the learning rate, which then increases at every step
 (i.e., iteration), for a number of initial
 `warmup_steps <https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/resnet/common.py#L30>`_.
 
 The ``warmup_steps`` defaults to the number of iterations of the first five epochs, similar
 to the schedule proposed by [Goyal]_.
-After the ``warmup_steps`` are done, the learning rate value shoud reach the *scaled initial
+After the ``warmup_steps`` are done, the learning rate value should reach the *scaled initial
 learning rate* introduced above.
 
 .. code-block:: python
@@ -359,16 +364,16 @@ a Tarantella model), and one for inference (serial Keras model).
   # The inference model is wrapped as a different Keras model that does not use labels
   self.predict_model = create_model(internal_model, self.params, is_train = False)
 
-Data distribution across ranks is performed in this case manually in the
-`data_pipeline.py
+To illustrate alternatives in the use of Tarantella, we distribute the data
+manually here, `data_pipeline.py
 <https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/transformer/data_pipeline.py>`_
 file, as explained in the
 :ref:`manually-distributed datasets<manually-distributed-datasets-label>` section.
-Alternatively, automatic dataset distribution is explained in the
+Alternatively, automatic dataset distribution could be used, as explained in the
 :ref:`Quick Start<using-distributed-datasets-label>`.
 
 To be able to manually split the dataset across ranks, we need access to **rank IDs**
-and **total number of ranks**, which are then passed to the `IO pipeline
+and the **total number of ranks**, which are then passed to the `IO pipeline
 <https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/transformer/transformer_tnt.py#L134>`_.
 
 The :ref:`Advanced Topics<ranks-label>` section explains the API Tarantella
@@ -448,13 +453,13 @@ perform several tasks:
 Using manually-distributed datasets
 """""""""""""""""""""""""""""""""""
 
-Typically it is the task of the framework to automatically handle batched
+Typically, it is the task of the framework to automatically handle batched
 datasets, such that each rank only processes its share of the data, as explained in
 the :ref:`Quick Start guide<using-distributed-datasets-label>`.
 
-However, there are complex scenarios when the users might prefer to build the
-dataset slices corresponding to each rank themselves.
-Tarantella allows for the user to disable the automatic distribution mechanism
+However, there are complex scenarios when the user might prefer to manually build the
+dataset slices corresponding to each rank.
+Tarantella allows the user to disable the automatic distribution mechanism
 by passing ``tnt_distribute_dataset = False`` to the ``model.fit`` function.
 
 This is how it is done in the case of the Transformer:
@@ -579,3 +584,4 @@ standard Keras ``predict_model``.
                                                   self.flags_obj.bleu_source,
                                                   self.flags_obj.bleu_ref,
                                                   self.flags_obj.vocab_file)
+
