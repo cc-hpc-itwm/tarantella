@@ -43,7 +43,7 @@ Performance Results
 -------------------
 
 To investigate the scalability of Tarantella distributed training with respect to the
-number of used devices, we performed several experiments across multiple machines and
+number of devices used, we performed several experiments across multiple machines and
 models used in the fields of computer vision and natural language processing.
 
 We show below some of the results we obtained when training two state-of-the-art models
@@ -78,15 +78,15 @@ SuperMUC-NG   - 6,336 Thin compute nodes
 ============  ====================================
 
 First we look at the speedups that Tarantella can achieve when scaling
-up the number of devices for the ResNet50 model trained with the ImageNet dataset.
-ResNet50 is one of the most studied deep neural networks for computer vision tasks,
-featuring `50` layers and over `23 million` trainable parameters.
+up the number of devices for the ResNet-50 model trained with the ImageNet dataset.
+ResNet-50 is one of the most studied deep neural networks for computer vision tasks,
+featuring over `23 million` trainable parameters.
 
 More specifically, Figure 1 illustrates the runtime per epoch on the `HPC-DA`
 cluster, when using up to `96` GPUs. Figure 2 showcases the same experiment performed
-on CPUs on the `SuperMUC-NG` machine, showing that training ResNet50 distributedly
+on CPUs on the `SuperMUC-NG` machine, showing that training ResNet-50 distributedly
 scales on up to `256` processes.
-Compared to the baseline single-device runtime of the ResNet50 model using
+Compared to the baseline single-device runtime of the ResNet-50 model using
 TensorFlow 2.2, Tarantella succeeds in training the model **62x faster** on the
 CPU cluster and **57x faster** on the GPUs.
    
@@ -94,14 +94,14 @@ CPU cluster and **57x faster** on the GPUs.
 
   * - .. figure:: pics/resnet50_epoch_runtimes_bs64_cpu.png
 
-        Figure 1. Training Resnet50 on CPU nodes
+        Figure 1. Training Resnet-50 on CPU nodes
 
     - .. figure:: pics/resnet50_epoch_runtimes_bs64_gpu.png
 
-        Figure 2. Training Resnet50 on GPUs
+        Figure 2. Training Resnet-50 on GPUs
 
 
-The Transformer is another widely-popular model used mainly in the field of
+The Transformer is another widely-popular model that originated in the field of
 natural language processing (NLP).
 With more than `200 million` parameters, training the transformer (big) model
 heavily relies on data paralellism to achieve reasonable training times.
@@ -109,8 +109,8 @@ We show that Tarantella distributed training also scales when using the Transfor
 for a translation task trained on the WMT14 English-German Translation dataset.
 
 Figure 3 gives an insight of the time savings that Tarantella-based training can
-attain on a GPU machine such as the `HPC-DA` cluster, reaching `17 minutes` for one
-epoch on `96` devices.
+attain on a GPU machine such as the `HPC-DA` cluster, reaching a **34x speedup**
+for one epoch on `96` devices.
 
 .. figure:: pics/transformer_epoch_runtimes_bs4096_gpu.png
    :width: 400
