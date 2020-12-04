@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.8)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include (read_version)
-configure_version(VERSION_FILE "${CMAKE_SOURCE_DIR}/cmake/version.py")
+configure_version(VERSION_FILE "${CMAKE_SOURCE_DIR}/version.py")
 
 project(tarantella VERSION ${TNT_VERSION})
 
