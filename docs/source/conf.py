@@ -26,7 +26,8 @@ try:
   from version import tnt_version
   release = tnt_version
 except:
-  release = '0'
+  raise RuntimeError("Cannot retrieve version from `version.py` file; check that the file \
+exists in the top level project directory.")
 
 # -- General configuration ---------------------------------------------------
 
