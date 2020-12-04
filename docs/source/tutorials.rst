@@ -585,3 +585,7 @@ standard Keras ``predict_model``.
                                                   self.flags_obj.bleu_ref,
                                                   self.flags_obj.vocab_file)
 
+A validation dataset can be provided in the form of a pair of input files specified
+at the command line as  ``bleu_source`` and ``bleu_ref``.
+If the validation dataset exists, the evaluation method will compute and log the
+corresponding BLEU scores (both case-sensitive and case-insensitive) serially.
