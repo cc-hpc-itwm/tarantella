@@ -12,6 +12,8 @@ set(libSources
     ${COLLECTIVES_SRC_DIR}/lib/queues.cpp
     ${COLLECTIVES_SRC_DIR}/lib/reduce.cpp
     ${COLLECTIVES_SRC_DIR}/lib/writer.cpp
+    ${COLLECTIVES_SRC_DIR}/allreduce/RequiredResource.cpp
+    ${COLLECTIVES_SRC_DIR}/allreduce/Resource.cpp
     ${COLLECTIVES_SRC_DIR}/allreduce/RecursiveHalving.cpp
     ${COLLECTIVES_SRC_DIR}/allreduce/RecursiveHalvingDoubleBuffer.cpp
     ${COLLECTIVES_SRC_DIR}/allreduce/utils.cpp
