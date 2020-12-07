@@ -1,6 +1,6 @@
 #include "RecursiveHalving.hpp"
 
-#include "utils.hpp"
+#include "collectives/allreduce/utils.hpp"
 
 namespace tarantella
 {
@@ -17,8 +17,8 @@ namespace tarantella
             state(OperatorState::NOT_STARTED),
             allreduce(tensor_info.get_nelems(), to_allreduce_dataType(tensor_info.get_elem_type()),
                       to_allreduce_reductionType(reduction_op),
-                      to_allreduce_segment_buffer(resource_list.at(0)),
-                      to_allreduce_segment_buffer(resource_list.at(1)),
+                      to_allreduce_segment_buffer(resource_list.at(SegmentType::DATA1)),
+                      to_allreduce_segment_buffer(resource_list.at(SegmentType::COMM)),
                       queues, group),
             barrier(group)
       {}
@@ -73,15 +73,27 @@ namespace tarantella
         return state == OperatorState::FINISHED;
       }
   
-      Operator::RequiredResourceList RecursiveHalving::get_required_resources(
+      RequiredResourceList RecursiveHalving::get_required_resources(
         TensorInfo const& tensor_info, GPI::Group const& group)
       {
         auto const num_notifications = allreduceButterfly::getNumberOfNotifications(group.get_size());
         auto const num_elements_data_segment = tensor_info.get_nelems();
         auto const num_elements_temp_segment = static_cast<size_t>(
             allreduceButterfly::getNumberOfElementsSegmentCommunicate(tensor_info.get_nelems(), group.get_size()));
-        return {{num_elements_data_segment * getDataTypeSize(tensor_info.get_elem_type()), num_notifications},
-                {num_elements_temp_segment * getDataTypeSize(tensor_info.get_elem_type()), num_notifications}};
+
+        auto data_resource = RequiredResource();
+        data_resource.set_buffer_size_bytes(num_elements_data_segment * getDataTypeSize(tensor_info.get_elem_type()));
+        data_resource.set_num_notifications(num_notifications);
+
+        auto temp_resource = RequiredResource();
+        temp_resource.set_buffer_size_bytes(num_elements_temp_segment * getDataTypeSize(tensor_info.get_elem_type()));
+        temp_resource.set_num_notifications(num_notifications);
+
+        RequiredResourceList list;
+        list.emplace(SegmentType::DATA1, data_resource);
+        list.emplace(SegmentType::COMM, temp_resource);
+
+        return list;
       }
   
       void* RecursiveHalving::get_input_ptr() const
