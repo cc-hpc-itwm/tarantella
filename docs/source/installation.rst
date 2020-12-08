@@ -89,6 +89,9 @@ Now, you can install the latest supported TensorFlow version with
   conda install python=3.7
   pip install --upgrade tensorflow==2.2
 
+Tarantella requires at least Python ``3.7``. Make sure the selected version also matches
+the `TensorFlow requirements <https://www.tensorflow.org/install>`_.
+
 .. _installation-pybind11-label:
 
 Installing pybind11

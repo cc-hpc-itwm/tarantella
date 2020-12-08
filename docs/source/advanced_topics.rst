@@ -70,10 +70,7 @@ the number of devices used, at least up to some *critical batch size*, cf. [Shal
 Changing the batch size of the optimizer will however also imply the need to adapt the learning rate
 schedule.
 
-.. todo::
-  
-  Enable when the Tutorial is updated:
-  For details, cf. for instance the :ref:`ResNet-50 tutorial <resnet50-label>`.
+For details, cf. for instance the :ref:`ResNet-50 tutorial<scale-learning-rate-label>`.
 
 If you decide to scale the batch size with the number of nodes, Tarantella provides
 two different ways to achieve this easily. The first option is to multiply the local batch size
@@ -138,7 +135,17 @@ a multi-node/multi-device setting with Tarantella, one needs to meet at least
 the following requirements:
 
 * set the random seed with ``tf.random.set_seed(seed)``
-* set the environment variable ``os.environ['TF_CUDNN_DETERMINISTIC']='1'``
+* set the environment variable ``os.environ['TF_DETERMINISTIC_OPS'] = '1'``
+* set the environment variable ``os.environ['TF_CUDNN_DETERMINISTIC'] = '1'``
+* set the random seed when using layers such as ``keras.layers.Dropout``
 * set the shuffle seeds when using ``tf.data.Dataset`` with ``shuffle(seed=seed)`` and ``list_files(seed=seed)``
 * set the ``deterministic`` parameter to ``True`` in ``Dataset`` transformations such as ``interleave`` and ``map``
 * make sure the number of samples in your datasets equal a multiple of ``batch_size``
+
+Additionally, Python-specific random generators might need to be seeded, in particular:
+* ``random.seed(seed)``
+* ``numpy.random.seed(seed)``
+* ``os.environ['PYTHONHASHSEED'] = str(seed)``
+
+For more details, take a look at a more in-depth study of
+`non-determinism sources in TensorFlow <https://github.com/NVIDIA/framework-determinism>`_.
