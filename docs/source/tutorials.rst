@@ -224,7 +224,7 @@ Scaling the learning rate
 To be able to reach the same target accuracy when scaling the global batch size up,
 other hyperparameters need to be carefully tuned [Shallue]_.
 In particular, adjusting the learning rate is essential for achieving convergence
-at large batch sizes. The works of [Goyal]_ and [Shallue]_ propose to *scale the
+at large batch sizes. [Goyal]_ proposes to *scale the
 learning rate up linearly with the batch size* (and thus with the number of devices).
 
 The scaled-up learning rate is set up at the begining of training, after which the
