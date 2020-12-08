@@ -146,3 +146,6 @@ Additionally, Python-specific random generators might need to be seeded, in part
 * ``random.seed(seed)``
 * ``numpy.random.seed(seed)``
 * ``os.environ['PYTHONHASHSEED'] = str(seed)``
+
+For more details, take a look at a more in-depth study of
+`non-determinism sources in TensorFlow <https://github.com/NVIDIA/framework-determinism>`_.
