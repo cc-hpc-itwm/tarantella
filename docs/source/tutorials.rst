@@ -221,26 +221,24 @@ parameter, and let the framework divide the dataset into microbatches.
 Scaling the learning rate
 """""""""""""""""""""""""
 
-To take full advantage of the abilitity to scale to large batch sizes, further
-hyperparameters need to be adjusted. The learning rate value is essential to fast
-convergence of stochastic gradient descent. The works of [Goyal]_ and [Shallue]_
-suggest to carefully tune the learning rate into what is called a *learning rate
-schedule*, that is, a set of learning rate values to be applied at specific moments
-in training.
-For instance, training should typically start with a large learning rate value that
-allows to explore more of the search space. The learning rate can then monotonically
-decay the closer the algorithm gets to convergence.
-The initial learning rate needs to be adapted to the size of the
-batch size.
+To be able to reach the same target accuracy when scaling the global batch size up,
+other hyperparameters need to be carefully tuned [Shallue]_.
+In particular, adjusting the learning rate is essential for achieving convergence
+at large batch sizes. The works of [Goyal]_ and [Shallue]_ propose to *scale the
+learning rate up linearly with the batch size* (and thus with the number of devices).
 
-Thus, in the case of ResNet-50, studies have shown that scaling the initial learning
-rate up with the global batch size (i.e., the number of devices) plays an important
-role in quickly achieving convergence.
+The scaled-up learning rate is set up at the begining of training, after which the
+learning rate evolves over the training steps based on a so-called
+*learning rate schedule*.
 
 In our ResNet-50 example, we use the
 `PiecewiseConstantDecayWithWarmup <https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/resnet/resnet50_tnt.py#L20>`__
 schedule provided by the TensorFlow Models implementation, which is similar to the schedule
 introduced by [Goyal]_.
+When training starts, the learning rate is initialized to
+a large value that allows to explore more of the search space. The learning rate will
+then monotonically decay the closer the algorithm gets to convergence.
+
 The initial learning rate here is scaled up by a factor computed as:
 
 .. code-block:: bash
@@ -254,17 +252,18 @@ Here ``batch_size`` is the global batch size and ``base_lr_batch_size`` is the p
 Learning rate warm-up
 """""""""""""""""""""
 
-Besides decaying the learning rate in a step-wise fashion over training epochs, some
-papers propose to first *warm-up* the learning rate during the first epochs, particularly
-when using large batches [Goyal]_.
+Whereas scaling up the learning rate with the batch size is necessary, a large learning
+rate might degrade the stability of the optimization algorithm, especially in early training.
+A technique to mitigate this limitation is to *warm-up* the learning rate during the first
+epochs, particularly when using large batches [Goyal]_.
 
-In our ResNet-50 example, the `PiecewiseConstantDecayWithWarmup` schedule provided
+In our ResNet-50 example, the `PiecewiseConstantDecayWithWarmup` schedule
 starts with a small value for the learning rate, which then increases at every step
 (i.e., iteration), for a number of initial
 `warmup_steps <https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/resnet/common.py#L30>`_.
 
-The ``warmup_steps`` defaults to the number of iterations of the first five epochs, similar
-to the schedule proposed by [Goyal]_.
+The ``warmup_steps`` value defaults to the number of iterations of the first five epochs,
+matching the schedule proposed by [Goyal]_.
 After the ``warmup_steps`` are done, the learning rate value should reach the *scaled initial
 learning rate* introduced above.
 
@@ -503,7 +502,7 @@ each device instructed to select its own shard:
 
   micro_batch_size = number_batch_sentences // num_ranks
 
-  # Batch records and select only the shard (subset)
+  # Batch the sentences and select only the shard (subset)
   # corresponding to the current rank
   dataset = dataset.padded_batch(micro_batch_size,
                                 ([max_length], [max_length]),

@@ -57,23 +57,15 @@ a typical HPC machine suitable for CPU-intensive simulations.
 The hardware details of the two machines used in our experiments are shown below.
 
 ============  ====================================
-Name          Hardware specifications
+Cluster          Hardware specifications per node
 ============  ====================================
-HPC-DA        - 32 IBM AC922 nodes
-
-              Each node is equipped with:
-
-              - 6x NVIDIA VOLTA V100 with 32GB HBM2
+HPC-DA        - 6 x NVIDIA VOLTA V100 GPU with 32GB HBM2
               - 2 x IBM Power9 CPU (22 cores @2.80 GHz)
 
               - NVLINK bandwidth 150 GB/s between GPUs and host
-              - Infiniband interconnect between nodes
+              - 2 x 100 Gbit/s Infiniband interconnect between nodes
 
-SuperMUC-NG   - 6,336 Thin compute nodes
-
-              Each node is equipped with:
-
-              - 2 x Intel Skylake Xeon Platinum 8174 (48 cores @3.10 GHz)
+SuperMUC-NG   - 2 x Intel Skylake Xeon Platinum 8174 CPU (48 cores @3.10 GHz)
               - 100 Gbit/s OmniPath network
 ============  ====================================
 
