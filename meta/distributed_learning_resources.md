@@ -210,6 +210,7 @@ Distributed Deep Learning Resources
   * [TF op in C++](https://www.tensorflow.org/guide/create_op)
   * [Profiling TF](https://www.tensorflow.org/guide/profiler)
   * [TF Graph Optimization](https://www.tensorflow.org/guide/graph_optimization)
+* [Reproducibility in TF](https://github.com/NVIDIA/framework-determinism)
 
 ### CMake programming
 * [**Modern CMake** book and additional resources](https://cliutils.gitlab.io/modern-cmake/)
