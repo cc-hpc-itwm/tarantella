@@ -14,6 +14,9 @@ option(LINK_IB "Defines whether to link against Infiniband drivers [default: dis
 option(ENABLE_TESTING "Compile tests [default: disabled]" off)
 option(BUILD_DOCS "Build documentation [default: disabled]" off)
 
+SET(TIMEOUT_GASPI_TERMINATE_BARRIER "0" CACHE STRING
+    "Set a timeout in msec for the final barrier before framework exit [default: blocking barrier]")
+
 set(SRC_DIR "${CMAKE_SOURCE_DIR}/src")
 set(CMAKE_BUILD_DIR "${CMAKE_SOURCE_DIR}/build")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -43,7 +46,8 @@ if (ENABLE_TESTING)
                                       numpy
                                       pytest)
   enable_testing()
-  set(SLEEP_TIME_AFTER_TEST 4)
+  set(SLEEP_TIME_AFTER_TEST 2)
+
   add_subdirectory(${CMAKE_SOURCE_DIR}/test)
 endif() 
 
