@@ -1,5 +1,6 @@
 #include "Context.hpp"
 
+#include "config.hpp"
 #include "gpi/gaspiCheckReturn.hpp"
 #include "gpi/Group.hpp"
 #include "gpi/ResourceManager.hpp"
@@ -26,6 +27,7 @@ namespace tarantella
 
     Context::~Context()
     {
+      auto const timeout_millis = get_timeout_gaspi_terminate_barrier();
       gaspiCheckReturn(gaspi_barrier(GASPI_GROUP_ALL, timeout_millis),
                       "gaspi_barrier");
       gaspiCheckReturn(gaspi_proc_term(GASPI_BLOCK),
