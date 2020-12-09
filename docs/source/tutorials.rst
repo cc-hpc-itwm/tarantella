@@ -432,6 +432,8 @@ perform several tasks:
     if tnt.is_master_rank():
       logging.info("Start train")
 
+* distribute datasets manually among participating devices
+* execute other models, such as a modified, serial version of the Tarantella model for :ref:`inference<inference-master-rank-label>`
 * enable certain callbacks only on one rank (e.g., profiling callbacks)
 
 .. code-block:: python
@@ -443,8 +445,10 @@ perform several tasks:
                                                 logdir = None)
         callbacks.append(time_callback)
 
-* distribute datasets manually among participating devices
-* execute other models, such as a modified, serial version of the Tarantella model for :ref:`inference<inference-master-rank-label>`.
+Such callbacks only collect local data corresponding to the specific rank where they are executed.
+In this example, the `TimeHistory` callback will measure timings only on the `master_rank`. While
+iteration and epoch runtimes should be the same on all ranks (as all ranks train in sync), other
+metrics such as accuracy will only be computed based on the local data available to the rank.
 
 
 .. _manually-distributed-datasets-label:
