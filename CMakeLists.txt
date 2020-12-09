@@ -47,3 +47,27 @@ if (ENABLE_TESTING)
   add_subdirectory(${CMAKE_SOURCE_DIR}/test)
 endif() 
 
+
+set(CPACK_SOURCE_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${PROJECT_VERSION}-src")
+set(CPACK_SOURCE_GENERATOR "TGZ")
+
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE")
+set(CPACK_SOURCE_IGNORE_FILES
+    /.git
+    ~$
+    /__pycache__
+    /\\\\.DS_Store
+    /\\\\.project
+    /\\\\.cproject
+    /\\\\.settings
+    /\\\\.pytest_cache
+    /\\\\.vscode
+    /\\\\.pydevproject
+    ${CMAKE_SOURCE_DIR}/tmp.*
+    ${CMAKE_SOURCE_DIR}/log.*
+    ${CMAKE_SOURCE_DIR}/build.*
+    ${CMAKE_SOURCE_DIR}/Testing
+    ${CMAKE_SOURCE_DIR}/meta
+    ${CMAKE_SOURCE_DIR}/src/examples
+    ${CMAKE_SOURCE_DIR}/README.md)
+include(CPack)
