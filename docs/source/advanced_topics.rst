@@ -50,6 +50,10 @@ only on one rank:
    tnt_model.fit(train_dataset,
                  callbacks = [history_callback] if tnt.is_master_rank() else [])
 
+Note that callbacks running on a single rank will only have access to local data corresponding
+to that rank. For instance, even though the models are identical on all ranks, a logging callback
+that displays metrics will only be aware of locally collected metrics, that is, metrics generated
+based on the micro-batches that the rank has processed.
 
 .. _using-local-batch-sizes-label:
 
