@@ -5,7 +5,6 @@ import os
 import shutil
 import subprocess
 import sys
-import shlex
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
@@ -24,7 +23,7 @@ def parse_args():
 
   parser.add_argument("--version",
                       default = None,
-                      help = "Tarantella version to export to the public repo",
+                      help = "Tarantella version to export to the public repo (e.g., --version=0.1.1)",
                       dest = "version")
   parser.add_argument("--message",
                       default = None,
@@ -71,7 +70,7 @@ def run(version, commit_message):
                     "cd build",
                     "cmake ../",
                     "make package_source",
-                    "tar -xvf {}.tar.gz".format(source_package_name)
+                    "tar -xvf {}.tar.gz".format(source_package_name),
                     ]
   run_command_list(command_list, root_dir)
 
@@ -81,7 +80,8 @@ def run(version, commit_message):
   github_commands = git_clone_and_go_to_branch(TNT_GITHUB_REPO, TNT_GITHUB_NAME)
   github_commands += ["cp -r {}/* ./".format(source_package_path),
                       "git add --all",
-                      "git commit -m \"{}\"".format(commit_message)
+                      "git commit -m \"{}\"".format(commit_message),
+                      "git tag v{}".format(version),
                       ]
   run_command_list(github_commands, root_dir)
 
