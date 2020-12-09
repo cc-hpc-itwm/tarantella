@@ -23,8 +23,9 @@ def generate_nodes_list(hostfile = None):
   if len(nodes_list) == 0:
     raise ValueError("Empty `hostfile` with path `{}`".format(hostfile))
   
-  unique_nodes = [node.strip() for node in set(nodes_list)]
-  if len(nodes_list) != len(set(nodes_list)):
+  non_empty_nodes = [node.strip() for node in nodes_list if len(node.strip()) > 0]
+  unique_nodes = list(dict.fromkeys(non_empty_nodes))
+  if len(non_empty_nodes) != len(unique_nodes):
     logger.debug("The `hostfile` does not contain only unique hostnames; removing duplicates.")
   return unique_nodes
 

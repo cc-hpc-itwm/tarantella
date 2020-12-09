@@ -5,7 +5,6 @@ if (Sphinx_FOUND)
   add_custom_target(docs ALL
                     COMMAND
                     Sphinx::Sphinx -b html
-                    -Drelease=${PROJECT_VERSION}
                     ${SPHINX_SOURCE} ${SPHINX_BUILD}
                     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
                     COMMENT "Generating documentation with Sphinx")

@@ -53,5 +53,10 @@ namespace tarantella
     {
       return segmentManager.get_buffer_of_size(id, s);
     }
+
+    GPI::QueueManager& ResourceManager::get_queue_manager()
+    {
+      return queueManager;
+    }
   }
 }

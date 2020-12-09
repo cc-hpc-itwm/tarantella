@@ -1,9 +1,5 @@
 #pragma once
 
-#include "collectives/BufferElementType.hpp"
-#include "gpi/NotificationManager.hpp"
-#include "gpi/SegmentBuffer.hpp"
-
 #include <cstddef>
 #include <vector>
 
@@ -17,23 +13,7 @@ namespace tarantella
       // Interface for non-blocking, asynchronous Allreduce algorithms (not thread-safe)
       class Operator
       {
-        public:
-          class RequiredResource
-          {
-            public:
-              std::size_t buffer_size;
-              std::size_t num_notifications;
-          };
-          using RequiredResourceList = std::vector<RequiredResource>;
-          using Resource = std::pair<GPI::SegmentBuffer, GPI::NotificationManager::NotificationRange>;
-          using ResourceList = std::vector<Resource>;
-  
-          enum class ReductionOp
-          {
-            SUM,
-            AVERAGE
-          };
-  
+        public: 
           enum class OperatorState
           {
             NOT_STARTED,

@@ -172,21 +172,30 @@ of a ``rank``. Details on how to do this can be found in the
 
 .. rubric:: References
 
-.. [Shallue] Shallue, Christopher J., et al. "Measuring the effects of data parallelism on neural network training." arXiv preprint arXiv:1811.03600 (2018).
+.. [Shallue] Shallue, Christopher J., et al. "Measuring the effects of data parallelism on neural network training."
+             `arXiv preprint arXiv:1811.03600 <https://arxiv.org/abs/1811.03600>`_ (2018).
 
-.. [Ulyanov] Ulyanov, Dmitry, Andrea Vedaldi, and Victor Lempitsky. "Instance normalization: The missing ingredient for fast stylization." arXiv preprint arXiv:1607.08022 (2016).
+.. [Ulyanov] Ulyanov, Dmitry, Andrea Vedaldi, and Victor Lempitsky. "Instance normalization: The missing ingredient for fast stylization."
+             `arXiv preprint arXiv:1607.08022 <https://arxiv.org/abs/1607.08022>`_ (2016).
 
-.. [Goyal] Goyal, Priya, et al. "Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour." arXiv preprint arXiv:1706.02677 (2017).
+.. [Goyal] Goyal, Priya, et al. "Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour."
+           `arXiv preprint arXiv:1706.02677 <https://arxiv.org/abs/1706.02677>`_ (2017).
 
-.. [Yang] Yang, Greg, et al. "A mean field theory of batch normalization." arXiv preprint arXiv:1902.08129 (2019).
+.. [Yang] Yang, Greg, et al. "A mean field theory of batch normalization."
+          `arXiv preprint arXiv:1902.08129 <https://arxiv.org/abs/1902.08129>`_ (2019).
 
-.. [Uppal] https://towardsdatascience.com/curse-of-batch-normalization-8e6dd20bc304
+.. [Uppal] `Curse of Batch Normalization <https://towardsdatascience.com/curse-of-batch-normalization-8e6dd20bc304>`_ (2020).
 
-.. [McCandlish] McCandlish, Sam, et al. "An empirical model of large-batch training." arXiv preprint arXiv:1812.06162 (2018).
+.. [McCandlish] McCandlish, Sam, et al. "An empirical model of large-batch training."
+                `arXiv preprint arXiv:1812.06162 <https://arxiv.org/abs/1812.06162>`_ (2018).
 
-.. [He] He, Kaiming, et al. "Deep residual learning for image recognition." Proceedings of the IEEE conference on computer vision and pattern recognition. 2016.
+.. [He] He, Kaiming, et al. "Deep residual learning for image recognition."
+        Proceedings of the IEEE conference on computer vision and pattern recognition.
+        `arXiv preprint arXiv:1512.03385 <https://arxiv.org/abs/1512.03385>`_ (2016).
 
-.. [Vaswani] Vaswani, Ashish, et al. "Attention is all you need." Advances in neural information processing systems. 2017.
+.. [Vaswani] Vaswani, Ashish, et al. "Attention is all you need."
+             Advances in neural information processing systems.
+             `arXiv preprint arXiv:1706.03762 <https://arxiv.org/abs/1706.03762>`_ (2017).
 
 .. rubric:: Footnotes
 

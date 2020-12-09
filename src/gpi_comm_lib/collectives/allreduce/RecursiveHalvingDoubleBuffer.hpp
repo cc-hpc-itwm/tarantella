@@ -4,6 +4,8 @@
 #include "allreduceButterflyDoubleBuffer.h"
 #include "collectives/TensorInfo.hpp"
 #include "gpi/Group.hpp"
+#include "collectives/allreduce/RequiredResource.hpp"
+#include "collectives/allreduce/Resource.hpp"
 
 namespace tarantella
 {

@@ -2,6 +2,7 @@
 
 #include "AtomicCondition.hpp"
 #include "collectives/allreduce/Operator.hpp"
+#include "collectives/allreduce/Resource.hpp"
 #include "collectives/barrier/GPIBarrier.hpp"
 #include "collectives/FusedTensorInfo.hpp"
 #include "collectives/TensorInfo.hpp"
@@ -44,7 +45,7 @@ namespace tarantella
         std::unique_ptr<AtomicCondition> has_finished;
       };
 
-      static collectives::Allreduce::Operator::ReductionOp const reduction_op = collectives::Allreduce::Operator::ReductionOp::AVERAGE;
+      static collectives::Allreduce::ReductionOp const reduction_op = collectives::Allreduce::ReductionOp::AVERAGE;
 
       GPI::ResourceManager& resource_manager;
       GPI::SegmentID segment_id;
@@ -109,12 +110,19 @@ namespace tarantella
   {
     auto const required_resources = AllreduceAlgorithm::get_required_resources(tensor_info, group);
 
-    collectives::Allreduce::Operator::ResourceList resources;
-    for (auto const& resource : required_resources)
+    collectives::Allreduce::ResourceList resources;
+    for (auto const& required : required_resources)
     {
-      resources.emplace_back(
-          resource_manager.get_buffer_of_size(segment_id, resource.buffer_size),
-          resource_manager.get_notification_range(segment_id, resource.num_notifications));
+      auto const& segment_type = required.first;
+      auto const& required_resource = required.second;
+
+      resources.emplace(
+          segment_type,
+          collectives::Allreduce::Resource(
+            resource_manager.get_buffer_of_size(segment_id, required_resource.get_buffer_size_bytes()),
+            resource_manager.get_notification_range(segment_id, required_resource.get_num_notifications())
+          )
+        );
     }
 
     return std::make_unique<AllreduceAlgorithm>(tensor_info, reduction_op, resources, queue_handler, group);

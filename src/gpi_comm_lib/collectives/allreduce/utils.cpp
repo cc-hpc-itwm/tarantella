@@ -17,21 +17,23 @@ namespace tarantella
         return types.at(type);
       }
 
-      allreduce::reductionType to_allreduce_reductionType(const Operator::ReductionOp op)
+      allreduce::reductionType to_allreduce_reductionType(const ReductionOp op)
       {
-        std::unordered_map<Operator::ReductionOp, allreduce::reductionType> const reduction_ops{
-            {Operator::ReductionOp::SUM, allreduce::SUM},
-            {Operator::ReductionOp::AVERAGE, allreduce::AVERAGE},
+        std::unordered_map<ReductionOp, allreduce::reductionType> const reduction_ops{
+            {ReductionOp::SUM, allreduce::SUM},
+            {ReductionOp::AVERAGE, allreduce::AVERAGE},
         };
         return reduction_ops.at(op);
       }
 
-      allreduceButterfly::segmentBuffer to_allreduce_segment_buffer(Operator::Resource const& resource)
+      allreduceButterfly::segmentBuffer to_allreduce_segment_buffer(Resource const& resource)
       {
-        auto const [data_segment_buffer, notif_range] = resource;
+        auto const data_segment_buffer = resource.get_segment_buffer();
+        auto const notification_range = resource.get_notification_range();
+
         allreduceButterfly::segmentBuffer buffer{data_segment_buffer.get_segment_id(),
                                                  data_segment_buffer.get_offset(),
-                                                 static_cast<gaspi_notification_id_t>(notif_range.first)};
+                                                 static_cast<gaspi_notification_id_t>(notification_range.first)};
         return buffer;
       }
     }

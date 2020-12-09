@@ -34,7 +34,6 @@ namespace tarantella
       private:
         Rank rank;
         std::size_t comm_size;
-        size_t const timeout_millis = 1000;
     };
   }
 }

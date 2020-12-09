@@ -1,5 +1,9 @@
 include (add_macros)
 
+set(TEMPLATE_CONFIG_FILE "${SRC_DIR}/config.hpp.in")
+set(COMPILE_CONFIG_FILE "${CMAKE_BINARY_DIR}/generated/config.hpp")
+configure_file(${TEMPLATE_CONFIG_FILE} ${COMPILE_CONFIG_FILE} @ONLY)
+
 set (GPIRESOURCES_SOURCES
     ${SRC_DIR}/gpi_comm_lib/gpi/Context.cpp
     ${SRC_DIR}/gpi_comm_lib/gpi/Group.cpp
@@ -22,6 +26,7 @@ extended_add_library(NAME gpiresources
                 debug GPI2::GPI2dbg
             INCLUDE_DIRECTORIES
                 ${SRC_DIR}/gpi_comm_lib/
+                ${CMAKE_BINARY_DIR}/generated/
             INSTALL
             INSTALL_DESTINATION
                 ${INSTALL_LIB_DIR}

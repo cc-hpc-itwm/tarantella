@@ -5,8 +5,8 @@
 #include "collectives/barrier/GPIBarrier.hpp"
 #include "collectives/TensorInfo.hpp"
 #include "gpi/Group.hpp"
-#include "gpi/NotificationManager.hpp"
-#include "gpi/SegmentBuffer.hpp"
+#include "collectives/allreduce/RequiredResource.hpp"
+#include "collectives/allreduce/Resource.hpp"
 
 namespace tarantella
 {

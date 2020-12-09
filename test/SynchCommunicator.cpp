@@ -69,7 +69,7 @@ namespace tarantella
       public:
 
         SynchCommTestData(std::vector<collectives::TensorInfo> const& tensor_infos, 
-                          collectives::Allreduce::Operator::ReductionOp op,
+                          collectives::Allreduce::ReductionOp op,
                           std::size_t threshold_bytes = 0UL)
         : group_builder(GlobalContext::instance()->gpi_cont),
           segment_id_builder(),
@@ -110,12 +110,12 @@ namespace tarantella
                               auto elem = -1.f;
                               switch (op)
                               {
-                                case collectives::Allreduce::Operator::ReductionOp::SUM:
+                                case collectives::Allreduce::ReductionOp::SUM:
                                 {
                                   elem = idx * nranks * (nranks + 1.) / 2.;
                                   break;
                                 }
-                                case collectives::Allreduce::Operator::ReductionOp::AVERAGE:
+                                case collectives::Allreduce::ReductionOp::AVERAGE:
                                 {
                                   elem = idx * (nranks + 1.) / 2.;
                                   break;
@@ -147,7 +147,7 @@ namespace tarantella
         std::vector<std::vector<float> > expected_output_bufs;
         std::vector<std::vector<float> > input_bufs;
         std::vector<tarantella::GradID> ids;
-        collectives::Allreduce::Operator::ReductionOp const op;
+        collectives::Allreduce::ReductionOp const op;
   };
 
   BOOST_AUTO_TEST_SUITE(synch_communicator_unit)
@@ -166,7 +166,7 @@ namespace tarantella
     BOOST_TEST_DECORATOR(*boost::unit_test::tolerance(epsilon_f));
     BOOST_DATA_TEST_CASE(synch_comm_serialized_allred, test_cases * thresholds_bytes, test_case, threshold) // Cartesian product
     {
-      auto const op = collectives::Allreduce::Operator::ReductionOp::AVERAGE;
+      auto const op = collectives::Allreduce::ReductionOp::AVERAGE;
       SynchCommTestData synch_comm_data(test_case, op, threshold);
 
       for (auto &id : synch_comm_data.ids)
@@ -220,7 +220,7 @@ namespace tarantella
     BOOST_TEST_DECORATOR(*boost::unit_test::tolerance(epsilon_f));
     BOOST_DATA_TEST_CASE(synch_comm_parallel_allred, test_cases * thresholds_bytes, test_case, threshold)
     {
-      auto const op = collectives::Allreduce::Operator::ReductionOp::AVERAGE;
+      auto const op = collectives::Allreduce::ReductionOp::AVERAGE;
       SynchCommTestData synch_comm_data(test_case, op, threshold);
       execute_iteration(synch_comm_data);
     }
@@ -228,7 +228,7 @@ namespace tarantella
     BOOST_TEST_DECORATOR(*boost::unit_test::tolerance(epsilon_f));
     BOOST_DATA_TEST_CASE(synch_comm_repeat_parallel_allred, test_cases * thresholds_bytes, test_case, threshold)
     {
-      auto const op = collectives::Allreduce::Operator::ReductionOp::AVERAGE;
+      auto const op = collectives::Allreduce::ReductionOp::AVERAGE;
       auto nreps = 10UL;
       SynchCommTestData synch_comm_data(test_case, op, threshold);
       for (auto i = 0UL; i < nreps; ++i)

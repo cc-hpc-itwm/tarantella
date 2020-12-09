@@ -34,6 +34,7 @@ namespace tarantella
         void wait_and_flush_queue();
         GPI::NotificationRange get_notification_range(GPI::SegmentID, std::size_t);
         GPI::SegmentBuffer get_buffer_of_size(GPI::SegmentID, std::size_t);
+        GPI::QueueManager& get_queue_manager();
 
       private:
         ResourceManager(GPI::Context&);

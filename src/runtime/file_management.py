@@ -41,7 +41,7 @@ class HostFile(TemporaryFileWrapper):
       raise LogicError("[create_nodes_file] Empty list of nodes provided")
     if devices_per_node is None or devices_per_node <= 0:
       raise LogicError("[create_nodes_file] Incorrect number of `devices_per_node`")
-    self.nodes = sorted(nodes)
+    self.nodes = nodes
     self.devices_per_node = devices_per_node
 
   def get_initial_contents(self):
