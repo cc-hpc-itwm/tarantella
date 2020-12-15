@@ -79,14 +79,14 @@ Then, create and activate an environment for Tarantella:
 
 .. code-block:: bash
 
-  conda create tarantella
+  conda create -n tarantella
   conda activate tarantella
 
 Now, you can install the latest supported TensorFlow version with
 
 .. code-block:: bash
 
-  conda install python=3.7
+  conda install python=3.8
   pip install --upgrade tensorflow==2.2
 
 Tarantella requires at least Python ``3.7``. Make sure the selected version also matches
