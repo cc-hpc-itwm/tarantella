@@ -317,6 +317,7 @@ class Model(tf.keras.models.Model):
   ####################
   def _save(self, filepath, args_dict):
     if self.compiled == False:
+      #clean the optimizer if not compiled.
       self.model.optimizer = None
       self.model.save(filepath = filepath, **args_dict)
     else:

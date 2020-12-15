@@ -16,6 +16,7 @@ def load_model(filepath,compile=True,**kwargs):
   keras_model = tf.keras.models.load_model(filepath, compile = compile,**kwargs)
   tnt_model = tnt.Model(keras_model)
   if compile:
+    #The model may be saved without compile.
     try:
       tnt_optimzier = tnt.distributed_optimizers.SynchDistributedOptimizer(keras_model.optimizer)
       tnt_model.orig_optimizer = keras_model.optimizer
