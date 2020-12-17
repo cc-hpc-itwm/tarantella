@@ -34,7 +34,7 @@ def parse_args():
   singlenode_group = parser.add_argument_group('Single-node execution')
   singlenode_group.add_argument("-n",
                     help="number of TensorFlow instances to start on the local node",
-                    dest = "npernode",
+                    dest = "npernode_single_node",
                     metavar = "N",
                     type = int,
                     default = None)
@@ -82,6 +82,12 @@ def parse_args():
                     version=generate_version_message())
   parser.add_argument('script', nargs='+',metavar='-- SCRIPT')
   args = parser.parse_args()
+
+  if args.npernode_single_node:
+    if args.npernode:
+      sys.exit("[TNT_CLI] Use either `-n`, `--n-per-node`, or `--devices-per-node` argument.")
+    else:
+      args.npernode = args.npernode_single_node
   return args
 
 def tnt_run_message(command_list, hostfile_path, exec_script_path):
