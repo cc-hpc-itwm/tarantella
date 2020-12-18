@@ -28,13 +28,6 @@ from models.resnet50 import imagenet_preprocessing
 from models.resnet50 import resnet_model
 from models.utils import common
 
-def tarantella_enabled():
-  try:
-    import tarantella
-  except:
-    return False
-  return True
-
 def parse_args():
   parser = argparse.ArgumentParser()
   parser.add_argument("--data_dir", help="location of the ImageNet dataset")
@@ -136,7 +129,8 @@ def run(model, optimizer,
         rank = 0, comm_size = 1, 
         custom_callbacks = None,
         val_freq = 1,
-        shuffle_seed = None):
+        shuffle_seed = None,
+        tarantella_enabled = False):
   """Run ResNet CIFAR10 training and eval loop using native Keras APIs.
 
   Args:
@@ -166,7 +160,7 @@ def run(model, optimizer,
                 metrics=(['sparse_categorical_accuracy']))
 
   kwargs = {}
-  if tarantella_enabled():
+  if tarantella_enabled:
     kwargs = {'tnt_distribute_dataset': False,
               'tnt_distribute_validation_dataset': False}
 
@@ -181,7 +175,7 @@ def run(model, optimizer,
                       **kwargs)
 
   kwargs = {}
-  if tarantella_enabled():
+  if tarantella_enabled:
     kwargs = {'tnt_distribute_dataset': False}
 
   stats = {}
