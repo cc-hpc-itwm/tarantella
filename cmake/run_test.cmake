@@ -5,14 +5,14 @@ function (kill_old_processes)
                             "${multi_value_options}" ${ARGN})
 
   set(find_processes_command "ps -ef | grep ${ARG_TEST_DIR} | grep -v grep | grep -v ${ARG_TEST_EXECUTABLE}")
-  set(kill_command "${find_processes_command} | awk '{print $2}' | xargs -r kill -9")
+  set(kill_command "${find_processes_command} | awk '{print $2}' | xargs -r kill -9 || 1")
 
   execute_process(COMMAND sh -c  "echo \"Killing `${find_processes_command} | wc -l` processes\"; ${find_processes_command}")
   execute_process(COMMAND sh -c "${kill_command}"
-                  COMMAND_ECHO STDOUT)
+                  COMMAND_ECHO STDOUT)  
 endfunction()
 
-foreach(var TEST_DIR TEST_EXECUTABLE RUNCOMMAND RUNCOMMAND_ARGS SLEEP)
+foreach(var TEST_DIR TEST_EXECUTABLE RUNCOMMAND RUNCOMMAND_ARGS SLEEP CLEANUP_SCRIPT)
   if(NOT DEFINED ${var})
     message(FATAL_ERROR "'${var}' must be defined on the command line")
   endif()
@@ -41,6 +41,11 @@ execute_process(COMMAND ${CMAKE_COMMAND} -E sleep "${sleep_time}"
                 COMMAND ${CMAKE_COMMAND} -E echo "Sleep ${sleep_time}")
 kill_old_processes(TEST_DIR ${TEST_DIR}
                    TEST_EXECUTABLE ${TEST_EXECUTABLE})
+
+separate_arguments(all_command_params UNIX_COMMAND 
+                "${runparams_list} /bin/bash ${CLEANUP_SCRIPT}")
+execute_process(COMMAND ${RUNCOMMAND} ${all_command_params}
+                COMMAND_ECHO STDOUT)
 
 # Check return status
 if(result)

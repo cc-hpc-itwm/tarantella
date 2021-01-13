@@ -131,6 +131,13 @@ function (tarantella_add_gpi_test)
     math(EXPR ARG_TIMEOUT "${ARG_SLEEP} + ${ARG_TIMEOUT}")
   endif()
 
+  if (TNT_TEST_MACHINEFILE)
+    set(ARG_MACHINEFILE ${TNT_TEST_MACHINEFILE})
+    # get number of hostnames in the provided machinefile
+    file(STRINGS "${ARG_MACHINEFILE}" HOSTS_LIST)
+    list(LENGTH HOSTS_LIST TNT_CLUSTER_MAX_NUM_PROCS)
+  endif()
+
   if (ARG_MACHINEFILE)
     # use user-defined machinefile
     set(runparams "-n ${ARG_NRANKS} -m ${ARG_MACHINEFILE}")
@@ -142,33 +149,39 @@ function (tarantella_add_gpi_test)
     set(runparams "-n ${ARG_NRANKS} -m ${machinefile_path}")
   endif()
 
-  # create gaspi_run test
-  add_test(NAME ${test_name}
-          WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-          COMMAND "${CMAKE_COMMAND}"
-            -DRUNCOMMAND=${ARG_RUNCOMMAND}
-            -DRUNCOMMAND_ARGS="${runparams}"
-            -DTEST_EXECUTABLE="${ARG_TARGET_FILE}"
-            -DTEST_DIR="${CMAKE_BINARY_DIR}"
-            -DSLEEP="${ARG_SLEEP}"
-            -P "${CMAKE_SOURCE_DIR}/cmake/run_test.cmake"
-          ) 
+  set(CLEANUP_SCRIPT ${CMAKE_SOURCE_DIR}/cmake/cleanup.sh)
 
-  # set labels if specified
-  if (ARG_LABELS)
-    set_property(TEST ${test_name} PROPERTY LABELS ${ARG_LABELS})
-  endif()
+  if (NOT TNT_TEST_MACHINEFILE OR
+      TNT_CLUSTER_MAX_NUM_PROCS GREATER_EQUAL ARG_NRANKS)
+    # create gaspi_run test
+    add_test(NAME ${test_name}
+            WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+            COMMAND "${CMAKE_COMMAND}"
+              -DRUNCOMMAND=${ARG_RUNCOMMAND}
+              -DRUNCOMMAND_ARGS="${runparams}"
+              -DTEST_EXECUTABLE="${ARG_TARGET_FILE}"
+              -DTEST_DIR="${CMAKE_BINARY_DIR}"
+              -DSLEEP="${ARG_SLEEP}"
+              -DCLEANUP_SCRIPT="${CLEANUP_SCRIPT}"
+              -P "${CMAKE_SOURCE_DIR}/cmake/run_test.cmake"
+            ) 
 
-  # set cleanup fixture script if specified
-  if (ARG_CLEANUP)
-    set_tests_properties(${test_name} PROPERTIES FIXTURES_REQUIRED ${ARG_CLEANUP})
-  endif()
-  
-  # set timeout if specified
-  if (ARG_TIMEOUT)
-    set_tests_properties(${test_name} PROPERTIES TIMEOUT ${ARG_TIMEOUT})
-  endif()
+    # set labels if specified
+    if (ARG_LABELS)
+      set_property(TEST ${test_name} PROPERTY LABELS ${ARG_LABELS})
+    endif()
 
-  # make sure the GPI tests are not run in parallel 
-  set_tests_properties(${test_name} PROPERTIES RESOURCE_LOCK GPI_run_serial)
+    # set cleanup fixture script if specified
+    if (ARG_CLEANUP)
+      set_tests_properties(${test_name} PROPERTIES FIXTURES_REQUIRED ${ARG_CLEANUP})
+    endif()
+    
+    # set timeout if specified
+    if (ARG_TIMEOUT)
+      set_tests_properties(${test_name} PROPERTIES TIMEOUT ${ARG_TIMEOUT})
+    endif()
+
+    # make sure the GPI tests are not run in parallel 
+    set_tests_properties(${test_name} PROPERTIES RESOURCE_LOCK GPI_run_serial)
+  endif()
 endfunction()
