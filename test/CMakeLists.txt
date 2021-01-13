@@ -1,5 +1,7 @@
 include (add_test_wrappers)
 
+set(SLEEP_TIME_AFTER_TEST 2)
+
 set (include_dirs ${CMAKE_SOURCE_DIR}/src/gpi_comm_lib
                   ${CMAKE_SOURCE_DIR}/src/gpi_comm_lib/collectives
                   ${CMAKE_SOURCE_DIR}/src/gpi_comm_lib/collectives/lib)
