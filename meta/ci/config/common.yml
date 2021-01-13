@@ -1,0 +1,41 @@
+
+.common_build_job:
+  artifacts:
+    when: always
+    expire_in: 1 day
+    paths:
+      - ${TNT_BUILD_DIR}
+  script:
+    - echo TNT_BUILD_TYPE=${TNT_BUILD_TYPE}
+    - echo TNT_USE_IB=${TNT_USE_IB}
+    - echo TNT_BARRIER_TIMEOUT=${TNT_BARRIER_TIMEOUT}
+    - echo TNT_TEST_MACHINEFILE=${TNT_TEST_MACHINEFILE}
+    - rm -rf ${TNT_INSTALL_DIR}
+    - rm -rf ${TNT_BUILD_DIR} && mkdir ${TNT_BUILD_DIR}
+    - cd ${TNT_BUILD_DIR}
+    - cmake -DTNT_TEST_MACHINEFILE=${TNT_TEST_MACHINEFILE} -DCMAKE_BUILD_TYPE=${TNT_BUILD_TYPE} -DCMAKE_INSTALL_PREFIX=${TNT_INSTALL_DIR} -DLINK_IB=${TNT_USE_IB} -DTIMEOUT_GASPI_TERMINATE_BARRIER=${TNT_BARRIER_TIMEOUT} -DENABLE_TESTING=ON ${CI_PROJECT_DIR}
+    - make -j$(nproc)
+
+.common_after_script:
+  after_script:
+    - sh ${CI_PROJECT_DIR}/cmake/cleanup.sh 
+
+.release_job:
+  variables:
+    TNT_BUILD_TYPE: Release
+
+.debug_job:
+  variables:
+    TNT_BUILD_TYPE: Debug
+
+.eth_job:
+  variables:
+    TNT_USE_IB: "OFF"
+    TNT_BARRIER_TIMEOUT: 1000
+    TNT_GPI2_MODULE: ${GPI2_MODULE_ETH}
+
+.ib_job:
+  variables:
+    TNT_USE_IB: "ON"
+    TNT_BARRIER_TIMEOUT: 0
+    TNT_GPI2_MODULE: ${GPI2_MODULE_IB}
