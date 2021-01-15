@@ -61,7 +61,6 @@ namespace tarantella
       std::unordered_map<FusedID, std::unique_ptr<std::atomic<bool>>> ready_to_copy_back;
       std::unordered_map<FusedID, std::unique_ptr<std::atomic<std::size_t>>> ready_to_reset_counters;
 
-      AtomicCondition setup_has_finished;
       std::atomic<bool> terminate_man_thread;
       std::thread management_thread;
       void management_thread_task();
