@@ -365,7 +365,12 @@ class TntModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
     self.save_weights_only = keras_model_checkpoint.save_weights_only
     self.save_freq = keras_model_checkpoint.save_freq
     self.epochs_since_last_save = keras_model_checkpoint.epochs_since_last_save
-    self._batches_seen_since_last_saving = keras_model_checkpoint._batches_seen_since_last_saving
+
+    if hasattr(keras_model_checkpoint, '_batches_seen_since_last_saving'):  #TF>=2.2
+      self._batches_seen_since_last_saving = keras_model_checkpoint._batches_seen_since_last_saving
+    if hasattr(keras_model_checkpoint, '_samples_seen_since_last_saving'):  # TF2.0-2.1
+      self._samples_seen_since_last_saving = keras_model_checkpoint._samples_seen_since_last_saving
+
     self._last_batch_seen = 0
     self.load_weights_on_restart = keras_model_checkpoint.load_weights_on_restart
     self.period = keras_model_checkpoint.period
