@@ -44,7 +44,7 @@ namespace tarantella
     ready_to_copy_back(),
     ready_to_reset_counters(),
     terminate_man_thread(false),
-    management_thread()
+    management_thread() // do not start the thread yet
   {
     using AllreduceImplementation = collectives::Allreduce::RecursiveHalvingDoubleBuffer;
     create_segment_resources<AllreduceImplementation>(tensor_infos);
@@ -52,6 +52,8 @@ namespace tarantella
     create_fused_tensor_infos_and_ids(tensor_infos, threshold_for_tensor_fusion_bytes);
     create_fused_tensors_synchronization();
     create_operators_with_state<AllreduceImplementation>();
+
+    // start the management thread only when all required resources are allocated
     management_thread = std::thread(&tarantella::SynchCommunicator::management_thread_task, this);
   }
 
