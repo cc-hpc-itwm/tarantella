@@ -19,7 +19,14 @@ tarantella_generate_python_gpi_test(NAME OptimizersDataParallelMNIST
                                     TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/data_parallel_training/optimizers_mnist_test.py
                                     LOCALRANKS_LIST "${localranks_list}"
                                     LABELS integration gpu
-	  		                            TIMEOUT 10000)
+                                    TIMEOUT 10000)
+
+set(localranks_list 4)
+tarantella_generate_python_gpi_test(NAME OptimizersSGDDataParallelMNIST
+                                    TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/data_parallel_training/optimizerSGD_momentum_mnist_test.py
+                                    LOCALRANKS_LIST "${localranks_list}"
+                                    LABELS integration gpu
+                                    TIMEOUT 10000)
 
 set(localranks_list 4)
 tarantella_generate_python_gpi_test(NAME OptimizersDataParallelCIFAR
