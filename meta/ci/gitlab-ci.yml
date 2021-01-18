@@ -3,6 +3,7 @@ stages:
   - cpp_tests
   - py_tests
   - integration_tests
+  - integration_tests_nightly
 
 variables:
   GIT_STRATEGY: fetch

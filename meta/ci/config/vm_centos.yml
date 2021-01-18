@@ -58,6 +58,16 @@
   script:
     - cd ${TNT_BUILD_DIR}
     - ctest --output-on-failure -LE "disabled|gpu" -L integration
+  only:
+    - master
+
+.vm_centos_integration_tests_nightly:
+  extends: 
+    - .vm_centos_common
+  stage: integration_tests_nightly
+  script:
+    - cd ${TNT_BUILD_DIR}
+    - ctest --output-on-failure -LE "disabled" -L integration
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $NIGHTLY_PIPELINE && $NIGHTLY_PIPELINE == "true"'
 
@@ -126,5 +136,14 @@ tf2.2-cpu-eth-gcc8.3.0-Release-integration:
     - .vm_centos_tf2.2_job
     - .eth_job
     - .vm_centos_integration_tests
+  needs:
+    - job: tf2.2-cpu-eth-gcc8.3.0-Release-build
+
+# Nightly integration tests
+tf2.2-cpu-eth-gcc8.3.0-Release-integration-nightly:
+  extends:
+    - .vm_centos_tf2.2_job
+    - .eth_job
+    - .vm_centos_integration_tests_nightly
   needs:
     - job: tf2.2-cpu-eth-gcc8.3.0-Release-build

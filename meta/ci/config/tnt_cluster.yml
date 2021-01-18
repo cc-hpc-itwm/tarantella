@@ -46,15 +46,15 @@
   stage: integration_tests
   script:
     - cd ${TNT_BUILD_DIR}
-    - ctest -VV -LE "disabled" -L integration
+    - ctest --output-on-failure -LE "disabled" -L integration
 
-.tnt_cluster_integration_tests_cpu:
-  extends: 
+.tnt_cluster_integration_tests_nightly:
+  extends:
     - .tnt_cluster_common
-  stage: integration_tests
+  stage: integration_tests_nightly
   script:
     - cd ${TNT_BUILD_DIR}
-    - ctest -VV -LE "disabled|gpu" -L integration
+    - ctest --output-on-failure -LE "disabled" -L integration
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $NIGHTLY_PIPELINE && $NIGHTLY_PIPELINE == "true"'
 
@@ -142,9 +142,9 @@ tf2.1-cpu-ib-gcc8.4.0-Release-build:
     - .tnt_cluster_build
 
 # Ethernet builds [test the C++ libraries]
-tf2.1-cpu-eth-gcc8.4.0-Release-build:
+tf2.2-cpu-eth-gcc8.4.0-Release-build:
   extends:
-    - .tnt_cluster_tf2.1-cpu_job
+    - .tnt_cluster_tf2.2-cpu_job
     - .release_job
     - .eth_job
     - .cpu_job
@@ -173,12 +173,12 @@ ib-gcc8.4.0-Release-cpp:
 
 eth-gcc8.4.0-Release-cpp:
   extends:
-    - .tnt_cluster_tf2.1-cpu_job
+    - .tnt_cluster_tf2.2-cpu_job
     - .eth_job
     - .cpu_job
     - .tnt_cluster_run_tests_cpp
   needs:
-    - job: tf2.1-cpu-eth-gcc8.4.0-Release-build
+    - job: tf2.2-cpu-eth-gcc8.4.0-Release-build
 
 ####### Unit tests [Python] ############
 ### GPU runs 
@@ -186,6 +186,7 @@ tf2.2-gpu-ib-gcc8.4.0-Release-py:
   extends:
     - .tnt_cluster_tf2.2_job
     - .ib_job
+    - .gpu_job
     - .tnt_cluster_run_tests_py
   needs:
     - job: tf2.2-gpu-ib-gcc8.4.0-Release-build
@@ -194,6 +195,7 @@ tf2.1-gpu-ib-gcc8.4.0-Release-py:
   extends:
     - .tnt_cluster_tf2.1_job
     - .ib_job
+    - .gpu_job
     - .tnt_cluster_run_tests_py
   needs:
     - job: tf2.1-gpu-ib-gcc8.4.0-Release-build
@@ -202,6 +204,7 @@ tf2.0-gpu-ib-gcc8.4.0-Release-py:
   extends:
     - .tnt_cluster_tf2.0_job
     - .ib_job
+    - .gpu_job
     - .tnt_cluster_run_tests_py
   needs:
     - job: tf2.0-gpu-ib-gcc8.4.0-Release-build
@@ -211,6 +214,7 @@ tf2.2-cpu-ib-gcc8.4.0-Release-py:
   extends:
     - .tnt_cluster_tf2.2-cpu_job
     - .ib_job
+    - .cpu_job
     - .tnt_cluster_run_tests_py
   needs:
     - job: tf2.2-cpu-ib-gcc8.4.0-Release-build
@@ -219,24 +223,37 @@ tf2.1-cpu-ib-gcc8.4.0-Release-py:
   extends:
     - .tnt_cluster_tf2.1-cpu_job
     - .ib_job
+    - .cpu_job
     - .tnt_cluster_run_tests_py
   needs:
     - job: tf2.1-cpu-ib-gcc8.4.0-Release-build
 
 ####### Integration tests ############
 ### GPU runs
-tf2.2-gpu-ib-gcc8.4.0-Release-integration:
-  extends:
-    - .ib_job
-    - .tnt_cluster_tf2.2_job
-    - .tnt_cluster_integration_tests
-  needs:
-    - job: tf2.2-gpu-ib-gcc8.4.0-Release-build
-
 tf2.1-gpu-ib-gcc8.4.0-Release-integration:
   extends:
     - .ib_job
+    - .gpu_job
     - .tnt_cluster_tf2.1_job
     - .tnt_cluster_integration_tests
   needs:
     - job: tf2.1-gpu-ib-gcc8.4.0-Release-build
+
+# Nightly integration tests
+tf2.2-cpu-eth-gcc8.4.0-Release-integration:
+  extends:
+    - .ib_job
+    - .cpu_job
+    - .tnt_cluster_tf2.2-cpu_job
+    - .tnt_cluster_integration_tests_nightly
+  needs:
+    - job: tf2.2-cpu-eth-gcc8.4.0-Release-build
+
+tf2.2-cpu-ib-gcc8.4.0-Release-integration:
+  extends:
+    - .ib_job
+    - .cpu_job
+    - .tnt_cluster_tf2.2-cpu_job
+    - .tnt_cluster_integration_tests_nightly
+  needs:
+    - job: tf2.2-cpu-ib-gcc8.4.0-Release-build
