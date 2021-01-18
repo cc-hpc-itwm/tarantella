@@ -17,7 +17,6 @@ class TestsDataParallelOptimizers:
                                          keras.optimizers.Adagrad,
                                          keras.optimizers.Adam,
                                          keras.optimizers.Adamax,
-                                         keras.optimizers.Nadam,
                                          keras.optimizers.RMSprop,
                                         ])
   @pytest.mark.parametrize("micro_batch_size", [64])
