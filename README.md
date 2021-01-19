@@ -1,7 +1,12 @@
-High Performance Deep Learning Framework (HP-DLF)
+Tarantella
 ============
 
-# Tarantella
+Tarantella is an open-source, distributed Deep Learning framework built on top of TensorFlow 2,
+providing scalable Deep Neural Network training on CPU and GPU compute clusters.
+
+A comprehensive documentation of the Tarantella software can be found
+[here](https://tarantella.readthedocs.io/en/latest/index.html).
+
 ## Prerequisites
 
 ### Compiler and build system
@@ -49,8 +54,8 @@ on the [TensorFlow website](https://www.tensorflow.org/install).
 
 ```bash
 conda activate tarantella
-conda install python=3.7
-pip install --upgrade tensorflow==2.0
+conda install python=3.8
+pip install --upgrade tensorflow==2.2
 ```
 
 ### Installing Pybind11
@@ -84,7 +89,7 @@ Running the tarantella `python` tests requires [pytest](https://docs.pytest.org)
 pip install -U pytest
 ```
 
-## Building Tarantella
+## Building and installing Tarantella
 
 `Tarantella`'s build system uses `cmake`. For a standard out-of-source build (with optional tests), follow these steps:
 
@@ -92,12 +97,66 @@ pip install -U pytest
 git clone https://gitlab.itwm.fraunhofer.de/carpenamarie/hpdlf.git
 cd hpdlf
 mkdir build && cd build
-cmake .. -DENABLE_TESTING=ON
+
+export TARANTELLA_INSTALLATION_PATH=/your/installation/path
+cmake -DCMAKE_INSTALL_PREFIX=${TARANTELLA_INSTALLATION_PATH} -DENABLE_TESTING=ON ..
 make
 ctest
 ```
 
+Finally, install Tarantella to `TARANTELLA_INSTALLATION_PATH`:
+
+```bash
+make install
+export PATH=${TARANTELLA_INSTALLATION_PATH}/bin:${PATH}
+
+tarantella --version
+```
+
+
 ## Distributed Training with Tarantella
+
+There are two alternatives for running a model distributedly using Tarantella:
+* Tarantella CLI: user-friendly and flexible
+* direct execution through `gaspi_run`: for advanced users requiring customized runtime settings
+
+### Using Tarantella CLI
+
+A detailed description of all the command line options of `tarantella` can be found [here](https://tarantella.readthedocs.io/en/latest/quick_start.html#executing-your-model-with-tarantella).
+
+The simplest way to train a model distributedly with Tarantella is to pass the Python script
+to the ``tarantella`` command:
+```bash
+   tarantella -- model.py --batch_size=64 --learning_rate=0.01
+```
+
+This will execute our model distributedly on a single node, using all the available GPUs.
+In case no GPUs can be found, ``tarantella`` will executed in serial mode on the CPU.
+In case you have GPUs available, but want to execute ``tarantella`` on CPUs nonetheless,
+you can specify the ``--no-gpu`` option.
+```bash
+   tarantella --no-gpu -- model.py
+```
+
+On a single node, we can also explicitly specify the number of TensorFlow instances
+we want to use. This is done with the ``-n`` option, for example when training on 4 GPUs:
+```bash
+   tarantella -n 4 -- model.py --batch_size=64
+```
+
+Next, let's run ``tarantella`` on multiple nodes. In order to do this, we need to provide ``tarantella`` with a ``hostfile`` that contains the ``hostname`` s of the nodes that we want to use:
+```bash
+   $ cat hostfile
+   name_of_node_1
+   name_of_node_2
+```
+
+With this ``hostfile`` we can run ``tarantella`` on multiple nodes, using 2 GPUs on each node:
+```bash
+   tarantella --n-per-node=2 --hostfile hostfile -- model.py
+```
+
+### Run Tarantella models through `gaspi_run` directly
 
 * Enable distributed training for an existing `Keras` model, by wrapping it as a `tarantella.Model`.
   A complete example can be found [here](https://gitlab.itwm.fraunhofer.de/carpenamarie/hpdlf/-/blob/master/src/examples/simple_FNN_GPI.py).
@@ -166,23 +225,49 @@ More details [here](https://linuxconfig.org/how-to-install-start-and-connect-to-
 
 ### Tarantella on the STYX GPU cluster
 
+##### Installed Tarantella version
+
+Tarantella `0.6.1` is already installed in STYX (in the *Tarantella* image).
+It is compiled with `Tensorflow 2.2` and `Python 3.8.5`.
+
+To use it, create a job using the *Tarantella* image and follow the steps below:
+
+```bash
+# load your own `conda` environment
+conda activate my_env
+
+# make sure Tensorflow 2.2 and Python 3.8.5 are installed
+conda install python=3.8.5 tensorflow-gpu=2.2
+
+# load tarantella environment
+carme_prepare_tarantella
+```
+
+This is it, now you can run your code distributedly with (as shown [here](https://gitlab.itwm.fraunhofer.de/carpenamarie/hpdlf#distributed-training-with-tarantella)):
+```bash
+tarantella -- path/to/my/model.py
+```
+
 ##### SSH configuration
 * Use `hostname` instead of `localhost` for testing passwordless SSH access and for writing 
 the `nodesfile` needed to execute GASPI-based code.
 
 ##### GPI-2 library
-* The GPI-2 library is already installed in the *Base_image*
+
+In case you want to run Tarantella directly using `gaspi_run`, the GPI-2 library is already
+available in the *Base_image* and *Tarantella* images.
+
 * `gaspi_run` can be used without any changes to the current ${PATH}
 ```bash
 which gaspi_run
 ```
 
 ##### Installing TensorFlow with GPU support
-* We have tested Tarantella with Tensorflow 2.1 installed from `conda` packages. 
+* We have tested Tarantella with Tensorflow 2.1/2.2 installed from `conda` packages.
   ``` bash
   conda create -n tarantella_env
   conda activate tarantella_env
-  conda install python=3.7 tensorflow-gpu=2.1  
+  conda install python=3.8 tensorflow-gpu=2.2
   conda install pybind11 -c conda-forge
   ```
 
