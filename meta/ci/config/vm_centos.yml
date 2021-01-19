@@ -34,7 +34,7 @@
 .vm_centos_run_tests_cpp:
   extends: 
     - .vm_centos_common
-  stage: cpp_tests
+  stage: unit_tests_cpp
   script:
     - cd ${TNT_BUILD_DIR}
     - ctest --output-on-failure -LE "disabled|integration|gpu|Python"
@@ -44,7 +44,7 @@
 .vm_centos_run_tests_py:
   extends: 
     - .vm_centos_common
-  stage: py_tests
+  stage: unit_tests_python
   script:
     - cd ${TNT_BUILD_DIR}
     - ctest --output-on-failure -LE "disabled|integration|gpu" -L "Python"
@@ -57,7 +57,7 @@
   stage: integration_tests
   script:
     - cd ${TNT_BUILD_DIR}
-    - ctest --output-on-failure -LE "disabled|gpu" -L integration
+    - ctest --output-on-failure -LE "disabled|gpu|cluster" -L integration
   only:
     - master
 
@@ -67,7 +67,7 @@
   stage: integration_tests_nightly
   script:
     - cd ${TNT_BUILD_DIR}
-    - ctest --output-on-failure -LE "disabled" -L integration
+    - ctest --output-on-failure -LE "disabled|gpu" -L integration
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $NIGHTLY_PIPELINE && $NIGHTLY_PIPELINE == "true"'
 

@@ -1,8 +1,8 @@
 ## Configuring the Gitlab CI
 
 ### CI machines
-* tnt_cluster (configuration [here]())
-* vm_centos (configuration [here]())
+* tnt_cluster (configuration [here](https://gitlab.itwm.fraunhofer.de/carpenamarie/hpdlf/-/blob/master/meta/ci/tnt_cluster.yml))
+* vm_centos (configuration [here](https://gitlab.itwm.fraunhofer.de/carpenamarie/hpdlf/-/blob/master/meta/ci/vm_centos.yml))
 
 Each machine is configured with one *gitlab-runner* that executes jobs sequentially. Jobs are tagged with the name of the specific machine they are defined for.
 
@@ -13,14 +13,14 @@ Each machine is configured with one *gitlab-runner* that executes jobs sequentia
 ### CI stages
 * build
 
-* cpp_tests
+* unit_tests_cpp
   Unit tests for the C++ libraries, which should be tested for different compilers/GPI-2 version.
 
-* py_tests
-  Python tests, which mainly depend on the TF version.
+* unit_tests_python
+  Python unit tests, which mainly depend on the TF version and do not require DNN training (e.g., distributed datasets test).
 
 * integration tests
-  Python tests, should be testing different TF versions.
+  Python tests, should be executed for different TF versions. 
 
 ### (Hidden) Cmake variables
 
@@ -36,6 +36,9 @@ Two predefined machinefiles exist for the *tnt_cluster*, one for GPUs (one rank 
 * GPI-2 has to be compiled with the same compiler version as the code
 
 ### Tests fail with GCC-9.4.0/any Boost 0.67-0.69
+* compiles
+* test run correctly with "Debug" build
+* with "Release" build:
 ```
 Startup time: 0 sec
 *** buffer overflow detected ***: terminated
@@ -49,18 +52,3 @@ Running 12 test cases...
 
 ### TF2.2 with GPUs
 * the `tensorflow-gpu=2.2` from conda does not actually use the GPUs
-
-### TF2.1
-```
-  File "/home/gitlab-runner/builds/yb9NsiCK/0/carpenamarie/ci_testing/src/examples/simple_FNN_GPI.py", line 158, in <module>
-    tensorboard_callback],
-  File "/home/gitlab-runner/builds/yb9NsiCK/0/carpenamarie/ci_testing/src/tarantella/model.py", line 113, in fit
-    self._setup_for_execution('fit', x, y, callbacks, kwargs)
-  File "/home/gitlab-runner/builds/yb9NsiCK/0/carpenamarie/ci_testing/src/tarantella/model.py", line 274, in _setup_for_execution
-    self._preprocess_callbacks(callbacks)
-  File "/home/gitlab-runner/builds/yb9NsiCK/0/carpenamarie/ci_testing/src/tarantella/model.py", line 332, in _preprocess_callbacks
-    distributed_optimizer = self.dist_optimizer)
-  File "/home/gitlab-runner/builds/yb9NsiCK/0/carpenamarie/ci_testing/src/tarantella/model.py", line 368, in __init__
-    self._batches_seen_since_last_saving = keras_model_checkpoint._batches_seen_since_last_saving
-AttributeError: 'ModelCheckpoint' object has no attribute '_batches_seen_since_last_saving'
-```

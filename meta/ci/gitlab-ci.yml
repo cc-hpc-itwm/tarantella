@@ -1,7 +1,7 @@
 stages:
   - build
-  - cpp_tests
-  - py_tests
+  - unit_tests_cpp
+  - unit_tests_python
   - integration_tests
   - integration_tests_nightly
 
