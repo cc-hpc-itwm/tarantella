@@ -88,11 +88,15 @@
 
 .gpu_job:
   variables:
-    TNT_TEST_MACHINEFILE: ${CI_PROJECT_DIR}/meta/ci/tnt_cluster/machinefile_gpu
+    TNT_TEST_MACHINEFILE: ${CI_PROJECT_DIR}/meta/ci/tnt_cluster/machinefile_1rankspernode
 
 .cpu_job:
   variables:
-    TNT_TEST_MACHINEFILE: ${CI_PROJECT_DIR}/meta/ci/tnt_cluster/machinefile_cpu
+    TNT_TEST_MACHINEFILE: ${CI_PROJECT_DIR}/meta/ci/tnt_cluster/machinefile_2rankspernode
+
+.cpu_job_1rankpernode:
+  variables:
+    TNT_TEST_MACHINEFILE: ${CI_PROJECT_DIR}/meta/ci/tnt_cluster/machinefile_1rankspernode
 
 ####### Build jobs ############
 tf2.2-gpu-ib-gcc8.4.0-Release-build:
@@ -137,7 +141,7 @@ tf2.1-cpu-ib-gcc8.4.0-Release-build:
     - .tnt_cluster_tf2.1-cpu_job
     - .release_job
     - .ib_job
-    - .cpu_job
+    - .cpu_job_1rankpernode
     - .gcc8.4.0_job
     - .tnt_cluster_build
 
@@ -147,7 +151,6 @@ tf2.2-cpu-eth-gcc8.4.0-Release-build:
     - .tnt_cluster_tf2.2-cpu_job
     - .release_job
     - .eth_job
-    - .cpu_job
     - .gcc8.4.0_job
     - .tnt_cluster_build
 
@@ -156,7 +159,6 @@ tf2.2-gpu-eth-gcc8.4.0-Release-build:
     - .tnt_cluster_tf2.2_job
     - .release_job
     - .eth_job
-    - .gpu_job
     - .gcc8.4.0_job
     - .tnt_cluster_build
 
@@ -166,7 +168,6 @@ tf2.2-gpu-ib-gcc8.4.0-Debug-build:
     - .tnt_cluster_tf2.2_job
     - .debug_job
     - .ib_job
-    - .gpu_job
     - .gcc8.4.0_job
     - .tnt_cluster_build
 
@@ -175,7 +176,6 @@ ib-gcc8.4.0-Release-cpp:
   extends:
     - .tnt_cluster_tf2.2_job
     - .ib_job
-    - .cpu_job
     - .tnt_cluster_run_tests_cpp
   needs:
     - job: tf2.2-cpu-ib-gcc8.4.0-Release-build
@@ -184,7 +184,6 @@ eth-gcc8.4.0-Release-cpp:
   extends:
     - .tnt_cluster_tf2.2-cpu_job
     - .eth_job
-    - .cpu_job
     - .tnt_cluster_run_tests_cpp
   needs:
     - job: tf2.2-cpu-eth-gcc8.4.0-Release-build
@@ -195,7 +194,6 @@ tf2.2-gpu-ib-gcc8.4.0-Release-py:
   extends:
     - .tnt_cluster_tf2.2_job
     - .ib_job
-    - .gpu_job
     - .tnt_cluster_run_tests_py
   needs:
     - job: tf2.2-gpu-ib-gcc8.4.0-Release-build
@@ -204,7 +202,6 @@ tf2.1-gpu-ib-gcc8.4.0-Release-py:
   extends:
     - .tnt_cluster_tf2.1_job
     - .ib_job
-    - .gpu_job
     - .tnt_cluster_run_tests_py
   needs:
     - job: tf2.1-gpu-ib-gcc8.4.0-Release-build
@@ -213,7 +210,6 @@ tf2.0-gpu-ib-gcc8.4.0-Release-py:
   extends:
     - .tnt_cluster_tf2.0_job
     - .ib_job
-    - .gpu_job
     - .tnt_cluster_run_tests_py
   needs:
     - job: tf2.0-gpu-ib-gcc8.4.0-Release-build
@@ -223,7 +219,6 @@ tf2.2-cpu-ib-gcc8.4.0-Release-py:
   extends:
     - .tnt_cluster_tf2.2-cpu_job
     - .ib_job
-    - .cpu_job
     - .tnt_cluster_run_tests_py
   needs:
     - job: tf2.2-cpu-ib-gcc8.4.0-Release-build
@@ -232,7 +227,6 @@ tf2.1-cpu-ib-gcc8.4.0-Release-py:
   extends:
     - .tnt_cluster_tf2.1-cpu_job
     - .ib_job
-    - .cpu_job
     - .tnt_cluster_run_tests_py
   needs:
     - job: tf2.1-cpu-ib-gcc8.4.0-Release-build
@@ -242,7 +236,6 @@ tf2.1-cpu-ib-gcc8.4.0-Release-py:
 tf2.1-gpu-ib-gcc8.4.0-Release-integration:
   extends:
     - .ib_job
-    - .gpu_job
     - .tnt_cluster_tf2.1_job
     - .tnt_cluster_integration_tests
   needs:
@@ -252,7 +245,6 @@ tf2.1-gpu-ib-gcc8.4.0-Release-integration:
 tf2.2-gpu-eth-gcc8.4.0-Release-integration-nightly:
   extends:
     - .eth_job
-    - .gpu_job
     - .tnt_cluster_tf2.2_job
     - .tnt_cluster_integration_tests_nightly
   needs:
@@ -261,7 +253,6 @@ tf2.2-gpu-eth-gcc8.4.0-Release-integration-nightly:
 tf2.1-cpu-ib-gcc8.4.0-Release-integration-nightly:
   extends:
     - .ib_job
-    - .cpu_job
     - .tnt_cluster_tf2.1-cpu_job
     - .tnt_cluster_integration_tests_nightly
   needs:

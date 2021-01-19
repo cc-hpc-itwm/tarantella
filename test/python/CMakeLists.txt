@@ -4,7 +4,7 @@ set(localranks_list 3)
 tarantella_generate_python_gpi_test(NAME WeightsDataParallel
                                     TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/data_parallel_training/weights_test.py
                                     LOCALRANKS_LIST "${localranks_list}"
-                                    LABELS integration
+                                    LABELS integration cluster
                                     TIMEOUT 3600)
 
 set(localranks_list 3 4)

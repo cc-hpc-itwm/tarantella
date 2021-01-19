@@ -67,7 +67,7 @@
   stage: integration_tests_nightly
   script:
     - cd ${TNT_BUILD_DIR}
-    - ctest --output-on-failure -LE "disabled|gpu" -L integration
+    - ctest --output-on-failure -LE "disabled|cluster" -L integration
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $NIGHTLY_PIPELINE && $NIGHTLY_PIPELINE == "true"'
 

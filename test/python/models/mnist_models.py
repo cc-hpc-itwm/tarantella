@@ -7,12 +7,12 @@ import logging
 
 # Optimizer Hyperparameters
 # Dictionary: Optimizer Name: (number_epochs, learning_rate)
-hyperparams_mnist = {'Adadelta': (1, 1),
+hyperparams_mnist = {'Adadelta': (2, 1),
                     'Adagrad':   (3, 0.01),
                     'Adam':      (1, 0.001),
                     'Adamax':    (2, 0.001),
                     'Nadam':     (1, 0.002),
-                    'RMSprop':   (1, 0.001),
+                    'RMSprop':   (2, 0.001),
                     'SGD':       (8, 0.01)}
 
 def get_hyperparams(optimizer):
