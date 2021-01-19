@@ -61,6 +61,7 @@ if __name__ == '__main__':
       rank, comm_size,
       callbacks,
       args.val_freq,
-      args.shuffle_seed)
+      args.shuffle_seed,
+      have_datapar)
 
 
