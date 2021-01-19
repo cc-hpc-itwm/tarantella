@@ -143,6 +143,10 @@ To create reproducible experiments on HPC clusters, we used a dedicated [experim
 
 Experimental results can be found [here](https://gitlab.itwm.fraunhofer.de/labus/gpionnx_experiments).
 
+## CI configuration
+
+Details about the current CI setup can be found [here](https://gitlab.itwm.fraunhofer.de/carpenamarie/hpdlf/-/blob/master/meta/ci/README.md).
+
 ## Troubleshooting
 
 ### SSH key configurations
