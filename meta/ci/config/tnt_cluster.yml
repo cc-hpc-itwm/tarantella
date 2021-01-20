@@ -1,0 +1,259 @@
+.tnt_cluster_common:
+  tags:
+    - tnt_cluster
+  extends:
+    - .common_after_script
+  variables:
+    CMAKE_MODULE: cmake/3.15.4-gcc-8.4.0-zvbii
+    BOOST_MODULE: boost/1.68.0-gcc-9.3.0-gr57o
+    GPI2_MODULE_ETH: gpi-2/1.4.0-gcc-8.4.0-eth-vswoi 
+    GPI2_MODULE_IB:  gpi-2/1.4.0-gcc-8.4.0-infiniband-vngux 
+  before_script:
+    - source /opt/software/miniconda3-4.8.3/etc/profile.d/conda.sh
+    - export MODULEPATH=/opt/modules/linux-ubuntu20.04-broadwell:${MODULEPATH}
+    - module load ${COMPILER_MODULE}
+    - module load ${CMAKE_MODULE} 
+    - module load ${BOOST_MODULE}
+    - module load ${TNT_GPI2_MODULE}
+    - conda activate ${TF_ENV}
+    - export LD_LIBRARY_PATH=${TNT_LD_LIBRARY_PATH}:${LD_LIBRARY_PATH}
+
+.tnt_cluster_build:
+  extends: 
+    - .common_build_job
+    - .tnt_cluster_common
+  stage: build
+
+.tnt_cluster_run_tests_cpp:
+  extends: 
+    - .tnt_cluster_common
+  stage: unit_tests_cpp
+  script:
+    - cd ${TNT_BUILD_DIR}
+    - ctest --output-on-failure -LE "disabled|integration|Python"
+
+.tnt_cluster_run_tests_py:
+  extends: 
+    - .tnt_cluster_common
+  stage: unit_tests_python
+  script:
+    - cd ${TNT_BUILD_DIR}
+    - ctest --output-on-failure -LE "disabled|integration" -L "Python"
+
+.tnt_cluster_integration_tests:
+  extends: 
+    - .tnt_cluster_common
+  stage: integration_tests
+  script:
+    - cd ${TNT_BUILD_DIR}
+    - ctest --output-on-failure -LE "disabled" -L integration
+
+.tnt_cluster_integration_tests_nightly:
+  extends:
+    - .tnt_cluster_common
+  stage: integration_tests_nightly
+  script:
+    - cd ${TNT_BUILD_DIR}
+    - ctest --output-on-failure -LE "disabled" -L integration
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $NIGHTLY_PIPELINE && $NIGHTLY_PIPELINE == "true"'
+
+.gcc8.4.0_job:
+  variables:
+    COMPILER_MODULE: gcc/8.4.0-gcc-9.3.0-itvm7
+
+.gcc7.4.0_job:
+  variables:
+    COMPILER_MODULE: gcc/7.4.0-gcc-9.3.0-oeoyn
+
+.tnt_cluster_tf2.2_job:
+  variables:
+    TF_ENV: tf2.2
+
+.tnt_cluster_tf2.1_job:
+  variables:
+    TF_ENV: tf2.1
+
+.tnt_cluster_tf2.0_job:
+  variables:
+    TF_ENV: tf2.0
+
+.tnt_cluster_tf2.2-cpu_job:
+  variables:
+    TF_ENV: tf2.2-cpu
+
+.tnt_cluster_tf2.1-cpu_job:
+  variables:
+    TF_ENV: tf2.1-cpu
+
+.gpu_job:
+  variables:
+    TNT_TEST_MACHINEFILE: ${CI_PROJECT_DIR}/meta/ci/tnt_cluster/machinefile_1rankspernode
+
+.cpu_job:
+  variables:
+    TNT_TEST_MACHINEFILE: ${CI_PROJECT_DIR}/meta/ci/tnt_cluster/machinefile_2rankspernode
+
+.cpu_job_1rankpernode:
+  variables:
+    TNT_TEST_MACHINEFILE: ${CI_PROJECT_DIR}/meta/ci/tnt_cluster/machinefile_1rankspernode
+
+####### Build jobs ############
+tf2.2-gpu-ib-gcc8.4.0-Release-build:
+  extends:
+    - .tnt_cluster_tf2.2_job
+    - .release_job
+    - .ib_job
+    - .gpu_job
+    - .gcc8.4.0_job
+    - .tnt_cluster_build
+
+tf2.1-gpu-ib-gcc8.4.0-Release-build:
+  extends:
+    - .tnt_cluster_tf2.1_job
+    - .release_job
+    - .ib_job
+    - .gpu_job
+    - .gcc8.4.0_job
+    - .tnt_cluster_build
+
+tf2.0-gpu-ib-gcc8.4.0-Release-build:
+  extends:
+    - .tnt_cluster_tf2.0_job
+    - .release_job
+    - .ib_job
+    - .gpu_job
+    - .gcc8.4.0_job
+    - .tnt_cluster_build
+
+# CPUs only builds
+tf2.2-cpu-ib-gcc8.4.0-Release-build:
+  extends:
+    - .tnt_cluster_tf2.2-cpu_job
+    - .release_job
+    - .ib_job
+    - .cpu_job
+    - .gcc8.4.0_job
+    - .tnt_cluster_build
+
+tf2.1-cpu-ib-gcc8.4.0-Release-build:
+  extends:
+    - .tnt_cluster_tf2.1-cpu_job
+    - .release_job
+    - .ib_job
+    - .cpu_job_1rankpernode
+    - .gcc8.4.0_job
+    - .tnt_cluster_build
+
+# Ethernet builds [test the C++ libraries]
+tf2.2-cpu-eth-gcc8.4.0-Release-build:
+  extends:
+    - .tnt_cluster_tf2.2-cpu_job
+    - .release_job
+    - .eth_job
+    - .gcc8.4.0_job
+    - .tnt_cluster_build
+
+tf2.2-gpu-eth-gcc8.4.0-Release-build:
+  extends:
+    - .tnt_cluster_tf2.2_job
+    - .release_job
+    - .eth_job
+    - .gcc8.4.0_job
+    - .tnt_cluster_build
+
+# Debug builds
+tf2.2-gpu-ib-gcc8.4.0-Debug-build:
+  extends:
+    - .tnt_cluster_tf2.2_job
+    - .debug_job
+    - .ib_job
+    - .gcc8.4.0_job
+    - .tnt_cluster_build
+
+####### Unit tests [C++, do not need to test TF versions or GPUs] ############
+ib-gcc8.4.0-Release-cpp:
+  extends:
+    - .tnt_cluster_tf2.2_job
+    - .ib_job
+    - .tnt_cluster_run_tests_cpp
+  needs:
+    - job: tf2.2-cpu-ib-gcc8.4.0-Release-build
+
+eth-gcc8.4.0-Release-cpp:
+  extends:
+    - .tnt_cluster_tf2.2-cpu_job
+    - .eth_job
+    - .tnt_cluster_run_tests_cpp
+  needs:
+    - job: tf2.2-cpu-eth-gcc8.4.0-Release-build
+
+####### Unit tests [Python] ############
+### GPU runs 
+tf2.2-gpu-ib-gcc8.4.0-Release-py:
+  extends:
+    - .tnt_cluster_tf2.2_job
+    - .ib_job
+    - .tnt_cluster_run_tests_py
+  needs:
+    - job: tf2.2-gpu-ib-gcc8.4.0-Release-build
+
+tf2.1-gpu-ib-gcc8.4.0-Release-py:
+  extends:
+    - .tnt_cluster_tf2.1_job
+    - .ib_job
+    - .tnt_cluster_run_tests_py
+  needs:
+    - job: tf2.1-gpu-ib-gcc8.4.0-Release-build
+
+tf2.0-gpu-ib-gcc8.4.0-Release-py:
+  extends:
+    - .tnt_cluster_tf2.0_job
+    - .ib_job
+    - .tnt_cluster_run_tests_py
+  needs:
+    - job: tf2.0-gpu-ib-gcc8.4.0-Release-build
+
+### CPU runs
+tf2.2-cpu-ib-gcc8.4.0-Release-py:
+  extends:
+    - .tnt_cluster_tf2.2-cpu_job
+    - .ib_job
+    - .tnt_cluster_run_tests_py
+  needs:
+    - job: tf2.2-cpu-ib-gcc8.4.0-Release-build
+
+tf2.1-cpu-ib-gcc8.4.0-Release-py:
+  extends:
+    - .tnt_cluster_tf2.1-cpu_job
+    - .ib_job
+    - .tnt_cluster_run_tests_py
+  needs:
+    - job: tf2.1-cpu-ib-gcc8.4.0-Release-build
+
+####### Integration tests ############
+### GPU runs
+tf2.1-gpu-ib-gcc8.4.0-Release-integration:
+  extends:
+    - .ib_job
+    - .tnt_cluster_tf2.1_job
+    - .tnt_cluster_integration_tests
+  needs:
+    - job: tf2.1-gpu-ib-gcc8.4.0-Release-build
+
+# Nightly integration tests
+tf2.2-gpu-eth-gcc8.4.0-Release-integration-nightly:
+  extends:
+    - .eth_job
+    - .tnt_cluster_tf2.2_job
+    - .tnt_cluster_integration_tests_nightly
+  needs:
+    - job: tf2.2-gpu-eth-gcc8.4.0-Release-build
+
+tf2.1-cpu-ib-gcc8.4.0-Release-integration-nightly:
+  extends:
+    - .ib_job
+    - .tnt_cluster_tf2.1-cpu_job
+    - .tnt_cluster_integration_tests_nightly
+  needs:
+    - job: tf2.1-cpu-ib-gcc8.4.0-Release-build

@@ -1,0 +1,149 @@
+.vm_centos_common:
+  tags:
+    - vm_centos
+  extends:
+    - .common_after_script
+  variables:
+    BASE_ENVIRONMENT_SETUP: ${RUNNER_HOME}/workspace/setup-env.sh
+    CONDA_ENVIRONMENT_DIR: ${RUNNER_HOME}/conda_env
+    SCL_ENVIRONMENT: devtoolset-7
+    BOOST_MODULE: boost/1.67.0-gcc-8.3.0-6rtzd
+    ONEDNN_MODULE: onednn
+
+  before_script:
+    - source ${BASE_ENVIRONMENT_SETUP}
+    - module load cmake
+    - module load miniconda3
+    - source `conda info --base`/etc/profile.d/conda.sh
+    - if [ -d "${TNT_INSTALL_DIR}" ]; then rm -r "${TNT_INSTALL_DIR}"; fi
+    - source scl_source enable ${SCL_ENVIRONMENT} || 1
+    - module load ${BOOST_MODULE}
+    - module load ${ONEDNN_MODULE}
+    - module load ${COMPILER_MODULE}
+    - module load ${TNT_GPI2_MODULE}
+    - conda activate ${CONDA_ENVIRONMENT_DIR}/${TF_ENV}
+    - export LD_LIBRARY_PATH=${TNT_LD_LIBRARY_PATH}:${LD_LIBRARY_PATH}
+
+  
+.vm_centos_build:
+  extends: 
+    - .common_build_job
+    - .vm_centos_common
+  stage: build
+
+.vm_centos_run_tests_cpp:
+  extends: 
+    - .vm_centos_common
+  stage: unit_tests_cpp
+  script:
+    - cd ${TNT_BUILD_DIR}
+    - ctest --output-on-failure -LE "disabled|integration|gpu|Python"
+  only:
+    - master
+
+.vm_centos_run_tests_py:
+  extends: 
+    - .vm_centos_common
+  stage: unit_tests_python
+  script:
+    - cd ${TNT_BUILD_DIR}
+    - ctest --output-on-failure -LE "disabled|integration|gpu" -L "Python"
+  only:
+    - master
+
+.vm_centos_integration_tests:
+  extends: 
+    - .vm_centos_common
+  stage: integration_tests
+  script:
+    - cd ${TNT_BUILD_DIR}
+    - ctest --output-on-failure -LE "disabled|gpu|cluster" -L integration
+  only:
+    - master
+
+.vm_centos_integration_tests_nightly:
+  extends: 
+    - .vm_centos_common
+  stage: integration_tests_nightly
+  script:
+    - cd ${TNT_BUILD_DIR}
+    - ctest --output-on-failure -LE "disabled|cluster" -L integration
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $NIGHTLY_PIPELINE && $NIGHTLY_PIPELINE == "true"'
+
+.vm_centos_tf2.2_job:
+  variables:
+    TF_ENV: tf2.2
+
+.vm_centos_gcc8.3.0_job:
+  variables:
+    COMPILER_MODULE: gcc/8.3.0-gcc-7.3.1-tsrcq
+    GPI2_MODULE_ETH: gpi-2/1.4.0-gcc-8.3.0-kzqza
+
+.vm_centos_gcc7.4.0_job:
+  variables:
+    COMPILER_MODULE: gcc/7.4.0-gcc-7.3.1-vsyxv 
+    GPI2_MODULE_ETH: gpi-2/1.4.0-gcc-8.3.0-kzqza
+
+####### Build jobs ############
+tf2.2-cpu-eth-gcc8.3.0-Release-build:
+  extends:
+    - .vm_centos_tf2.2_job
+    - .vm_centos_gcc8.3.0_job
+    - .release_job
+    - .eth_job
+    - .vm_centos_build
+
+tf2.2-cpu-eth-gcc7.4.0-Release-build:
+  extends:
+    - .vm_centos_tf2.2_job
+    - .vm_centos_gcc7.4.0_job
+    - .release_job
+    - .eth_job
+    - .vm_centos_build
+
+####### Unit tests [C++, do not need to test TF versions] ############
+eth-gcc8.3.0-Release-cpp:
+  extends:
+    - .vm_centos_tf2.2_job
+    - .vm_centos_gcc8.3.0_job
+    - .eth_job
+    - .vm_centos_run_tests_cpp
+  needs:
+    - job: tf2.2-cpu-eth-gcc8.3.0-Release-build
+
+eth-gcc7.4.0-Release-test:
+  extends:
+    - .vm_centos_tf2.2_job
+    - .vm_centos_gcc7.4.0_job
+    - .eth_job
+    - .vm_centos_run_tests_cpp
+  needs:
+    - job: tf2.2-cpu-eth-gcc7.4.0-Release-build
+
+####### Unit tests [Python] ############
+tf2.2-cpu-eth-gcc8.3.0-Release-py:
+  extends:
+    - .vm_centos_tf2.2_job
+    - .eth_job
+    - .vm_centos_run_tests_py
+  needs:
+    - job: tf2.2-cpu-eth-gcc8.3.0-Release-build
+
+######## Integration tests ############
+tf2.2-cpu-eth-gcc8.3.0-Release-integration:
+  extends:
+    - .vm_centos_tf2.2_job
+    - .eth_job
+    - .vm_centos_integration_tests
+  needs:
+    - job: tf2.2-cpu-eth-gcc8.3.0-Release-build
+
+# Nightly integration tests
+tf2.2-cpu-eth-gcc8.3.0-Release-integration-nightly:
+  extends:
+    - .vm_centos_tf2.2_job
+    - .eth_job
+    - .vm_centos_integration_tests_nightly
+  needs:
+    - job: tf2.2-cpu-eth-gcc8.3.0-Release-build

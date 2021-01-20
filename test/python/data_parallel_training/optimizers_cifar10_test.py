@@ -1,5 +1,4 @@
 from models import cifar10_models as cifar
-import training_runner as base_runner
 import utilities as util
 import tarantella
 
@@ -8,15 +7,11 @@ from tensorflow import keras
 
 import pytest
 
-# Fixture for CIFAR-10 models
-@pytest.fixture(scope="class", params=[cifar.alexnet_model_generator])
-def cifar_model_runner(request):
-  yield base_runner.generate_tnt_model_runner(request.param())
-
 class TestsDataParallelOptimizersCIFAR10:
   def test_initialization(self, tarantella_framework):
     assert tarantella_framework
 
+  @pytest.mark.parametrize("keras_model", [cifar.alexnet_model_generator])
   @pytest.mark.parametrize("optimizer", [keras.optimizers.Adadelta,
                                          keras.optimizers.Adagrad,
                                          keras.optimizers.Adam,
@@ -28,7 +23,7 @@ class TestsDataParallelOptimizersCIFAR10:
   @pytest.mark.parametrize("micro_batch_size", [64])
   @pytest.mark.parametrize("nbatches", [230])
   @pytest.mark.parametrize("ntest_batches", [40])
-  def test_cifar_alexnet(self, tarantella_framework, cifar_model_runner,
+  def test_cifar_alexnet(self, tarantella_framework, keras_model,
                          optimizer, micro_batch_size, nbatches):
     batch_size = micro_batch_size * tarantella_framework.get_size()
     nsamples = nbatches * batch_size
@@ -39,12 +34,16 @@ class TestsDataParallelOptimizersCIFAR10:
                                                       test_size = 10000,
                                                       test_batch_size = batch_size)
     if optimizer.__name__ == 'SGD':
-      cifar_model_runner.compile_model(optimizer(learning_rate=lr, momentum=0.9))
+      keras_optimizer = optimizer(learning_rate=lr, momentum=0.9)
     else:
-      cifar_model_runner.compile_model(optimizer(learning_rate=lr))
+      keras_optimizer = optimizer(learning_rate=lr)
 
-    cifar_model_runner.reset_weights()
-    cifar_model_runner.train_model(train_dataset, number_epochs)
-
-    results = cifar_model_runner.evaluate_model(test_dataset)
+    model = tarantella.Model(keras_model())
+    model.compile(keras_optimizer,
+                  loss = keras.losses.SparseCategoricalCrossentropy(),
+                  metrics = [keras.metrics.SparseCategoricalAccuracy()])
+    model.fit(train_dataset,
+              epochs = number_epochs,
+              verbose = 0)
+    results = model.evaluate(test_dataset)
     util.check_accuracy_greater(results[1], 0.5)

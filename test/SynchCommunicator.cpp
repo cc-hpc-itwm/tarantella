@@ -28,7 +28,7 @@ namespace tarantella
     },
     { 
       // test case #2
-      {5, 4 * 1000 , collectives::BufferElementType::FLOAT}
+      {5, 4 * 100 , collectives::BufferElementType::FLOAT}
     },
     { 
       // test case #3
@@ -46,12 +46,12 @@ namespace tarantella
     },
     {
       // test case #5
-      {1, 4123, collectives::BufferElementType::FLOAT},
-      {2, 5000, collectives::BufferElementType::FLOAT},
-      {3, 6122, collectives::BufferElementType::FLOAT},
-      {4,   17, collectives::BufferElementType::FLOAT},
-      {5, 8000, collectives::BufferElementType::FLOAT},
-      {6, 9145, collectives::BufferElementType::FLOAT},
+      {1, 412, collectives::BufferElementType::FLOAT},
+      {2, 500, collectives::BufferElementType::FLOAT},
+      {3, 612, collectives::BufferElementType::FLOAT},
+      {4,  17, collectives::BufferElementType::FLOAT},
+      {5, 800, collectives::BufferElementType::FLOAT},
+      {6, 945, collectives::BufferElementType::FLOAT},
     },
   };
 
@@ -60,7 +60,6 @@ namespace tarantella
     0UL,
     4UL,
     64UL,
-    196,
     1024UL,
   };
 
