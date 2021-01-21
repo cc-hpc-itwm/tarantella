@@ -31,11 +31,9 @@
 .eth_job:
   variables:
     TNT_USE_IB: "OFF"
-    TNT_BARRIER_TIMEOUT: 10000
     TNT_GPI2_MODULE: ${GPI2_MODULE_ETH}
 
 .ib_job:
   variables:
     TNT_USE_IB: "ON"
-    TNT_BARRIER_TIMEOUT: 0
     TNT_GPI2_MODULE: ${GPI2_MODULE_IB}

@@ -8,6 +8,8 @@
     BOOST_MODULE: boost/1.68.0-gcc-9.3.0-gr57o
     GPI2_MODULE_ETH: gpi-2/1.4.0-gcc-8.4.0-eth-vswoi 
     GPI2_MODULE_IB:  gpi-2/1.4.0-gcc-8.4.0-infiniband-vngux 
+    TNT_BARRIER_TIMEOUT: 10000
+
   before_script:
     - source /opt/software/miniconda3-4.8.3/etc/profile.d/conda.sh
     - export MODULEPATH=/opt/modules/linux-ubuntu20.04-broadwell:${MODULEPATH}
@@ -19,9 +21,9 @@
     - export LD_LIBRARY_PATH=${TNT_LD_LIBRARY_PATH}:${LD_LIBRARY_PATH}
 
 .tnt_cluster_build:
-  extends: 
-    - .common_build_job
+  extends:
     - .tnt_cluster_common
+    - .common_build_job
   stage: build
 
 .tnt_cluster_run_tests_cpp:

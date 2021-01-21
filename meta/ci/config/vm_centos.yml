@@ -9,7 +9,7 @@
     SCL_ENVIRONMENT: devtoolset-7
     BOOST_MODULE: boost/1.67.0-gcc-8.3.0-6rtzd
     ONEDNN_MODULE: onednn
-
+    TNT_BARRIER_TIMEOUT: 1000
   before_script:
     - source ${BASE_ENVIRONMENT_SETUP}
     - module load cmake
@@ -27,8 +27,8 @@
   
 .vm_centos_build:
   extends: 
-    - .common_build_job
     - .vm_centos_common
+    - .common_build_job
   stage: build
 
 .vm_centos_run_tests_cpp:
