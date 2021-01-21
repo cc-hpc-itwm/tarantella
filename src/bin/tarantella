@@ -11,7 +11,6 @@ LIB_DIR = os.path.join(TNT_DIR, "lib/tarantella")
 PYLIB_DIR = os.path.join(TNT_DIR, "lib/tarantella/python")
 sys.path.insert(0, LIB_DIR)
 sys.path.insert(0, PYLIB_DIR)
-
 try:
   from version import tnt_version
 except:
@@ -77,6 +76,12 @@ def parse_args():
                     dest = "dry_run",
                     action='store_true',
                     default = False)
+  parser.add_argument("-x",
+                    help="List of environment variables to be set on all ranks",
+                    dest = "setenv",
+                    type = str,
+                    nargs="+",
+                    default=[])
   parser.add_argument("--version",
                     action='version',
                     version=generate_version_message())
@@ -161,8 +166,9 @@ class Tarantella:
     environment = env_config.gen_exports_from_dict(env_config.collect_environment_variables()) + \
                   env_config.gen_exports_from_dict(env_config.collect_tensorflow_variables()) + \
                   env_config.gen_exports_from_dict(env_config.collect_tarantella_variables()) + \
-                  env_config.gen_exports_from_dict(env_config.get_tnt_variables_from_args(self.args)) +\
-                  env_config.gen_exports_from_dict(env_config.get_tnt_gpus(self.num_gpus_per_node))
+                  env_config.gen_exports_from_dict(env_config.get_tnt_variables_from_args(self.args)) + \
+                  env_config.gen_exports_from_dict(env_config.get_tnt_gpus(self.num_gpus_per_node)) + \
+                  env_config.gen_exports_from_dict(env_config.get_environment_vars_from_args(self.args))
 
     command = "python {}".format(' '.join(self.command_list))
     return file_man.GPIScriptFile(header, environment, command, dir = os.getcwd())
