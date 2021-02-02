@@ -131,6 +131,10 @@ def _get_transformation_info_take(dataset):
   kwargs = {"count": dataset._count}
   return (ds.TakeDataset, kwargs)
 
+def _get_transformation_info_restructured(dataset):
+  kwargs = {"structure" : dataset._structure}
+  return (ds._RestructuredDataset,kwargs)
+
 def _get_transformation_info_unbatch(dataset):
   kwargs = {}
   return (ds._UnbatchDataset, kwargs)
@@ -162,6 +166,7 @@ _transformations = {ds.BatchDataset : _get_transformation_info_batch,
                     ds.ShuffleDataset : _get_transformation_info_shuffle,
                     ds.SkipDataset : _get_transformation_info_skip,
                     ds.TakeDataset : _get_transformation_info_take,
+                    ds._RestructuredDataset : _get_transformation_info_restructured,
                     ds._UnbatchDataset : _get_transformation_info_unbatch,
                     ds.WindowDataset : _get_transformation_info_window,
                     ds._OptionsDataset : _get_transformation_info_withoptions,

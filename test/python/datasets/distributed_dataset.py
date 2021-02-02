@@ -135,6 +135,25 @@ def gen_dataset_parallel_map(dataset, batch_size, drop_remainder):
   dataset = dataset.batch(batch_size, drop_remainder)
   return dataset
 
+def gen_dataset_parallel_map_after_batch(dataset, batch_size, drop_remainder):
+  dataset = dataset.repeat(2)
+
+  def map_fn(x,y):
+    return ((x,y),)
+  dataset = dataset.batch(batch_size, drop_remainder)
+  dataset = dataset.map(map_func = lambda x, y: map_fn(x,y),
+                        num_parallel_calls=2,
+                        deterministic=True)
+  return dataset
+
+def gen_data_multiple_batch(dataset, batch_size, drop_remainder):
+    dataset = dataset.repeat(2)
+    dataset = dataset.batch(1)
+    dataset = dataset.unbatch()
+    dataset = dataset.batch(batch_size, drop_remainder)
+    
+    return dataset
+    
 def gen_dataset_parallel_map_v1(dataset, batch_size, drop_remainder):
   dataset = dataset.repeat(2)
   def map_fn(x,y):
@@ -204,6 +223,7 @@ def validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank):
     next(expected_dataset_it)
 
 transformation_test_cases = [ gen_dataset_batch,
+                              gen_data_multiple_batch,
                               gen_dataset_shuffle_batch,
                               gen_dataset_multiple_batch,
                               gen_dataset_io_pipeline,
@@ -225,6 +245,8 @@ transformation_test_cases = [ gen_dataset_batch,
                                            marks=[pytest.mark.tfversion('2.0'),
                                                   pytest.mark.tfversion('2.1')]),
                               pytest.param(gen_dataset_parallel_map,
+                                           marks=pytest.mark.tfversion('2.2')),
+                              pytest.param(gen_dataset_parallel_map_after_batch,
                                            marks=pytest.mark.tfversion('2.2')),
                               pytest.param(gen_dataset_parallel_map_v1,
                                            marks=[pytest.mark.tfversion('2.0'),
