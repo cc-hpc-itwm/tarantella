@@ -252,6 +252,74 @@ This is it, now you can run your code distributedly with (as shown [here](https:
 tarantella -- path/to/my/model.py
 ```
 
+### Tarantella on the Seislab cluster
+
+##### Installed Tarantella version
+
+Tarantella `0.6.0` is already installed in Seislab (under the directory /work/soft/tnt/tf2.*).
+It is compiled with multiple versions of tensorflow : `Tensorflow 2.0`, `Tensorflow 2.1`, `Tensorflow 2.2` and `Python 3.7.9`.
+
+There are also module files provided for the users to load the tarantella module.
+
+To use tarantella on seislab, follow the steps below:
+
+```bash
+# load tarantell using module load command (loads the version built on tf2.2)
+module load tarantella
+# or
+# to load tarantella build on tf2.0 or 2.1 run the following command
+module load tarantella/tf2.0
+# or 
+module load tarantella/tf2.1
+
+# tensorflow 2.0, 2.1 and 2.2 with the required packages are already installed under /work/soft/tnt/tf2.*/tf2.*
+# activate the required version of tensorflow using conda
+source /etc/profile.d/conda.sh
+conda activate /work/soft/tnt/tf2.2/tf2.2
+
+# (optional) You can also activate the environment by using the command "conda activate tf2.2" after the 
+# specific tarantella module is loaded. Check the list of conda envs to know the path
+conda env list
+conda activate tf2.2
+
+# start using tarantella on command line
+tarantella -n 4 --hostfile <hostfile> -- script.py
+```
+
+### Tarantella on the Beehive cluster
+
+##### Installed Tarantella version
+
+Tarantella `0.6.1` is already installed in Beehive (under the directory /p/hpc/soft/tnt/tf2.*).
+It is compiled with multiple versions of tensorflow : `Tensorflow 2.0`, `Tensorflow 2.1`, `Tensorflow 2.2` and `Python 3.7.9`.
+
+There are also module files provided for the users to load the tarantella module.
+
+To use tarantella on beehive, follow the steps below:
+
+```bash
+# load tarantell using module load command (loads the version built on tf2.2)
+module load tarantella
+# or
+# to load tarantella build on tf2.0 or 2.1 run the following command
+module load tarantella/tf2.0
+# or 
+module load tarantella/tf2.1
+
+# tensorflow 2.0, 2.1 and 2.2 with the required packages are already installed under /p/hpc/soft/tarantella/tf2.*/tf2.*
+# activate the required version of tensorflow using conda
+source /etc/profile.d/conda.sh
+conda activate /work/soft/tnt/tf2.2/tf2.2
+
+# (optional) You can also activate the environment by using the command "conda activate tf2.2" after the 
+# specific tarantella module is loaded. Check the list of conda envs to know the path
+conda env list
+conda activate tf2.2
+
+# start using tarantella on command line
+tarantella -n 4 --hostfile <hostfile> -- script.py
+```
+
 ##### SSH configuration
 * Use `hostname` instead of `localhost` for testing passwordless SSH access and for writing 
 the `nodesfile` needed to execute GASPI-based code.
@@ -332,5 +400,3 @@ export PATH=${PATH_TO_CONDA_ENV}/bin:${PATH}
 cmake -DPYTHON_EXECUTABLE=${PATH_TO_CONDA_ENV}/bin/python \
       -DPYTHON_LIBRARY=${PATH_TO_CONDA_ENV}/lib ../
 ```
-
-
