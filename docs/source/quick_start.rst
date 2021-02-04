@@ -13,7 +13,7 @@ what important points need to be taken into account when using Tarantella.
 Code example: LeNet-5 on MNIST
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-After having :ref:`build and installed <installation-label>` Tarantella
+After having :ref:`built and installed <installation-label>` Tarantella
 we are ready to add distributed training support to an existing TensorFlow 2/Keras model.
 We will first illustrate all the necessary steps, using the well-known example of
 **LeNet-5** on the **MNIST** dataset. Although this is not necessarily a good use case
