@@ -27,22 +27,19 @@ def _get_transformation_info_filter(dataset):
   return (tnt_ops.TntFilterDataset, kwargs)
 
 def _get_transformation_info_flatmap(dataset):
-  kwargs = {"map_func": dataset._map_func,
-            "name": dataset._transformation_name()}
+  kwargs = {"map_func": dataset._map_func}
   return (tnt_ops.TntFlatMapDataset, kwargs)
 
 def _get_transformation_info_interleave(dataset):
   kwargs = {"map_func": dataset._map_func,
             "cycle_length": dataset._cycle_length,
-            "block_length": dataset._block_length,
-            "name": dataset._transformation_name()}
+            "block_length": dataset._block_length}
   return (tnt_ops.TntInterleaveDataset, kwargs)
 
 def _get_transformation_info_map(dataset):
   kwargs = {"map_func": dataset._map_func,
             "use_inter_op_parallelism": dataset._use_inter_op_parallelism,
-            "preserve_cardinality": dataset._preserve_cardinality,
-            "name": dataset._transformation_name()}
+            "preserve_cardinality": dataset._preserve_cardinality}
   return (tnt_ops.TntMapDataset, kwargs)
 
 def _get_transformation_info_paddedbatch(dataset):
@@ -62,8 +59,7 @@ def _get_transformation_info_parallelinterleave(dataset):
             "cycle_length": dataset._cycle_length,
             "block_length": dataset._block_length,
             "num_parallel_calls": dataset._num_parallel_calls,
-            "deterministic": deterministic,
-            "name": dataset._transformation_name()}
+            "deterministic": deterministic}
 
   # support for TF2.0 - does not have `buffer_output_elements`
   if hasattr(dataset, '_buffer_output_elements'):
@@ -83,8 +79,7 @@ def _get_transformation_info_parallelmap(dataset):
             "use_inter_op_parallelism": dataset._use_inter_op_parallelism,
             "num_parallel_calls": dataset._num_parallel_calls,
             "preserve_cardinality": dataset._preserve_cardinality,
-            "deterministic": deterministic,
-            "name": dataset._transformation_name()}
+            "deterministic": deterministic}
   return (tnt_ops.TntParallelMapDataset, kwargs)
 
 def _get_transformation_info_prefetch(dataset):
@@ -235,31 +230,6 @@ class BatchingOpInfo:
     kwargs['batch_size'] = tf.convert_to_tensor(new_batch_size,dtype=tf.int64)
     kwargs['drop_remainder'] = self.drop_remainder
     return self._transformation(dataset, **kwargs)
-
-class Mappinginfo:
-  def __init__(self, transformation,params):
-    self.trans = transformation
-    self.map_func = None
-    self.set_kwargs_properties(params)
-    
-  def set_kwargs_properties(self, ds_kwargs):
-    ds_kwargs = ds_kwargs if isinstance(ds_kwargs, dict) else {}
-    self.map_func = ds_kwargs['map_func']._func
-    self.name = ds_kwargs.pop('name')
-    self._additional_kwargs = ds_kwargs
-    
-  def apply(self,dataset):
-    kwargs = self._additional_kwargs
-    kwargs['map_func'] = ds.StructuredFunctionWrapper(self.map_func,self.name,dataset)
-    return self.trans(dataset, **kwargs)
-
-def get_mapping_info(dataset_transformations):
-  info = {}
-  for index, (transf, ds_kwargs) in enumerate(reversed(dataset_transformations)):
-    if 'map_func' in ds_kwargs:
-      info[len(dataset_transformations) - index - 1] = Mappinginfo(transformation = transf,
-                                                                   params = ds_kwargs)
-  return info
 
 def get_batching_info(dataset_transformations):
   last_batch_transf_index = None
