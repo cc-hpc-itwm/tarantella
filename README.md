@@ -229,8 +229,6 @@ More details [here](https://linuxconfig.org/how-to-install-start-and-connect-to-
 
 ### Tarantella on the STYX GPU cluster
 
-##### Installed Tarantella version
-
 Tarantella `0.6.1` is already installed in STYX (in the *Tarantella* image).
 It is compiled with `Tensorflow 2.2` and `Python 3.8.5`.
 
@@ -254,31 +252,25 @@ tarantella -- path/to/my/model.py
 
 ### Tarantella on the Seislab cluster
 
-##### Installed Tarantella version
+Tarantella `0.6.1` is installed on Seislab (under the directory `/work/soft/tnt/tf2.*`).
 
-Tarantella `0.6.0` is already installed in Seislab (under the directory /work/soft/tnt/tf2.*).
-It is compiled with multiple versions of tensorflow : `Tensorflow 2.0`, `Tensorflow 2.1`, `Tensorflow 2.2` and `Python 3.7.9`.
+Multiple modules are available for different TensorFlow versions (`Tensorflow 2.0`, `Tensorflow 2.1`, `Tensorflow 2.2`).
+The Tarantella module was built using `Python 3.7.9`.
 
-There are also module files provided for the users to load the tarantella module.
-
-To use tarantella on seislab, follow the steps below:
+To use Tarantella on seislab, follow the steps below:
 
 ```bash
-# load tarantell using module load command (loads the version built on tf2.2)
+# load tarantella using module load command (loads the version built on TensorFlow2.2)
 module load tarantella
 # or
-# to load tarantella build on tf2.0 or 2.1 run the following command
+# to load tarantella build on TensorFlow2.0 or 2.1 run the following command
 module load tarantella/tf2.0
 # or 
 module load tarantella/tf2.1
 
-# tensorflow 2.0, 2.1 and 2.2 with the required packages are already installed under /work/soft/tnt/tf2.*/tf2.*
-# activate the required version of tensorflow using conda
+# activate the required version of TensorFlow using the provided conda environment
+# (after the Tarantella module is loaded)
 source /etc/profile.d/conda.sh
-conda activate /work/soft/tnt/tf2.2/tf2.2
-
-# (optional) You can also activate the environment by using the command "conda activate tf2.2" after the 
-# specific tarantella module is loaded. Check the list of conda envs to know the path
 conda env list
 conda activate tf2.2
 
@@ -286,34 +278,33 @@ conda activate tf2.2
 tarantella -n 4 --hostfile <hostfile> -- script.py
 ```
 
-### Tarantella on the Beehive cluster
+### Tarantella on the Beehive cluster and the ITWM LTS machines
 
-##### Installed Tarantella version
+Tarantella `0.6.1` is installed in Beehive (under the directory `/p/hpc/soft/tarantella/tf2.*`).
 
-Tarantella `0.6.1` is already installed in Beehive (under the directory /p/hpc/soft/tnt/tf2.*).
-It is compiled with multiple versions of tensorflow : `Tensorflow 2.0`, `Tensorflow 2.1`, `Tensorflow 2.2` and `Python 3.7.9`.
+Tarantella installations are provided as modules compiled with
+multiple versions of Tensorflow (`Tensorflow 2.0`, `Tensorflow 2.1`, `Tensorflow 2.2`).
+The Tarantella module was built using `Python 3.7.9`.
 
-There are also module files provided for the users to load the tarantella module.
-
-To use tarantella on beehive, follow the steps below:
+To use tarantella on `Beehive`, follow the steps below:
 
 ```bash
-# load tarantell using module load command (loads the version built on tf2.2)
-module load tarantella
+# load tarantella using module load command (loads the version built on tf2.2)
+module load soft/tarantella/latest
 # or
 # to load tarantella build on tf2.0 or 2.1 run the following command
-module load tarantella/tf2.0
+module load soft/tarantella/tf2.0
 # or 
-module load tarantella/tf2.1
+module load soft/tarantella/tf2.1
 
-# tensorflow 2.0, 2.1 and 2.2 with the required packages are already installed under /p/hpc/soft/tarantella/tf2.*/tf2.*
-# activate the required version of tensorflow using conda
-source /etc/profile.d/conda.sh
-conda activate /work/soft/tnt/tf2.2/tf2.2
+#if the tarantella module is not available, update your `MODULEPATH` as follows:
+export MODULEPATH=$MODULEPATH:/p/hpc/soft/etc/modules
 
-# (optional) You can also activate the environment by using the command "conda activate tf2.2" after the 
-# specific tarantella module is loaded. Check the list of conda envs to know the path
+# activate the required version of TensorFlow using the provided conda environments
+# (after the Tarantella module is loaded)
+module load soft/anaconda3
 conda env list
+
 conda activate tf2.2
 
 # start using tarantella on command line
