@@ -81,18 +81,33 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
       dataset = self.batching_info.apply(dataset, new_batch_size = batch_size)
       dataset = dataset.unbatch()
 
-    else: # no drop remainder
-      num_samples = ds_helpers.get_num_samples(dataset)
-      if num_samples == tf.data.experimental.INFINITE_CARDINALITY:
-        raise ValueError("[DistributedDataset] Infinite dataset provided")
+#     else: # no drop remainder
+#       num_samples = ds_helpers.get_num_samples(dataset)
+#       if num_samples == tf.data.experimental.INFINITE_CARDINALITY:
+#         raise ValueError("[DistributedDataset] Infinite dataset provided")
 
       # Total number of samples is not multiple of the batch size
-      if num_samples % batch_size != 0:
-        logger.warn("Number of samples ({}) is not a multiple of batch size.\
- Removing the last incomplete batch from the dataset.".format(num_samples))
-        num_samples_multiple = (num_samples // batch_size) * batch_size
-        dataset = dataset.take(num_samples_multiple)
-
+#       if num_samples % batch_size != 0:
+# #         logger.warn("Number of samples ({}) is not a multiple of batch size.\
+# #  Removing the last incomplete batch from the dataset.".format(num_samples))
+#         num_samples_multiple = (num_samples // batch_size) * batch_size
+#         dataset = dataset.take(num_samples_multiple)
+#         shape = ds.get_legacy_output_shapes(rest_dataset)
+#         rest_dataset = rest_dataset.padded_batch(1,padded_shapes=((batch_size),), padding_values=0).unbatch()
+#         dataset = dataset.concatenate(rest_dataset)
+    num_samples = ds_helpers.get_num_samples(dataset)
+    if num_samples == tf.data.experimental.INFINITE_CARDINALITY:
+      raise ValueError("[DistributedDataset] Infinite dataset provided")
+    
+    num_batch = int(num_samples//micro_batch_size)
+    padded_size = 0
+    if num_batch % self.num_ranks != 0:
+      padded_num = self.num_ranks - num_batch % self.num_ranks
+      padded_num_sample = (padded_num + num_batch) * micro_batch_size
+      padded_size = padded_num_sample - num_samples
+      rest_dataset = dataset.take(padded_size)
+      dataset = dataset.concatenate(rest_dataset)
+    
     dataset = self.batching_info.apply(dataset, new_batch_size = micro_batch_size)
 
     dataset = dataset.shard(num_shards=self.num_ranks, index = self.rank)
@@ -104,9 +119,9 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
     if batch_size is None or batch_size == 0:
       raise ValueError("[DistributedDataset]Incorrectly defined batch size")
 
-    if batch_size % self.num_ranks != 0:
-      raise ValueError("[DistributedDataset] Batch size ({}) is not a multiple".format(batch_size) +
-                       "of the number of ranks {}".format(self.num_ranks))
+#     if batch_size % self.num_ranks != 0:
+#       raise ValueError("[DistributedDataset] Batch size ({}) is not a multiple".format(batch_size) +
+#                        "of the number of ranks {}".format(self.num_ranks))
 
     logger.debug("Batch size ({}) is a multiple of the number of ranks {}.".format(
                  batch_size, self.num_ranks))
