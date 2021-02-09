@@ -289,20 +289,26 @@ The Tarantella module was built using `Python 3.7.9`.
 To use tarantella on `Beehive`, follow the steps below:
 
 ```bash
-# load tarantella using module load command (loads the version built on tf2.2)
-module load soft/tarantella/latest
+# load tarantella(with infiniband support) using module load command (loads the version built on tf2.2)
+module load soft/tarantella/infiniband/latest
 # or
 # to load tarantella build on tf2.0 or 2.1 run the following command
-module load soft/tarantella/tf2.0
+module load soft/tarantella/infiniband/tf2.0
 # or 
-module load soft/tarantella/tf2.1
+module load soft/tarantella/infiniband/tf2.1
+
+# There is also an option to load tarantella without infiniband support(specifically for LTS machines).
+# To load tarantella without infiniband support you just have to load a module using the 
+# below command.
+module load soft/tarantella/no_infiniband/latest
 
 #if the tarantella module is not available, update your `MODULEPATH` as follows:
-export MODULEPATH=$MODULEPATH:/p/hpc/soft/etc/modules
+export MODULEPATH=/p/hpc/soft/etc/modules:$MODULEPATH
 
 # activate the required version of TensorFlow using the provided conda environments
 # (after the Tarantella module is loaded)
 module load soft/anaconda3
+source /p/hpc/soft/anaconda3/etc/profile.d/conda.sh
 conda env list
 
 conda activate tf2.2
@@ -390,4 +396,42 @@ PATH_TO_CONDA_ENV=/path/to/conda/env
 export PATH=${PATH_TO_CONDA_ENV}/bin:${PATH}
 cmake -DPYTHON_EXECUTABLE=${PATH_TO_CONDA_ENV}/bin/python \
       -DPYTHON_LIBRARY=${PATH_TO_CONDA_ENV}/lib ../
+```
+
+#### Conda env errors 
+Sometimes conda picks up a TF package that i have installed in .local instead of the environment.
+This might lead to tf version mismatch errors which may look like:
+```
+Traceback (most recent call last):
+  File "./simple_FNN_GPI.py", line 9, in <module>
+    import tarantella as tnt
+  File "/p/hpc/soft/tarantella/tf2.2/tnt-0.6.1/lib/tarantella/python/tarantella/__init__.py", line 14, in <module>
+    from tarantella.model import Model
+  File "/p/hpc/soft/tarantella/tf2.2/tnt-0.6.1/lib/tarantella/python/tarantella/model.py", line 7, in <module>
+    import tarantella.optimizers.synchronous_distributed_optimizer as distributed_optimizers
+  File "/p/hpc/soft/tarantella/tf2.2/tnt-0.6.1/lib/tarantella/python/tarantella/optimizers/synchronous_distributed_optimizer.py", line 6, in <module>
+    from tnt_tfops import tnt_ops
+  File "/p/hpc/soft/tarantella/tf2.2/tnt-0.6.1/lib/tarantella/python/tnt_tfops/__init__.py", line 5, in <module>
+    tnt_ops = tf.load_op_library('libtnt-tfops.so')
+  File "/u/c/carpenamarie/.local/lib/python3.7/site-packages/tensorflow_core/python/framework/load_library.py", line 61, in load_op_library
+    lib_handle = py_tf.TF_LoadLibrary(library_filename)
+tensorflow.python.framework.errors_impl.NotFoundError: /p/hpc/soft/tarantella/tf2.2/tnt-0.6.1/lib/tarantella/libtnt-tfops.so: undefined symbol: _ZN10tensorflow8OpKernel11TraceStringEPNS_15OpKernelContextEb
+```
+
+In such cases check if the tensorflow is loaded from the correct path using the below 
+
+```
+(/p/hpc/soft/tarantella/tf2.2/tf2.2) [kadur@node024 examples]$ python
+Python 3.7.0 (default, Oct  9 2018, 10:31:47)
+[GCC 7.3.0] :: Anaconda, Inc. on linux
+Type "help", "copyright", "credits" or "license" for more information.
+>>> import tensorflow as tf
+>>> print(tf.__version__); print(tf.__cxx11_abi_flag__); print(tf.sysconfig.get_include()); print(tf.sysconfig.get_lib());
+2.2.0
+0
+/p/hpc/soft/tarantella/tf2.2/tf2.2/lib/python3.7/site-packages/tensorflow/include
+/p/hpc/soft/tarantella/tf2.2/tf2.2/lib/python3.7/site-packages/tensorflow
+```
+The tensorflow install path should be under /p/hpc/soft/tarantella/tf2.2/tf2.2/lib/python3.7/site-packages/tensorflow, where the conda env is installed
+If this is not the case then, there might be some configuration errors in the account. 
 ```
