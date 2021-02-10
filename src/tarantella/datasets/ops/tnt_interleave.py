@@ -11,7 +11,9 @@ class TntInterleaveDataset(ds.UnaryDataset):
                block_length):
     """See `Dataset.interleave()` for details."""
     self._input_dataset = input_dataset
-    self._map_func = map_func # StructuredFunctionWrapper
+    self._map_func = ds.StructuredFunctionWrapper(map_func._func,
+                                                  self._transformation_name(),
+                                                  input_dataset)
     self._cycle_length = cycle_length
     self._block_length = block_length
     
