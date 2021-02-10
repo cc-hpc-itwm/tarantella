@@ -122,10 +122,10 @@ tarantella --version
 CFLAGS="-fPIC" CPPFLAGS="-fPIC" ./configure --with-infiniband --prefix=${YOUR_INSTALLATION_PATH}
 make install
 ```
-* To enable it in Tarantella, set the following `cmake` variable before building the code:
-  ```bash
-  cmake -DLINK_IB=ON ../
-  ```
+* To build Tarantella, set the following `cmake` variable before compiling the code:
+```bash
+cmake -DLINK_IB=ON ../
+```
 
 
 ## Distributed Training with Tarantella
@@ -245,12 +245,12 @@ This is it, now you can run your code distributedly with (as shown [here](https:
 tarantella -- path/to/my/model.py
 ```
 
+#### FAQ
 ##### SSH configuration
 * Use `hostname` instead of `localhost` for testing passwordless SSH access and for writing 
 the `nodesfile` needed to execute GASPI-based code.
 
 ##### GPI-2 library
-
 In case you want to run Tarantella directly using `gaspi_run`, the GPI-2 library is already
 available in the *Base_image* and *Tarantella* images.
 
@@ -274,26 +274,19 @@ which gaspi_run
 
 
 ### Seislab
-
 Tarantella `0.6.1` is installed on Seislab (under the directory `/work/soft/tnt/tf2.*`).
 
-Multiple modules are available for different TensorFlow versions (`Tensorflow 2.0`, `Tensorflow 2.1`, `Tensorflow 2.2`).
-The Tarantella module was built using `Python 3.7.9`.
+Multiple modules are available for different TensorFlow versions
+(`Tensorflow 2.0`, `Tensorflow 2.1`, `Tensorflow 2.2`).
+The Tarantella modules were built using `Python 3.7.9`.
 
-To use Tarantella on `Seislab`, follow the steps below:
-
+To use Tarantella on Seislab, follow the steps below:
 ```bash
 # load Tarantella with Infiniband support (loads the version built on TensorFlow 2.2)
 module load tarantella
-# or
-# load Tarantella built on TensorFlow 2.1
-module load tarantella/tf2.1
-# or Tarantella built on TensorFlow 2.0
-module load tarantella/tf2.0
 
-# activate the required version of TensorFlow using the provided conda environment
+# activate the matching TensorFlow version using the provided conda environment
 # (after the Tarantella module is loaded)
-source /etc/profile.d/conda.sh
 conda env list
 conda activate tf2.2
 
@@ -301,47 +294,73 @@ conda activate tf2.2
 tarantella -n 4 --hostfile <hostfile> -- path/to/my/model.py
 ```
 
-### Beehive and LTS machines
+Other Tarantella installations are also available:
+```bash
+# load Tarantella built on TensorFlow 2.1
+module load tarantella/tf2.1
+# or
+# load Tarantella built on TensorFlow 2.0
+module load tarantella/tf2.0
+```
 
-Tarantella `0.6.1` is installed in Beehive (under the directory `/p/hpc/soft/tarantella/tf2.*`).
+#### FAQ
+##### Cannot activate a Conda environment/`conda` command unknown
+```bash
+source /etc/profile.d/conda.sh
+```
+
+
+### Beehive and LTS machines
+Tarantella `0.6.1` is installed on Beehive (in `/p/hpc/soft/tarantella/tf2.*`).
 
 Tarantella installations are provided as modules compiled with
 multiple versions of Tensorflow (`Tensorflow 2.0`, `Tensorflow 2.1`, `Tensorflow 2.2`).
-The Tarantella module was built using `Python 3.7.9`.
+The Tarantella modules were built using `Python 3.7.9`.
 
-To use tarantella on `Beehive`, follow the steps below:
-
+To use tarantella on Beehive, follow the steps below:
 ```bash
 # load Tarantella with Infiniband support (loads the version built on TensorFlow 2.2)
 module load soft/tarantella/infiniband/latest
-# or
-# to load tarantella built on TensorFlow 2.0 or 2.1 run the following command
-module load soft/tarantella/infiniband/tf2.0
-# or 
-module load soft/tarantella/infiniband/tf2.1
 
-# load Tarantella without Infiniband support
-# (specifically for LTS machines)
-module load soft/tarantella/ethernet/latest
-
-# if the Tarantella module is not available, update your `MODULEPATH` as follows:
-export MODULEPATH=/p/hpc/soft/etc/modules:$MODULEPATH
-
-# activate the required version of TensorFlow using the provided conda environments
+# activate the matching TensorFlow version using the provided conda environment
 # (after the Tarantella module is loaded)
-module load soft/anaconda3
-source /p/hpc/soft/anaconda3/etc/profile.d/conda.sh
 conda env list
-
 conda activate tf2.2
 
 # `tarantella` CLI is now available
 tarantella -n 4 --hostfile <hostfile> -- path/to/my/model.py
 ```
 
+Other versions are also available:
+```bash
+# load tarantella built on TensorFlow 2.1
+module load soft/tarantella/infiniband/tf2.1
+# or
+# load tarantella built on TensorFlow 2.0
+module load soft/tarantella/infiniband/tf2.0
+
+# load Tarantella without Infiniband support
+# (specifically for LTS machines)
+module load soft/tarantella/ethernet/latest
+```
+
+#### FAQ
+##### Tarantella modules do not exist
+Update your `MODULEPATH` as follows:
+```bash
+export MODULEPATH=/p/hpc/soft/etc/modules:$MODULEPATH
+```
+
+##### Cannot activate a Conda environment/`conda` command unknown
+```bash
+module load soft/anaconda3
+source /p/hpc/soft/anaconda3/etc/profile.d/conda.sh
+```
+
+
 ## Troubleshooting
-### SSH key configurations
-* In order to run GPI programs, you need to be able to ssh to localhost without password. In order to do that
+#### SSH key configurations
+* In order to run Tarantella/GPI-2 programs, you need to be able to ssh to localhost without password. In order to do that, create a new key pair:
   ```bash
   cd ~/.ssh
   ssh-keygen
@@ -399,7 +418,7 @@ cmake -DPYTHON_EXECUTABLE=${PATH_TO_CONDA_ENV}/bin/python \
       -DPYTHON_LIBRARY=${PATH_TO_CONDA_ENV}/lib ../
 ```
 
-#### TensorFlow versions mismatch between the pre-installed Tarantella and the loaded conda environment
+#### Runtime errors: TensorFlow version mismatch between the pre-installed Tarantella and the loaded Conda environment
 
 Error message example:
 ```
@@ -424,19 +443,20 @@ Traceback (most recent call last):
 tensorflow.python.framework.errors_impl.NotFoundError: /p/hpc/soft/tarantella/tf2.2/tnt-0.6.1/lib/tarantella/libtnt-tfops.so: undefined symbol: _ZN10tensorflow8OpKernel11TraceStringEPNS_15OpKernelContextEb
 ```
 
-* **Solution:** Make sure to load the same conda environment that was used when compiling Tarantella.
+* **Solution:** Make sure to load the same conda environment that was
+used when compiling Tarantella.
 
 * **Issues on Beehive/LTS machines**
+
 Sometimes `conda` picks up a TensorFlow package installed in `~/.local`,
 even if an environment is loaded.
-This might cause such TensorFlow version mismatch errors.
 A possible solution is to remove the default TensorFlow package installation
 from `~/.local/lib/python3.7/site-packages/tensorflow`.
 
 Check if the tensorflow is loaded from the correct path:
 
-```
-(/p/hpc/soft/tarantella/tf2.2/tf2.2) [kadur@node024 examples]$ python
+```bash
+$ python
 Python 3.7.0 (default, Oct  9 2018, 10:31:47)
 [GCC 7.3.0] :: Anaconda, Inc. on linux
 Type "help", "copyright", "credits" or "license" for more information.
