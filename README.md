@@ -113,6 +113,20 @@ export PATH=${TARANTELLA_INSTALLATION_PATH}/bin:${PATH}
 tarantella --version
 ```
 
+#### Infiniband clusters
+
+* Tarantella is compiled by default without Infiniband support.
+* If Infiniband is available, the `GPI-2` library needs to be built with Infiniband support.
+```bash
+./autogen.sh
+CFLAGS="-fPIC" CPPFLAGS="-fPIC" ./configure --with-infiniband --prefix=${YOUR_INSTALLATION_PATH}
+make install
+```
+* To enable it in Tarantella, set the following `cmake` variable before building the code:
+  ```bash
+  cmake -DLINK_IB=ON ../
+  ```
+
 
 ## Distributed Training with Tarantella
 
@@ -206,28 +220,9 @@ Experimental results can be found [here](https://gitlab.itwm.fraunhofer.de/labus
 
 Details about the current CI setup can be found [here](https://gitlab.itwm.fraunhofer.de/carpenamarie/hpdlf/-/blob/master/meta/ci/README.md).
 
-## Troubleshooting
 
-### SSH key configurations
-* In order to run GPI programs, you need to be able to ssh to localhost without password. In order to do that
-  ```bash
-  cd ~/.ssh
-  ssh-keygen
-  ```
-* Make sure not to overwrite existing keys.
-Also take specific care that you set correct user rights on all files in `.ssh`
-(cf. for instance [here](https://superuser.com/questions/215504/permissions-on-private-key-in-ssh-folder)).
-
-* Append the public key to the authorized_keys file:
-  ```bash
-  cat id_rsa.pub >> authorized_keys
-  ```
-
-* Install and start an ssh server, e.g., openssh-server on Fedora.
-More details [here](https://linuxconfig.org/how-to-install-start-and-connect-to-ssh-server-on-fedora-linux).
-
-
-### Tarantella on the STYX GPU cluster
+## Tarantella on ITWM machines
+### STYX GPU cluster
 
 Tarantella `0.6.1` is already installed in STYX (in the *Tarantella* image).
 It is compiled with `Tensorflow 2.2` and `Python 3.8.5`.
@@ -238,82 +233,16 @@ To use it, create a job using the *Tarantella* image and follow the steps below:
 # load your own `conda` environment
 conda activate my_env
 
-# make sure Tensorflow 2.2 and Python 3.8.5 are installed
+# make sure TensorFlow 2.2 and Python 3.8.5 are installed
 conda install python=3.8.5 tensorflow-gpu=2.2
 
-# load tarantella environment
+# load Tarantella environment
 carme_prepare_tarantella
 ```
 
 This is it, now you can run your code distributedly with (as shown [here](https://gitlab.itwm.fraunhofer.de/carpenamarie/hpdlf#distributed-training-with-tarantella)):
 ```bash
 tarantella -- path/to/my/model.py
-```
-
-### Tarantella on the Seislab cluster
-
-Tarantella `0.6.1` is installed on Seislab (under the directory `/work/soft/tnt/tf2.*`).
-
-Multiple modules are available for different TensorFlow versions (`Tensorflow 2.0`, `Tensorflow 2.1`, `Tensorflow 2.2`).
-The Tarantella module was built using `Python 3.7.9`.
-
-To use Tarantella on seislab, follow the steps below:
-
-```bash
-# load tarantella using module load command (loads the version built on TensorFlow2.2)
-module load tarantella
-# or
-# to load tarantella build on TensorFlow2.0 or 2.1 run the following command
-module load tarantella/tf2.0
-# or 
-module load tarantella/tf2.1
-
-# activate the required version of TensorFlow using the provided conda environment
-# (after the Tarantella module is loaded)
-source /etc/profile.d/conda.sh
-conda env list
-conda activate tf2.2
-
-# start using tarantella on command line
-tarantella -n 4 --hostfile <hostfile> -- script.py
-```
-
-### Tarantella on the Beehive cluster and the ITWM LTS machines
-
-Tarantella `0.6.1` is installed in Beehive (under the directory `/p/hpc/soft/tarantella/tf2.*`).
-
-Tarantella installations are provided as modules compiled with
-multiple versions of Tensorflow (`Tensorflow 2.0`, `Tensorflow 2.1`, `Tensorflow 2.2`).
-The Tarantella module was built using `Python 3.7.9`.
-
-To use tarantella on `Beehive`, follow the steps below:
-
-```bash
-# load tarantella(with infiniband support) using module load command (loads the version built on tf2.2)
-module load soft/tarantella/infiniband/latest
-# or
-# to load tarantella build on tf2.0 or 2.1 run the following command
-module load soft/tarantella/infiniband/tf2.0
-# or 
-module load soft/tarantella/infiniband/tf2.1
-
-# There is also an option to load tarantella without infiniband support(specifically for LTS machines).
-# To load tarantella without infiniband support load the module using the below command.
-module load soft/tarantella/ethernet/latest
-
-#if the tarantella module is not available, update your `MODULEPATH` as follows:
-export MODULEPATH=/p/hpc/soft/etc/modules:$MODULEPATH
-
-# activate the required version of TensorFlow using the provided conda environments
-# (after the Tarantella module is loaded)
-module load soft/anaconda3
-source /p/hpc/soft/anaconda3/etc/profile.d/conda.sh
-conda env list
-
-conda activate tf2.2
-
-# start using tarantella on command line
-tarantella -n 4 --hostfile <hostfile> -- script.py
 ```
 
 ##### SSH configuration
@@ -343,19 +272,92 @@ which gaspi_run
 * MPI is pre-installed on the GPU cluster (OpenMPI) and can be used for example for testing alternative frameworks
 * To run MPI programs, replace calls to `mpirun` with `carme_mpirun`.
 
-### Infiniband clusters
 
-* Tarantella is compiled by default without Infiniband support. 
-* Enable it before compiling the code, using the following `cmake` variable:
+### Seislab
+
+Tarantella `0.6.1` is installed on Seislab (under the directory `/work/soft/tnt/tf2.*`).
+
+Multiple modules are available for different TensorFlow versions (`Tensorflow 2.0`, `Tensorflow 2.1`, `Tensorflow 2.2`).
+The Tarantella module was built using `Python 3.7.9`.
+
+To use Tarantella on `Seislab`, follow the steps below:
+
+```bash
+# load Tarantella with Infiniband support (loads the version built on TensorFlow 2.2)
+module load tarantella
+# or
+# load Tarantella built on TensorFlow 2.1
+module load tarantella/tf2.1
+# or Tarantella built on TensorFlow 2.0
+module load tarantella/tf2.0
+
+# activate the required version of TensorFlow using the provided conda environment
+# (after the Tarantella module is loaded)
+source /etc/profile.d/conda.sh
+conda env list
+conda activate tf2.2
+
+# start using Tarantella
+tarantella -n 4 --hostfile <hostfile> -- path/to/my/model.py
+```
+
+### Beehive and LTS machines
+
+Tarantella `0.6.1` is installed in Beehive (under the directory `/p/hpc/soft/tarantella/tf2.*`).
+
+Tarantella installations are provided as modules compiled with
+multiple versions of Tensorflow (`Tensorflow 2.0`, `Tensorflow 2.1`, `Tensorflow 2.2`).
+The Tarantella module was built using `Python 3.7.9`.
+
+To use tarantella on `Beehive`, follow the steps below:
+
+```bash
+# load Tarantella with Infiniband support (loads the version built on TensorFlow 2.2)
+module load soft/tarantella/infiniband/latest
+# or
+# to load tarantella built on TensorFlow 2.0 or 2.1 run the following command
+module load soft/tarantella/infiniband/tf2.0
+# or 
+module load soft/tarantella/infiniband/tf2.1
+
+# load Tarantella without Infiniband support
+# (specifically for LTS machines)
+module load soft/tarantella/ethernet/latest
+
+# if the Tarantella module is not available, update your `MODULEPATH` as follows:
+export MODULEPATH=/p/hpc/soft/etc/modules:$MODULEPATH
+
+# activate the required version of TensorFlow using the provided conda environments
+# (after the Tarantella module is loaded)
+module load soft/anaconda3
+source /p/hpc/soft/anaconda3/etc/profile.d/conda.sh
+conda env list
+
+conda activate tf2.2
+
+# `tarantella` CLI is now available
+tarantella -n 4 --hostfile <hostfile> -- path/to/my/model.py
+```
+
+## Troubleshooting
+### SSH key configurations
+* In order to run GPI programs, you need to be able to ssh to localhost without password. In order to do that
   ```bash
-  cmake -DLINK_IB=ON ../
+  cd ~/.ssh
+  ssh-keygen
+  ```
+* Make sure not to overwrite existing keys.
+Also take specific care that you set correct user rights on all files in `.ssh`
+(cf. for instance [here](https://superuser.com/questions/215504/permissions-on-private-key-in-ssh-folder)).
+
+* Append the public key to the authorized_keys file:
+  ```bash
+  cat id_rsa.pub >> authorized_keys
   ```
 
-### Configuration on the Beehive cluster
+* Install and start an ssh server, e.g., openssh-server on Fedora.
+More details [here](https://linuxconfig.org/how-to-install-start-and-connect-to-ssh-server-on-fedora-linux).
 
-to be filled
-
-### FAQ
 #### Execution error: `GPI library initialization incorrect environment vars`
 * Make sure the code was executed through `gaspi_run` instead of being lunched directly using `python myfile.py`.
 
@@ -397,9 +399,14 @@ cmake -DPYTHON_EXECUTABLE=${PATH_TO_CONDA_ENV}/bin/python \
       -DPYTHON_LIBRARY=${PATH_TO_CONDA_ENV}/lib ../
 ```
 
-#### Conda env errors 
-Sometimes conda picks up a TF package that i have installed in .local instead of the environment.
-This might lead to tf version mismatch errors which may look like:
+#### TensorFlow versions mismatch between the pre-installed Tarantella and the loaded conda environment
+
+Error message example:
+```
+.../libtnt-tfops.so: undefined symbol: _ZN10tensorflow8OpKernel.....
+```
+
+Detailed error:
 ```
 Traceback (most recent call last):
   File "./simple_FNN_GPI.py", line 9, in <module>
@@ -417,7 +424,16 @@ Traceback (most recent call last):
 tensorflow.python.framework.errors_impl.NotFoundError: /p/hpc/soft/tarantella/tf2.2/tnt-0.6.1/lib/tarantella/libtnt-tfops.so: undefined symbol: _ZN10tensorflow8OpKernel11TraceStringEPNS_15OpKernelContextEb
 ```
 
-In such cases check if the tensorflow is loaded from the correct path using the below 
+* **Solution:** Make sure to load the same conda environment that was used when compiling Tarantella.
+
+* **Issues on Beehive/LTS machines**
+Sometimes `conda` picks up a TensorFlow package installed in `~/.local`,
+even if an environment is loaded.
+This might cause such TensorFlow version mismatch errors.
+A possible solution is to remove the default TensorFlow package installation
+from `~/.local/lib/python3.7/site-packages/tensorflow`.
+
+Check if the tensorflow is loaded from the correct path:
 
 ```
 (/p/hpc/soft/tarantella/tf2.2/tf2.2) [kadur@node024 examples]$ python
@@ -425,12 +441,10 @@ Python 3.7.0 (default, Oct  9 2018, 10:31:47)
 [GCC 7.3.0] :: Anaconda, Inc. on linux
 Type "help", "copyright", "credits" or "license" for more information.
 >>> import tensorflow as tf
->>> print(tf.__version__); print(tf.__cxx11_abi_flag__); print(tf.sysconfig.get_include()); print(tf.sysconfig.get_lib());
+>>> print(tf.__version__); print(tf.sysconfig.get_lib());
 2.2.0
-0
-/p/hpc/soft/tarantella/tf2.2/tf2.2/lib/python3.7/site-packages/tensorflow/include
 /p/hpc/soft/tarantella/tf2.2/tf2.2/lib/python3.7/site-packages/tensorflow
 ```
-The tensorflow install path should be under /p/hpc/soft/tarantella/tf2.2/tf2.2/lib/python3.7/site-packages/tensorflow, where the conda env is installed
-If this is not the case then, there might be some configuration errors in the account. 
-```
+On Beehive/LTS, the TensorFlow install path should be under `/p/hpc/soft/tarantella/tf2.*`,
+where the conda environment is installed.
+
