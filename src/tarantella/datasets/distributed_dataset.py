@@ -95,19 +95,28 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
 #         shape = ds.get_legacy_output_shapes(rest_dataset)
 #         rest_dataset = rest_dataset.padded_batch(1,padded_shapes=((batch_size),), padding_values=0).unbatch()
 #         dataset = dataset.concatenate(rest_dataset)
+
     num_samples = ds_helpers.get_num_samples(dataset)
     if num_samples == tf.data.experimental.INFINITE_CARDINALITY:
       raise ValueError("[DistributedDataset] Infinite dataset provided")
     
-    num_batch = int(num_samples//micro_batch_size)
-    padded_size = 0
-    if num_batch % self.num_ranks != 0:
-      padded_num = self.num_ranks - num_batch % self.num_ranks
-      padded_num_sample = (padded_num + num_batch) * micro_batch_size
-      padded_size = padded_num_sample - num_samples
-      rest_dataset = dataset.take(padded_size)
-      dataset = dataset.concatenate(rest_dataset)
+    ##get large batch, check is num_sample is multiple of new_batch_size
+    new_batch_size = micro_batch_size * self.num_ranks
     
+    if num_samples % new_batch_size != 0:
+        num_padded = num_samples - int(num_samples // new_batch_size)*new_batch_size
+        rest_dataset = dataset.skip(num_samples - num_padded - new_batch_size)
+        
+        rest_dataset = rest_dataset.batch(new_batch_size,drop_remainder=False)
+        
+        #If padded_shape is unset, all dimensions of all components are padded to the maximum size in the batch.
+        rest_dataset = rest_dataset.padded_batch(2)
+        rest_dataset = rest_dataset.unbatch()
+        rest_dataset = rest_dataset.unbatch()
+        
+        dataset = dataset.take(num_samples - num_padded - new_batch_size)
+        dataset = dataset.concatenate(rest_dataset)
+        
     dataset = self.batching_info.apply(dataset, new_batch_size = micro_batch_size)
 
     dataset = dataset.shard(num_shards=self.num_ranks, index = self.rank)
