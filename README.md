@@ -298,9 +298,8 @@ module load soft/tarantella/infiniband/tf2.0
 module load soft/tarantella/infiniband/tf2.1
 
 # There is also an option to load tarantella without infiniband support(specifically for LTS machines).
-# To load tarantella without infiniband support you just have to load a module using the 
-# below command.
-module load soft/tarantella/no_infiniband/latest
+# To load tarantella without infiniband support load the module using the below command.
+module load soft/tarantella/ethernet/latest
 
 #if the tarantella module is not available, update your `MODULEPATH` as follows:
 export MODULEPATH=/p/hpc/soft/etc/modules:$MODULEPATH
