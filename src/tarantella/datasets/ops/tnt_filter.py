@@ -10,8 +10,9 @@ class TntFilterDataset(ds.UnaryUnchangedStructureDataset):
                use_legacy_function=False):
     """See `Dataset.filter()` for details."""
     self._input_dataset = input_dataset
-    self._predicate = predicate # StructuredFunctionWrapper
-
+    self._predicate = ds.StructuredFunctionWrapper(predicate._func,
+                                                   self._transformation_name(),
+                                                   input_dataset)
     variant_tensor = gen_dataset_ops.filter_dataset(
         input_dataset._variant_tensor,  # pylint: disable=protected-access
         other_arguments=self._predicate.function.captured_inputs,
