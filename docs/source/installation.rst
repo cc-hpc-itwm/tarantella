@@ -54,6 +54,8 @@ where ``${GPI2_INSTALLATION_PATH}`` needs to be replaced with the path where you
 GPI-2. Note the ``--with-ethernet`` option, which will use standard TCP sockets for communication.
 This is the correct option for laptops and workstations.
 
+.. _gpi-build-infiniband-label:
+
 In case you want to use Infiniband, replace the above option with ``--with-infiniband``.
 Now you are ready to install GPI-2 with
 
@@ -134,7 +136,12 @@ in it:
   cd tarantella
   mkdir build && cd build
   export TARANTELLA_INSTALLATION_PATH=/your/installation/path
-  cmake -DCMAKE_INSTALL_PREFIX=${TARANTELLA_INSTALLATION_PATH} ..
+  cmake -DCMAKE_INSTALL_PREFIX=${TARANTELLA_INSTALLATION_PATH} ../
+
+This will configure your installation to use Ethernet as the underlying
+communication interconnect. To install Tarantella on a cluster equipped
+with Infiniband capabilities, follow the guidelines in the
+:ref:`next section <tnt-build-infiniband-label>`.
 
 Now, we can compile and install Tarantella to ``TARANTELLA_INSTALLATION_PATH``:
 
@@ -143,6 +150,39 @@ Now, we can compile and install Tarantella to ``TARANTELLA_INSTALLATION_PATH``:
   make
   make install
   export PATH=${TARANTELLA_INSTALLATION_PATH}/bin:${PATH}
+
+
+.. _tnt-build-infiniband-label:
+
+[Optional] Building Tarantella with Infiniband support
+------------------------------------------------------
+
+To install Tarantella with Infiniband communication backend, first
+download the code as in the previous section:
+
+.. code-block:: bash
+
+  git clone https://github.com/cc-hpc-itwm/tarantella.git
+
+Make sure that GPI-2 is installed with Infiniband support as shown
+:ref:`here <gpi-build-infiniband-label>`.
+Then, configure Tarantella using CMake in a separate ``build`` directory:
+
+.. code-block:: bash
+
+  cd tarantella
+  mkdir build && cd build
+  export TARANTELLA_INSTALLATION_PATH=/your/installation/path
+  cmake -DLINK_IB=ON -DCMAKE_INSTALL_PREFIX=${TARANTELLA_INSTALLATION_PATH} ../
+
+Finally, compile and install Tarantella as usual:
+
+.. code-block:: bash
+
+  make
+  make install
+  export PATH=${TARANTELLA_INSTALLATION_PATH}/bin:${PATH}
+
 
 [Optional] Building and running tests
 -------------------------------------
@@ -173,7 +213,10 @@ After having installed these libraries, make sure to configure Tarantella with t
 
 .. code-block:: bash
 
-  cmake -DENABLE_TESTING=ON ..
+  cd tarantella
+  mkdir build && cd build
+  export LD_LIBRARY_PATH=`pwd`:${LD_LIBRARY_PATH}
+  cmake -DENABLE_TESTING=ON ../
 
 Now you can compile Tarantella and run its tests in the ``build`` directory.
 
