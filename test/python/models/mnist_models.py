@@ -8,7 +8,7 @@ import logging
 # Optimizer Hyperparameters
 # Dictionary: Optimizer Name: (number_epochs, learning_rate)
 hyperparams_mnist = {'Adadelta': (2, 1),
-                    'Adagrad':   (3, 0.01),
+                    'Adagrad':   (4, 0.05),
                     'Adam':      (1, 0.001),
                     'Adamax':    (2, 0.001),
                     'Nadam':     (1, 0.002),
