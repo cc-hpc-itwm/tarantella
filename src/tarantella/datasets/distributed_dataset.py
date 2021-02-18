@@ -95,7 +95,8 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
 #         shape = ds.get_legacy_output_shapes(rest_dataset)
 #         rest_dataset = rest_dataset.padded_batch(1,padded_shapes=((batch_size),), padding_values=0).unbatch()
 #         dataset = dataset.concatenate(rest_dataset)
-
+    
+    ##this can be slow for large dataset
     num_samples = ds_helpers.get_num_samples(dataset)
     if num_samples == tf.data.experimental.INFINITE_CARDINALITY:
       raise ValueError("[DistributedDataset] Infinite dataset provided")
@@ -103,19 +104,29 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
     ##get large batch, check is num_sample is multiple of new_batch_size
     new_batch_size = micro_batch_size * self.num_ranks
     
+    #num_samples = 23 new_batch_size = 3*3 = 9
+    #num_padded = 23 - 2 * 9 = 5
+    #take last 9 + 5 element as rest_dataset, rest_dataset has 14 elements
+    #first batch rest_dataset with batch_size 9,rest_dataset would contain 2 part. First with 9 element, second with 5 elements
+    #Then padded batch with batch_size 2 without passing padded shape,
+    #All dimensions of all components are padded to the maximum size in the batch.
+    #Now the size of rest_dataset is 1*2*9,with 2 unbatch,the size of rest_dataset is 18 with padded 0
+    #concat two dataset, now the size of dataset is 9 + 18 = 27,which is multiple of new_batch_size.
+    #batch the dataset with micro_batchsize 3,the shape of dataset is 9*3,then shard with 3 nodes,each node has dataset with shape 3*3
     if num_samples % new_batch_size != 0:
-        num_padded = num_samples - int(num_samples // new_batch_size)*new_batch_size
-        rest_dataset = dataset.skip(num_samples - num_padded - new_batch_size)
+      num_padded = num_samples - int(num_samples // new_batch_size)*new_batch_size
+      rest_dataset = dataset.skip(num_samples - num_padded - new_batch_size)
         
-        rest_dataset = rest_dataset.batch(new_batch_size,drop_remainder=False)
+      rest_dataset = rest_dataset.batch(new_batch_size,drop_remainder=False)
         
-        #If padded_shape is unset, all dimensions of all components are padded to the maximum size in the batch.
-        rest_dataset = rest_dataset.padded_batch(2)
-        rest_dataset = rest_dataset.unbatch()
-        rest_dataset = rest_dataset.unbatch()
-        
-        dataset = dataset.take(num_samples - num_padded - new_batch_size)
-        dataset = dataset.concatenate(rest_dataset)
+      #If padded_shape is unset, all dimensions of all components are padded to the maximum size in the batch.
+      rest_dataset = rest_dataset.padded_batch(2)
+      rest_dataset = rest_dataset.unbatch()
+      rest_dataset = rest_dataset.unbatch()
+      
+      ##take previous and concat togther with rest_dataset
+      dataset = dataset.take(num_samples - num_padded - new_batch_size)
+      dataset = dataset.concatenate(rest_dataset)
         
     dataset = self.batching_info.apply(dataset, new_batch_size = micro_batch_size)
 
