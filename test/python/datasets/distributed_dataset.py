@@ -266,6 +266,8 @@ def validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank):
     # extract the slice of the reference dataset that corresponds to `rank`
     expected_micro_batch = expected_batch[rank * micro_batch_size:
                                           ((rank+1) * micro_batch_size)]
+    
+    # this might not be true now
     assert np.array_equal(local_batch,expected_micro_batch)
 
   # verify that the two datasets have the same length
@@ -411,5 +413,7 @@ def test_batch_not_multiple_num_ranks(apply_transformations, dataset_generator,
                                           rank = rank)
     # distributing the dataset should fail because the batch size is not a
     # multiple of the number of ranks
-    with pytest.raises(ValueError):
-      local_dataset = dist_dataset.distribute_dataset_across_ranks()
+    
+    #Shouldn't fail now
+    #with pytest.raises(ValueError):
+    local_dataset = dist_dataset.distribute_dataset_across_ranks()
