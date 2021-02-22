@@ -19,6 +19,8 @@ extended_add_library(NAME gpicommlib
             LIBRARIES
                 tnt::gpiresources
                 tnt::collectives
+                GPI2::GPI2
+                GaspiCxx::GaspiCxx
             INCLUDE_DIRECTORIES
                 ${SRC_DIR}/gpi_comm_lib/
             INSTALL
