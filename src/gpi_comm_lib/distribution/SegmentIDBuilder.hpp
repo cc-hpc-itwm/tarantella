@@ -1,5 +1,8 @@
 #pragma once
 
+#include "collectives/BufferElementType.hpp"
+#include "collectives/TensorInfo.hpp"
+#include "gpi/Context.hpp"
 #include "PipelineCommunicator.hpp"
 
 namespace tarantella

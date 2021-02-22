@@ -1,12 +1,11 @@
 #include "collectives/BufferElementType.hpp"
 #include "collectives/TensorInfo.hpp"
-#include "distribution/GroupBuilder.hpp"
-#include "distribution/SegmentIDBuilder.hpp"
-#include "gpi/Context.hpp"
 #include "PipelineCommunicator.hpp"
 #include "SynchCommunicator.hpp"
 #include "TensorBroadcaster.hpp"
 #include "TensorAllreducer.hpp"
+
+#include <GaspiCxx/Runtime.hpp>
 
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
@@ -21,10 +20,14 @@ PYBIND11_MODULE(GPICommLib, m)
 {
   m.doc() = "GPI communication library for Deep Learning";
 
-  py::class_<tarantella::GPI::Context>(m, "GPIContext")
-      .def(py::init<>())
-      .def_property_readonly("rank", &tarantella::GPI::Context::get_rank)
-      .def_property_readonly("size", &tarantella::GPI::Context::get_comm_size);
+  m.def("rank", []()
+                {
+                  return gaspi::getRuntime().rank();
+                });
+  m.def("size", []()
+                {
+                  return gaspi::getRuntime().size();
+                });
 
   py::class_<tarantella::collectives::TensorInfo>(m, "TensorInfo")
     .def(py::init(
@@ -53,22 +56,15 @@ PYBIND11_MODULE(GPICommLib, m)
 
   py::class_<tarantella::SynchCommunicator>(m, "SynchDistCommunicator")
     .def(py::init(
-        [](tarantella::GPI::Context& context,
-           std::vector<tarantella::collectives::TensorInfo> tensor_infos,
+        [](std::vector<tarantella::collectives::TensorInfo> tensor_infos,
            std::size_t fusion_threshold_bytes)
         {
-          tarantella::distribution::DataParallelGroupBuilder group_builder(context);
-          tarantella::distribution::DataParallelSegmentIDBuilder segment_id_builder{};
-
+          gaspi::group::Group group_all;
           return std::unique_ptr<tarantella::SynchCommunicator>(
-            new tarantella::SynchCommunicator(context,
-                                              segment_id_builder.get_segment_id(),
-                                              group_builder.get_group(),
+            new tarantella::SynchCommunicator(group_all,
                                               tensor_infos,
                                               fusion_threshold_bytes));
-        }),
-        // ensure the `context` object is not garbage-collected as long as the SynchCommunicator is alive
-        py::keep_alive<1, 2>())
+        }))
     .def("get_raw_ptr", [](tarantella::SynchCommunicator& d) 
         {
           return reinterpret_cast<uint64_t>(&d);
@@ -77,21 +73,15 @@ PYBIND11_MODULE(GPICommLib, m)
 
   py::class_<tarantella::TensorBroadcaster>(m, "TensorBroadcaster")
     .def(py::init(
-        [](tarantella::GPI::Context& context,
-           std::vector<tarantella::collectives::TensorInfo> tensor_infos,
+        [](std::vector<tarantella::collectives::TensorInfo> tensor_infos,
            tarantella::GPI::Rank root_rank)
         {
-          tarantella::distribution::DataParallelGroupBuilder group_builder(context);
-          tarantella::distribution::DataParallelSegmentIDBuilder segment_id_builder{};
-
+          gaspi::group::Group group_all;
           return std::unique_ptr<tarantella::TensorBroadcaster>(
-            new tarantella::TensorBroadcaster(context,
-                                              segment_id_builder.get_segment_id(),
-                                              group_builder.get_group(),
+            new tarantella::TensorBroadcaster(group_all,
                                               tensor_infos,
                                               root_rank));
-        }),
-        py::keep_alive<1, 2>())
+        }))
     .def("broadcast",
         [](tarantella::TensorBroadcaster &tb, std::vector<py::array>& tensor_list)
         {
@@ -166,50 +156,23 @@ PYBIND11_MODULE(GPICommLib, m)
           return output_list;
         });
 
-  py::class_<tarantella::collectives::Barrier::GPIBarrierAllRanks>(m, "Barrier")
+  py::class_<gaspi::collectives::blocking::Barrier>(m, "Barrier")
     .def(py::init(
-        [](tarantella::GPI::Context&)
+        []()
         {
-          return std::unique_ptr<tarantella::collectives::Barrier::GPIBarrierAllRanks>(
-            new tarantella::collectives::Barrier::GPIBarrierAllRanks());
-        }),
-        py::keep_alive<1, 2>())
-    .def("blocking_barrier_all_ranks",
-        [](tarantella::collectives::Barrier::GPIBarrierAllRanks &barrier)
-        {
-          barrier.blocking_barrier();
-        });
+          gaspi::group::Group group_all;
+          return std::make_unique<gaspi::collectives::blocking::Barrier>(group_all);
+        }))
+    .def("blocking_barrier_all_ranks", &gaspi::collectives::blocking::Barrier::execute);
 
   py::class_<tarantella::PipelineCommunicator>(m, "PipelineCommunicator")
     .def(py::init(
-        [](tarantella::GPI::Context& context, 
-           std::unordered_map<tarantella::PipelineCommunicator::ConnectionID,
-                              std::pair<std::pair<tarantella::GPI::Rank, tarantella::GPI::Rank>, std::size_t>> edges,
+        [](std::unordered_map<tarantella::PipelineCommunicator::ConnectionID,
+                              std::pair<std::pair<gaspi::group::GlobalRank, gaspi::group::GlobalRank>, std::size_t>> edges,
            std::size_t num_micro_batches)
         {
-          auto const rank = context.get_rank();
-          std::unordered_map<tarantella::PipelineCommunicator::ConnectionID,
-                             tarantella::ConnectionInfo> conn_infos;
-          tarantella::distribution::PipelineSegmentIDBuilder segment_id_builder;
-
-          // build connection info (segment_id, other rank, buffer_size)
-          // for each edge connected to the current rank
-          for (auto const& [conn_id, edge_and_size] : edges)
-          {
-            auto const ranks = edge_and_size.first;
-            if (ranks.first != rank && ranks.second != rank) continue;
-            
-            auto const other_rank = (ranks.first == rank) ? ranks.second : ranks.first;
-            auto const buffer_size = edge_and_size.second;
-            auto const segment_id = segment_id_builder.get_segment_id(conn_id);
-            tarantella::ConnectionInfo const conn_info(segment_id, other_rank, buffer_size);
-            conn_infos.emplace(conn_id, conn_info);
-          }
-
-          return std::make_unique<tarantella::PipelineCommunicator>(context, conn_infos, num_micro_batches);
-        }),
-        // ensure the `context` object is not garbage-collected as long as the PipelineCommunicator is alive
-        py::keep_alive<1, 2>())
+          return std::make_unique<tarantella::PipelineCommunicator>(edges, num_micro_batches);
+        }))
     .def("get_raw_ptr", [](tarantella::PipelineCommunicator& comm) 
         {
           return reinterpret_cast<uint64_t>(&comm);
