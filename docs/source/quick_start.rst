@@ -77,7 +77,18 @@ Executing your model with ``tarantella``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Next, let's execute our model distributedly using ``tarantella`` on the command line.
-The simplest way to do that is by passing the Python script of the model to ``tarantella``:
+Make sure to add the path to your installed :ref:`GPI-2 libraries <gpi2-install-label>` to
+``LD_LIBRARY_PATH``:
+
+.. code-block:: bash
+
+   export LD_LIBRARY_PATH=${GPI2_INSTALLATION_PATH}/lib64:${LD_LIBRARY_PATH}
+
+.. todo::
+
+  Remove references to LD_LIBRARY_PATH when library is automatically linked
+
+The simplest way to run the model is by passing its Python script to ``tarantella``:
 
 .. code-block:: bash
 
@@ -85,7 +96,7 @@ The simplest way to do that is by passing the Python script of the model to ``ta
 
 This will execute our model distributedly on a single node, using all the available GPUs.
 In case no GPUs can be found, ``tarantella`` will executed in serial mode on the CPU,
-and an ``WARNING`` message will be issued. In case you have GPUs available, but
+and a ``WARNING`` message will be issued. In case you have GPUs available, but
 want to execute ``tarantella`` on CPUs nonetheless, you can specify the ``--no-gpu`` option.
 
 .. code-block:: bash
@@ -326,7 +337,7 @@ to ``tnt.Model.save``, ``tnt.Model.save_weights`` and ``tnt.models.save_model``.
 Using distributed datasets
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This section explains what needs to be done in order to use Tarantella's distributed datasets correctly.
+This section explains how to use Tarantella's distributed datasets.
 
 The recommended way in which to provide your dataset to Tarantella is by passing a
 *batched* ``tf.data.Dataset`` to ``tnt.Model.fit``.
