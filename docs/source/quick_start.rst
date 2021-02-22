@@ -95,7 +95,7 @@ The simplest way to run the model is by passing its Python script to ``tarantell
    tarantella -- model.py
 
 This will execute our model distributedly on a single node, using all the available GPUs.
-In case no GPUs can be found, ``tarantella`` will executed in serial mode on the CPU,
+In case no GPUs can be found, ``tarantella`` will be executed in serial mode on the CPU,
 and a ``WARNING`` message will be issued. In case you have GPUs available, but
 want to execute ``tarantella`` on CPUs nonetheless, you can specify the ``--no-gpu`` option.
 
