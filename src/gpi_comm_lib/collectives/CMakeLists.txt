@@ -1,4 +1,7 @@
 
+
+include (add_macros)
+
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
 set(COLLECTIVES_SRC_DIR ${SRC_DIR}/gpi_comm_lib/collectives)

@@ -24,14 +24,13 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(INSTALL_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib/tarantella")
 set(INSTALL_BIN_DIR "${CMAKE_INSTALL_PREFIX}/bin")
 
+find_package(GPI2 REQUIRED)
 find_package(GaspiCxx REQUIRED)
 find_package(PythonModules REQUIRED)
 find_package(pybind11 CONFIG REQUIRED)
 find_package(Tensorflow REQUIRED)
 
 add_subdirectory(${SRC_DIR})
-add_subdirectory(${SRC_DIR}/gpi_comm_lib/gpi)
-add_subdirectory(${SRC_DIR}/gpi_comm_lib/collectives)
 add_subdirectory(${SRC_DIR}/gpi_comm_lib)
 add_subdirectory(${SRC_DIR}/gpi_comm_lib/tf_ops)
 
@@ -41,6 +40,7 @@ if (BUILD_DOCS)
 endif()
 
 if (ENABLE_TESTING)
+  find_package(GPI2 REQUIRED)
   find_package(Boost 1.61 REQUIRED COMPONENTS
                                    unit_test_framework)
   find_package(PythonModules REQUIRED COMPONENTS 
