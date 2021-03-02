@@ -1,84 +1,71 @@
 #include "TensorBroadcaster.hpp"
 
-#include "distribution/utilities.hpp"
-#include "gpi/Context.hpp"
-#include "gpi/ResourceManager.hpp"
-#include "gpi/SegmentBuffer.hpp"
+#include <GaspiCxx/collectives/non_blocking/collectives_lowlevel/BroadcastSendToAll.hpp>
+#include <GaspiCxx/collectives/non_blocking/Broadcast.hpp>
 
 #include <cstring>
 #include <vector>
 
 namespace tarantella
 {
-  TensorBroadcaster::TensorBroadcaster(GPI::Context& context,
-                                       GPI::SegmentID segment_id,
-                                       GPI::Group const& group,
-                                       std::vector<collectives::TensorInfo> const& tensor_infos,
-                                       GPI::Rank root_rank)
-  : context(context),
-    group(group),
-    queue_handler(),
-    root(root_rank),
-    barrier(group)
+  using Broadcast = gaspi::collectives::Broadcast<char, gaspi::collectives::BroadcastAlgorithm::SEND_TO_ALL>;
+
+  namespace
   {
-    if(!group.contains_rank(root_rank))
+    std::size_t get_total_size(std::vector<collectives::TensorInfo> const& DNN)
     {
-      throw std::runtime_error("[TensorBroadcaster::constructor]:\
-                                Incorrect root_rank is not part of the broadcast group");
+      if(DNN.size() == 0)
+      {
+        throw std::logic_error("tarantella::get_total_size: Empty DNN provided");
+      }
+
+      auto add_tensor_size_in_bytes = [](auto sum, auto tensor_info)
+                                      { return sum + tensor_info.get_size(); };
+      auto const partition_size = std::accumulate(DNN.begin(), DNN.end(), 0UL, add_tensor_size_in_bytes);
+      return partition_size;
     }
-
-    auto const overhead_factor = 1.0;
-    auto& resource_manager = context.get_resource_manager();
-    auto const segment_size = distribution::get_segment_size(tensor_infos, overhead_factor);
-
-    resource_manager.make_segment_resources(segment_id, group, segment_size);
-
-    // Barrier is required, to ensure all ranks have finished registering
-    // their segments to their communication partners
-    barrier.blocking_barrier();
-
-    for(auto const& info : tensor_infos)
-    {
-      auto const size_in_bytes = info.get_nelems() * getDataTypeSize(info.get_elem_type());
-      buffers.emplace_back(resource_manager.get_buffer_of_size(segment_id, size_in_bytes));
-    }
-
-    auto const notifications = resource_manager.get_notification_range(segment_id,
-                                                                       collectives::broadcast::getNumberOfNotifications(group.get_size()));
-    bcast_op = std::make_unique<collectives::broadcast>(root, segment_size, segment_id, buffers.front().get_offset(),
-                                                        notifications.first, queue_handler);
   }
+
+  TensorBroadcaster::TensorBroadcaster(gaspi::group::Group const& group,
+                                       std::vector<collectives::TensorInfo> const& tensor_infos,
+                                       gaspi::group::Rank root_rank)
+  : group(group),
+    root(root_rank),
+    tensor_infos(tensor_infos),
+    bcast_buffer(get_total_size(tensor_infos)),
+    bcast_op(std::make_unique<Broadcast>(group, bcast_buffer.size(), root))
+  { }
 
   void TensorBroadcaster::exec_broadcast(std::vector<void*> const& data_ptrs)
   {
     // copy data to segments
-    if (context.get_rank() == root)
+    if (group.rank() == root)
     {
+      auto current_buffer_index = 0UL;
       for (std::size_t i = 0; i < data_ptrs.size(); ++i)
       {
-        std::memcpy(buffers[i].get_ptr(), data_ptrs[i], buffers[i].get_size());
+        current_buffer_index += tensor_infos[i].get_size();
+        std::memcpy(&bcast_buffer[current_buffer_index], data_ptrs[i], tensor_infos[i].get_size());
       }
+      bcast_op->start(bcast_buffer.data());
+    }
+    else
+    {
+      bcast_op->start();
     }
 
-    // start the operation
-    if (context.get_rank() == root)
-    {
-      bcast_op->signal();
-    }
-    // execute broadcast
-    while(bcast_op->operator()() != 0);
+    bcast_op->waitForCompletion(bcast_buffer.data());
 
     // copy results back to buffers
-    if (context.get_rank() != root)
+    if (group.rank() != root)
     {
+      auto current_buffer_index = 0UL;
       for (std::size_t i = 0; i < data_ptrs.size(); ++i)
       {
-        std::memcpy(data_ptrs[i], buffers[i].get_ptr(), buffers[i].get_size());
+        current_buffer_index += tensor_infos[i].get_size();
+        std::memcpy(data_ptrs[i], &bcast_buffer[current_buffer_index], tensor_infos[i].get_size());
       }
     }
-
-    // finalize operation
-    barrier.blocking_barrier();
   }
 }
 
