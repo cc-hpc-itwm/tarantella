@@ -1,5 +1,5 @@
-#include "collectives/BufferElementType.hpp"
-#include "collectives/TensorInfo.hpp"
+#include "BufferElementType.hpp"
+#include "TensorInfo.hpp"
 #include "PipelineCommunicator.hpp"
 #include "SynchCommunicator.hpp"
 #include "TensorBroadcaster.hpp"
@@ -22,7 +22,7 @@ PYBIND11_MODULE(GPICommLib, m)
 
   m.def("rank", []()
                 {
-                  return gaspi::getRuntime().rank();
+                  return gaspi::getRuntime().global_rank();
                 });
   m.def("size", []()
                 {
@@ -74,7 +74,7 @@ PYBIND11_MODULE(GPICommLib, m)
   py::class_<tarantella::TensorBroadcaster>(m, "TensorBroadcaster")
     .def(py::init(
         [](std::vector<tarantella::collectives::TensorInfo> tensor_infos,
-           tarantella::GPI::Rank root_rank)
+           gaspi::group::Rank root_rank)
         {
           gaspi::group::Group group_all;
           return std::unique_ptr<tarantella::TensorBroadcaster>(
