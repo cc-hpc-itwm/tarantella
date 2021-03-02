@@ -22,7 +22,7 @@ def load_model(filepath,compile=True,**kwargs):
       tnt_model.orig_optimizer = keras_model.optimizer
       tnt_model.orig_optimizer_serialized = tf.keras.optimizers.serialize(keras_model.optimizer)
       tnt_model.dist_optimizer = tnt_optimzier
-      keras_model.optimizer = tnt_model._get_optimizer(tnt_model.dist_optimizer)
+      tnt_model._set_opt(tnt_model.dist_optimizer)
       tnt_model.compiled = True
       tnt_model.done_broadcast = True
     except:
