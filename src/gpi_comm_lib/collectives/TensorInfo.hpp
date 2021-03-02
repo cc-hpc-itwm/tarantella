@@ -17,7 +17,8 @@ namespace tarantella
         GradID get_id() const;
         std::size_t get_nelems() const;
         BufferElementType get_elem_type() const;
-      
+        std::size_t get_size() const;
+
       private:
         const GradID id;
         const std::size_t nelems;
