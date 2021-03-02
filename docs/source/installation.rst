@@ -23,6 +23,8 @@ Tarantella can be built using a recent `gcc <https://gcc.gnu.org/>`_
 compiler (from version ``7.4.0``).
 You will also need the build tool `CMake <https://cmake.org/>`_ (from version ``3.8``).
 
+.. _gpi2-install-label:
+
 Installing GPI-2
 ^^^^^^^^^^^^^^^^
 

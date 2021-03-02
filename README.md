@@ -39,7 +39,7 @@ export PATH=${YOUR_INSTALLATION_PATH}/bin/:$PATH
 We recommned `conda` to install Python packages. After installation, create and activate an environment:
 
 ```bash
-conda create tarantella
+conda create -n tarantella
 conda activate tarantella
 ```
 ### Installing TensorFlow
@@ -109,6 +109,7 @@ Finally, install Tarantella to `TARANTELLA_INSTALLATION_PATH`:
 ```bash
 make install
 export PATH=${TARANTELLA_INSTALLATION_PATH}/bin:${PATH}
+export LD_LIBRARY_PATH=${GPI2_INSTALLATION_PATH}/lib64:${LD_LIBRARY_PATH}
 
 tarantella --version
 ```
@@ -125,13 +126,17 @@ There are two alternatives for running a model distributedly using Tarantella:
 A detailed description of all the command line options of `tarantella` can be found [here](https://tarantella.readthedocs.io/en/latest/quick_start.html#executing-your-model-with-tarantella).
 
 The simplest way to train a model distributedly with Tarantella is to pass the Python script
-to the ``tarantella`` command:
+to the ``tarantella`` command. Make sure to add the path to the GPI-2 libraries in
+`LD_LIBRARY_PATH` befre executing ``tarantella``:
+
 ```bash
-   tarantella -- model.py --batch_size=64 --learning_rate=0.01
+  export LD_LIBRARY_PATH=${GPI2_INSTALLATION_PATH}/lib64:${LD_LIBRARY_PATH}
+
+  tarantella -- model.py --batch_size=64 --learning_rate=0.01
 ```
 
 This will execute our model distributedly on a single node, using all the available GPUs.
-In case no GPUs can be found, ``tarantella`` will executed in serial mode on the CPU.
+In case no GPUs can be found, ``tarantella`` will be executed in serial mode on the CPU.
 In case you have GPUs available, but want to execute ``tarantella`` on CPUs nonetheless,
 you can specify the ``--no-gpu`` option.
 ```bash
