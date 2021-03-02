@@ -323,11 +323,21 @@ class Model(tf.keras.models.Model):
     else:
       # 1. Set the optimizer of the underlying `keras.Model` using the original optimizer
       deserialize_optimizer = tf.keras.optimizers.deserialize(self.orig_optimizer_serialized)
-      self.model.optimizer = self._get_optimizer(deserialize_optimizer)
+      self._set_opt(deserialize_optimizer)
       # 2. Save the model as `keras.Model` with standard Keras optimizer
       self.model.save(filepath = filepath, **args_dict)
       # 3. Reset the underlying optimizer to the distributed optimzier
-      self.model.optimizer = self._get_optimizer(self.dist_optimizer)
+      self._set_opt(self.dist_optimizer)
+  
+  def _set_opt(self,optimizer):
+    try:
+      self.model.optimizer = self._get_optimizer(optimizer)
+    except:
+      try:
+        #for sequential model with tf version2.0,2.1
+        self.model._set_optimizer(optimizer)
+      except:
+        raise RuntimeError("[tnt.models._save] Cannot set optimizer of model")
 
   def _setup_for_execution(self, exec_type, x, y, args_dict):
     self._assert_compile_has_been_called()

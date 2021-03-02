@@ -22,7 +22,6 @@ def model(request):
   yield request.param()
 
 class TestsModelLoadSave:
-  @pytest.mark.tfversion('2.2')
   def test_save_before_compile(self, tarantella_framework, model):
     ##tempfile name is not reproducible so we shouldn't use it here. Otherwise every rank would get a different folder.
     ##other rank have different cwd from rank 0, so I use the abspath of this file,which shoulbe be in the shared file as well
@@ -50,7 +49,6 @@ class TestsModelLoadSave:
   @pytest.mark.parametrize("load_compiled_model", [True, False])
   @pytest.mark.parametrize("micro_batch_size", [64])
   @pytest.mark.parametrize("nbatches", [12])
-  @pytest.mark.tfversion('2.2')
   def test_accuracy_loaded_model(self, tarantella_framework, model,
                                  load_compiled_model, micro_batch_size, nbatches):
     batch_size = micro_batch_size * tarantella_framework.get_size()
