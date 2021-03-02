@@ -54,10 +54,16 @@ def check_dic_equal(d1,d2):
 def is_model_configuration_identical(model1, model2):
   # comparing configurations directly fails because of comparing 
   # input shapes defined with `None` placeholders
-  if len(model1.layers) != len(model2.layers):
+  config1 = model1.get_config()['layers']
+  config2 = model2.get_config()['layers']
+
+  if len(config1) != len(config2):
     return False
-  for l1, l2 in zip(model1.layers, model2.layers):
-    if l1.get_config() != l2.get_config():
-      if not check_dic_equal(l1.get_config(),l2.get_config()):
+
+  for l1, l2 in zip(config1,config2):
+    if l1 != l2:
+      if not check_dic_equal(l1['config'],l2['config']):
+        print(l1)
+        print(l2)
         return False
   return True
