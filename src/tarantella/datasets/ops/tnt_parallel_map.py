@@ -15,7 +15,9 @@ class TntParallelMapDataset(ds.UnaryDataset):
                preserve_cardinality,
                use_legacy_function=False):
     self._input_dataset = input_dataset
-    self._map_func = map_func # StructuredFunctionWrapper
+    self._map_func = ds.StructuredFunctionWrapper(map_func._func,
+                                                  self._transformation_name(),
+                                                  input_dataset)
     self._deterministic = deterministic
     self._use_inter_op_parallelism = use_inter_op_parallelism
     self._preserve_cardinality = preserve_cardinality
