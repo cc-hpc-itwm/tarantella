@@ -13,6 +13,7 @@ def save_model(model, filepath, **kwargs):
   model.save(filepath, **kwargs)
 
 def load_model(filepath,compile=True,**kwargs):
+  logger.debug("Load model from file: {}".format(filepath))
   keras_model = tf.keras.models.load_model(filepath, compile = compile,**kwargs)
   tnt_model = tnt.Model(keras_model)
   if compile:
@@ -22,7 +23,7 @@ def load_model(filepath,compile=True,**kwargs):
       tnt_model.orig_optimizer = keras_model.optimizer
       tnt_model.orig_optimizer_serialized = tf.keras.optimizers.serialize(keras_model.optimizer)
       tnt_model.dist_optimizer = tnt_optimzier
-      tnt_model._set_opt(tnt_model.dist_optimizer)
+      tnt_model._set_internal_optimizer(tnt_model.dist_optimizer)
       tnt_model.compiled = True
       tnt_model.done_broadcast = True
     except:
@@ -30,13 +31,16 @@ def load_model(filepath,compile=True,**kwargs):
   return tnt_model
 
 def model_from_config(config, **kwargs):
+  logger.debug("Load model from an existing configuration")
   return tnt.Model.from_config(config)
 
 def model_from_json(json_string, **kwargs):
+  logger.debug("Load model from json")
   keras_model = tf.keras.models.model_from_json(json_string, **kwargs)
   return tnt.Model(keras_model)
 
 def model_from_yaml(yaml_string, **kwargs):
+  logger.debug("Load model from yaml")
   try:
     keras_model = tf.keras.models.model_from_yaml(yaml_string, **kwargs)
     return tnt.Model(keras_model)

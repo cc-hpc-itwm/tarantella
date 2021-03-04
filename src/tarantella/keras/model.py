@@ -224,7 +224,7 @@ class Model(tf.keras.models.Model):
         keras_model = tf.keras.Sequential.from_config(config)
         logger.info("Loaded model from `keras.Sequential`.")
       except:
-        raise RuntimeError("""[tnt.model.from_config] Cannot load 
+        raise RuntimeError("""[tnt.Model.from_config] Cannot load
               model; provided configuration is neither a `keras.Model`
               nor a `keras.Sequential` model.""")
     return cls(keras_model)
@@ -322,22 +322,22 @@ class Model(tf.keras.models.Model):
       self.model.save(filepath = filepath, **args_dict)
     else:
       # 1. Set the optimizer of the underlying `keras.Model` using the original optimizer
-      deserialize_optimizer = tf.keras.optimizers.deserialize(self.orig_optimizer_serialized)
-      self._set_opt(deserialize_optimizer)
+      deserialized_optimizer = tf.keras.optimizers.deserialize(self.orig_optimizer_serialized)
+      self._set_internal_optimizer(deserialized_optimizer)
       # 2. Save the model as `keras.Model` with standard Keras optimizer
       self.model.save(filepath = filepath, **args_dict)
       # 3. Reset the underlying optimizer to the distributed optimzier
-      self._set_opt(self.dist_optimizer)
-  
-  def _set_opt(self,optimizer):
-    try:
+      self._set_internal_optimizer(self.dist_optimizer)
+
+  def _set_internal_optimizer(self, optimizer):
+    if hasattr(self, '_get_optimizer'):
       self.model.optimizer = self._get_optimizer(optimizer)
-    except:
-      try:
-        #for sequential model with tf version2.0,2.1
-        self.model._set_optimizer(optimizer)
-      except:
-        raise RuntimeError("[tnt.models._save] Cannot set optimizer of model")
+    elif hasattr(self, '_set_optimizer'):
+      #for Sequential model with TF 2.0/2.1
+      self.model._set_optimizer(optimizer)
+    else:
+      raise RuntimeError(
+      "[tnt.Model._set_internal_optimizer] Cannot set optimizer for the internal `keras.Model`")
 
   def _setup_for_execution(self, exec_type, x, y, args_dict):
     self._assert_compile_has_been_called()
