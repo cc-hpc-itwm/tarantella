@@ -15,7 +15,7 @@ class SynchDistributedOptimizer(wrapper.OptimizerWrapper):
     super(self.__class__, self).__init__(optimizer, name = name)
 
     # add new attributes after the base object has been initialized
-    self.comm = tarantella.SynchCommunicator(tarantella.global_context)
+    self.comm = tarantella.SynchCommunicator()
     self.initialized = False
 
   # customized gradient reduction method used by `keras.model.fit`

@@ -3,7 +3,6 @@ import tensorflow as tf
 import GPICommLib
 
 import runtime.tnt_config as tnt_config
-global_context = None
 global_tnt_config = tnt_config.TarantellaConfiguration()
 
 import logging
@@ -63,10 +62,6 @@ def setup_gpus(rank, ngpus = None):
   logger.debug("Using device: {}".format(tf.config.experimental.get_visible_devices()))
 
 def init(devices_per_node = None):
-  global global_context
-  if global_context is None:
-    global_context = GPICommLib.GPIContext()
-
     logging_config.setup_logging(logger, global_tnt_config.log_level,
                                  get_rank(), is_master_rank(),
                                  global_tnt_config.log_on_all_devices)
@@ -75,10 +70,10 @@ def init(devices_per_node = None):
     # or as a `TNT_GPUS_PER_NODE` environment variable
     if devices_per_node is None:
       devices_per_node = global_tnt_config.gpus_per_node
-    setup_gpus(global_context.rank, ngpus = devices_per_node)
+    setup_gpus(get_rank(), ngpus = devices_per_node)
 
 def get_rank():
-  return global_context.rank
+  return GPICommLib.get_rank()
 
 def get_master_rank():
   return 0
@@ -87,7 +82,7 @@ def is_master_rank():
   return get_rank() == get_master_rank()
 
 def get_size():
-  return global_context.size
+  return GPICommLib.get_size()
 
 def get_tensor_info(tensor_id, tensor):
   return GPICommLib.TensorInfo(tensor_id,
@@ -96,13 +91,10 @@ def get_tensor_info(tensor_id, tensor):
 
 class TensorBroadcaster():
   def __init__(self, tensor_list, root_rank):
-    self.context = global_context
     self.root_rank = root_rank
 
     tensor_infos = [get_tensor_info(tid, tensor) for tid, tensor in enumerate(tensor_list)]
-    self.broadcaster = GPICommLib.TensorBroadcaster(self.context,
-                                                    tensor_infos,
-                                                    self.root_rank)
+    self.broadcaster = GPICommLib.TensorBroadcaster(tensor_infos, self.root_rank)
 
   def broadcast(self, tensor_list):
     self.broadcaster.broadcast(tensor_list)
@@ -139,14 +131,13 @@ class TensorAllreducer():
 
 class Barrier():
   def __init__(self):
-    self.barrier = GPICommLib.Barrier(global_context)
+    self.barrier = GPICommLib.Barrier()
 
   def synchronize(self):
     self.barrier.blocking_barrier_all_ranks()
 
 class SynchCommunicator():
-  def __init__(self, global_context):
-    self.context = global_context
+  def __init__(self):
     self.weight_to_index = dict()
     self.comm = None
     self.threshold = global_tnt_config.fusion_threshold
@@ -167,7 +158,7 @@ class SynchCommunicator():
     grad_infos = list()
     for grad, weight in gradients_and_weights:
       grad_infos.append(get_tensor_info(self.weight_to_index[weight.name], grad))
-    self.comm = GPICommLib.SynchDistCommunicator(global_context, grad_infos, self.threshold)
+    self.comm = GPICommLib.SynchDistCommunicator(grad_infos, self.threshold)
 
   def reduce_gradients(self, gradients_and_weights):
     gradients_to_reduce = list()

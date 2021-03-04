@@ -17,10 +17,6 @@ model_implemented_methods = ['model', 'rank', 'comm_size',
 
 class Model(tf.keras.models.Model):
   def __init__(self, model):
-    if not tarantella.global_context:
-      raise RuntimeError("""Cannot initialize a Model before the Tarantella library.
-      Please call "tarantella.init()" first.
-      """)
     self.rank = tarantella.get_rank()
     self.comm_size = tarantella.get_size()
 
