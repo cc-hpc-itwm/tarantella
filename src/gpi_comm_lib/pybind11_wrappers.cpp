@@ -20,11 +20,11 @@ PYBIND11_MODULE(GPICommLib, m)
 {
   m.doc() = "GPI communication library for Deep Learning";
 
-  m.def("rank", []()
+  m.def("get_rank", []()
                 {
                   return gaspi::getRuntime().global_rank();
                 });
-  m.def("size", []()
+  m.def("get_size", []()
                 {
                   return gaspi::getRuntime().size();
                 });
@@ -74,13 +74,13 @@ PYBIND11_MODULE(GPICommLib, m)
   py::class_<tarantella::TensorBroadcaster>(m, "TensorBroadcaster")
     .def(py::init(
         [](std::vector<tarantella::collectives::TensorInfo> tensor_infos,
-           gaspi::group::Rank root_rank)
+           gaspi::group::GlobalRank root_rank)
         {
           gaspi::group::Group group_all;
           return std::unique_ptr<tarantella::TensorBroadcaster>(
             new tarantella::TensorBroadcaster(group_all,
                                               tensor_infos,
-                                              root_rank));
+                                              group_all.toGroupRank(root_rank)));
         }))
     .def("broadcast",
         [](tarantella::TensorBroadcaster &tb, std::vector<py::array>& tensor_list)
