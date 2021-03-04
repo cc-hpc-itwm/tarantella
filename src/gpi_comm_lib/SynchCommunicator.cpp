@@ -57,13 +57,22 @@ namespace tarantella
   {
     auto const fused_id = fused_ids[grad_id];
 
-    copy_data_to_fused_buffer(grad_id, data_ptr);
+    const void* source_buffer = fused_buffers[fused_id].data();
+    if (fused_tensor_infos[fused_id].get_num_tensors() > 1)
+    {
+      copy_data_to_fused_buffer(grad_id, data_ptr);
+    }
+    else
+    {
+      source_buffer = data_ptr;
+    }
+    
     auto const value = ready_to_start_counters[fused_id]->fetch_add(1UL);
 
     // Make sure all copies are done, before last `grad_id` starts operator
     if (value == fused_tensor_infos[fused_id].get_num_tensors()-1)
     {
-      operators[fused_id]->start(fused_buffers[fused_id].data());
+      operators[fused_id]->start(source_buffer);
       ready_to_start_counters[fused_id]->store(0UL);
     }
   }
@@ -72,12 +81,18 @@ namespace tarantella
   {
     auto const fused_id = fused_ids[grad_id];
 
+    void* destination_buffer = fused_buffers[fused_id].data();
+    if (fused_tensor_infos[fused_id].get_num_tensors() == 1)
+    {
+      destination_buffer = results_ptr;
+    }
+
     // First `grad_id` to arrive waits for `has_finished`, and notifies
     // everyone that results can be copied back
     auto const num_arrived = finished_counters[fused_id]->fetch_add(1UL);
     if (num_arrived == 0)
     {
-      operators[fused_id]->waitForCompletion(fused_buffers[fused_id].data());
+      operators[fused_id]->waitForCompletion(destination_buffer);
       ready_to_copy_back[fused_id]->store(true);
     }
 
@@ -87,7 +102,10 @@ namespace tarantella
     {
       if(ready_to_copy_back[fused_id]->load())
       {
-        copy_data_from_fused_buffer(grad_id, results_ptr);
+        if (fused_tensor_infos[fused_id].get_num_tensors() > 1)
+        {
+           copy_data_from_fused_buffer(grad_id, results_ptr);
+        }
         break;
       }
     }
