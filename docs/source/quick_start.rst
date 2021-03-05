@@ -167,8 +167,17 @@ Sometimes, it might be useful to print outputs from all devices (e.g., for debug
 which can be switched on with the ``--output-on-all-devices`` option.
 
 ``tarantella`` uses GPI-2's ``gaspi_run`` internally, taking care of ``export`` ing
-environment variables, and generating an execution script from the user inputs.
+relevant environment variables (e.g., ``PYTHONPATH``), and generating an execution script
+from the user inputs.
 Details of this process can be monitored using the ``--dry-run`` option.
+
+To add your own environment variables, add ``-x ENV_VAR_NAME=VALUE`` to your
+``tarantella`` command. This option will ensure the environment variable ``ENV_VAR_NAME``
+is exported on all ranks before executing the code. An example is shown below:
+
+.. code-block:: bash
+
+   tarantella --hostfile hostfile -x TF_CPP_MIN_LOG_LEVEL=1 -- model.py
 
 Lastly, you can overwrite the *Tensor Fusion* threshold ``tarantella`` uses 
 with ``--fusion-threshold FUSION_THRESHOLD_KB``
