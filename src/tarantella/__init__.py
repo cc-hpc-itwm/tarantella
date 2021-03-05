@@ -107,6 +107,36 @@ class TensorBroadcaster():
   def broadcast(self, tensor_list):
     self.broadcaster.broadcast(tensor_list)
 
+def __is_nonEmptyList__(input):
+  return isinstance(input, list) and len(input) != 0
+
+def __is_nonEmptyArray__(input):
+  return isinstance(input, np.ndarray) and input.size != 0
+
+class TensorAllreducer():
+  def __init__(self, input):
+    self.context = global_context
+
+    if __is_nonEmptyList__(input):
+      tensor_infos = [get_tensor_info(tid, tensor) for tid, tensor in enumerate(input)]
+    elif __is_nonEmptyArray__(input):
+      tensor_infos = [get_tensor_info(0, input)]
+    else:
+      raise TypeError("""[Tarantella][TensorAllreducer] Input should be
+                      either a list or an array object and non-empty.""")
+
+    self.allreducer = GPICommLib.TensorAllreducer(self.context,
+                                                  tensor_infos)
+
+  def allreduce(self, input):
+    if __is_nonEmptyList__(input):
+      return self.allreducer.allreduce(input)
+    elif __is_nonEmptyArray__(input):
+      return self.allreducer.allreduce([input])[0]
+    else:
+      raise TypeError("""[Tarantella][TensorAllreducer] Input should be
+                      either a list or an array object and non-empty.""")
+
 class Barrier():
   def __init__(self):
     self.barrier = GPICommLib.Barrier(global_context)

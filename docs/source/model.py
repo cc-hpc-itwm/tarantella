@@ -55,7 +55,7 @@ def lenet5_model_generator():
 
 args = parse_args()
               
-# Create Tarantella model
+# Create Tarantella model from a `keras.Model`
 model = tnt.Model(lenet5_model_generator())
 
 # Compile Tarantella model (as with Keras)

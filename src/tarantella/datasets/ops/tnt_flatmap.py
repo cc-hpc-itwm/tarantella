@@ -9,8 +9,9 @@ class TntFlatMapDataset(ds.UnaryDataset):
                map_func):
     """See `Dataset.flat_map()` for details."""
     self._input_dataset = input_dataset
-    self._map_func = map_func # StructuredFunctionWrapper
-
+    self._map_func = ds.StructuredFunctionWrapper(map_func._func,
+                                                  self._transformation_name(),
+                                                  input_dataset)
     variant_tensor = gen_dataset_ops.flat_map_dataset(
         self._input_dataset._variant_tensor,  # pylint: disable=protected-access
         self._map_func.function.captured_inputs,

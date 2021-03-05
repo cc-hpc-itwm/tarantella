@@ -2,14 +2,14 @@ import tensorflow as tf
 from tensorflow import keras
 import tarantella as tnt
 
-# Skip function implementations for brevity
-[...]
-
 # Initialize Tarantella (before doing anything else)
 tnt.init()
 args = parse_args()
+
+# Skip function implementations for brevity
+[...]
               
-# Create Tarantella model
+# Create Tarantella model from a `keras.Model`
 model = tnt.Model(lenet5_model_generator())
 
 # Compile Tarantella model (as with Keras)

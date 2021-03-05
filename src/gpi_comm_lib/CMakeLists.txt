@@ -8,6 +8,7 @@ set (GPICOMMLIB_SOURCES
     ${SRC_DIR}/gpi_comm_lib/PipelineCommunicator.cpp
     ${SRC_DIR}/gpi_comm_lib/SynchCommunicator.cpp
     ${SRC_DIR}/gpi_comm_lib/TensorBroadcaster.cpp
+    ${SRC_DIR}/gpi_comm_lib/TensorAllreducer.cpp
 )
 
 extended_add_library(NAME gpicommlib

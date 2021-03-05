@@ -54,6 +54,19 @@ def gen_dataset_filter(dataset, batch_size, drop_remainder):
   dataset = dataset.batch(batch_size, drop_remainder)
   return dataset
 
+def gen_dataset_filter_after_batch(dataset, batch_size, drop_remainder):
+  dataset = dataset.shuffle(10, seed=44, reshuffle_each_iteration=True)
+
+  def pred1(x,y):
+    return x > 100
+  dataset = dataset.filter(predicate = lambda x, y: pred1(x,y))
+  dataset = dataset.batch(batch_size, drop_remainder)
+
+  def pred2(x,y): # apply to batched dataset
+    return x[1] > 200
+  dataset = dataset.filter(predicate = lambda x, y: pred2(x,y))
+  return dataset
+
 def gen_dataset_flat_map(dataset, batch_size, drop_remainder):
   dataset = dataset.batch(batch_size = 3, drop_remainder = False)
 
@@ -61,6 +74,15 @@ def gen_dataset_flat_map(dataset, batch_size, drop_remainder):
   dataset = dataset.flat_map(lambda x, y: tf.data.Dataset.from_tensor_slices((x, y)))
 
   dataset = dataset.batch(batch_size, drop_remainder)
+  return dataset
+
+def gen_dataset_flat_map_after_batch(dataset, batch_size, drop_remainder):
+  dataset = dataset.batch(batch_size = 3, drop_remainder = False)
+
+  # flat map works on batched datasets
+  dataset = dataset.flat_map(lambda x, y: tf.data.Dataset.from_tensor_slices((x+6, 3*y)))
+  dataset = dataset.batch(batch_size, drop_remainder)
+  dataset = dataset.flat_map(lambda x, y: tf.data.Dataset.from_tensors((3*x, y)))
   return dataset
 
 def gen_dataset_interleave(dataset, batch_size, drop_remainder):
@@ -71,6 +93,18 @@ def gen_dataset_interleave(dataset, batch_size, drop_remainder):
                                deterministic = True)
 
   dataset = dataset.batch(batch_size, drop_remainder)
+  return dataset
+
+def gen_dataset_interleave_after_batch(dataset, batch_size, drop_remainder):
+  dataset = dataset.batch(batch_size = 3, drop_remainder = False)
+  dataset = dataset.interleave(map_func = lambda x, y: tf.data.Dataset.from_tensor_slices((x+3, y)),
+                               cycle_length=tf.data.experimental.AUTOTUNE,
+                               block_length=2,
+                               deterministic = True)
+  dataset = dataset.batch(batch_size, drop_remainder)
+  dataset = dataset.interleave(map_func = lambda x,y: tf.data.Dataset.from_tensors((x, y)),
+                               block_length=2,
+                               deterministic = True)
   return dataset
 
 def gen_dataset_interleave_v1(dataset, batch_size, drop_remainder):
@@ -87,6 +121,16 @@ def gen_dataset_map(dataset, batch_size, drop_remainder):
   dataset = dataset.map(lambda x, y: map_fn(x, y),
                         deterministic = True)
   dataset = dataset.batch(batch_size, drop_remainder)
+  return dataset
+
+def gen_dataset_map_after_batch(dataset, batch_size, drop_remainder):
+  def map_fn(x, y):
+    return x*5, y
+  dataset = dataset.map(lambda x, y: map_fn(x, y),
+                        deterministic = True)
+  dataset = dataset.batch(batch_size, drop_remainder)
+  dataset = dataset.map(lambda x, y: map_fn(x+4, y),
+                        deterministic = True)
   return dataset
 
 def gen_dataset_map_v1(dataset, batch_size, drop_remainder):
@@ -115,6 +159,16 @@ def gen_dataset_parallel_interleave(dataset, batch_size, drop_remainder):
   dataset = dataset.batch(batch_size, drop_remainder)
   return dataset
 
+def gen_dataset_parallel_interleave_after_batch(dataset, batch_size, drop_remainder):
+  dataset = dataset.batch(batch_size = 3, drop_remainder = False)
+  dataset = dataset.batch(batch_size, drop_remainder)
+  dataset = dataset.interleave(map_func = lambda x, y: tf.data.Dataset.from_tensors((x+3, y)),
+                               cycle_length=tf.data.experimental.AUTOTUNE,
+                               block_length=2,
+                               num_parallel_calls=4,
+                               deterministic = True)
+  return dataset
+
 def gen_dataset_parallel_interleave_v1(dataset, batch_size, drop_remainder):
   dataset = dataset.batch(batch_size = 3, drop_remainder = False)
   dataset = dataset.interleave(map_func = lambda x, y: tf.data.Dataset.from_tensor_slices((x+3, y)),
@@ -135,6 +189,24 @@ def gen_dataset_parallel_map(dataset, batch_size, drop_remainder):
   dataset = dataset.batch(batch_size, drop_remainder)
   return dataset
 
+def gen_dataset_parallel_map_after_batch(dataset, batch_size, drop_remainder):
+  dataset = dataset.repeat(2)
+
+  def map_fn(x,y):
+    return (x*5,y)
+  dataset = dataset.batch(batch_size, drop_remainder)
+  dataset = dataset.map(map_func = lambda x, y: map_fn(x,y),
+                        num_parallel_calls=2,
+                        deterministic=True)
+  return dataset
+
+def gen_data_multiple_batch(dataset, batch_size, drop_remainder):
+  dataset = dataset.repeat(2)
+  dataset = dataset.batch(1)
+  dataset = dataset.unbatch()
+  dataset = dataset.batch(batch_size, drop_remainder)
+  return dataset
+
 def gen_dataset_parallel_map_v1(dataset, batch_size, drop_remainder):
   dataset = dataset.repeat(2)
   def map_fn(x,y):
@@ -150,7 +222,7 @@ def gen_dataset_io_pipeline(dataset, batch_size, drop_remainder):
     return x,y
 
   dataset = dataset.map(
-      map_func = lambda x, y: parse_fn(x,y))
+      map_func = lambda x, y: parse_fn(2*x,y+1))
 
   dataset = dataset.cache()
   # Shuffle samples
@@ -176,7 +248,6 @@ def gen_dataset_concatenate(dataset, batch_size, drop_remainder):
 def gen_dataset_zip(dataset, batch_size, drop_remainder):
   dataset = tf.data.Dataset.zip((dataset, dataset))
   dataset = dataset.batch(batch_size, drop_remainder)
-
   return dataset
 
 def validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank):
@@ -204,27 +275,38 @@ def validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank):
     next(expected_dataset_it)
 
 transformation_test_cases = [ gen_dataset_batch,
+                              gen_data_multiple_batch,
                               gen_dataset_shuffle_batch,
                               gen_dataset_multiple_batch,
                               gen_dataset_io_pipeline,
                               gen_dataset_filter,
+                              gen_dataset_filter_after_batch,
                               gen_dataset_flat_map,
+                              gen_dataset_flat_map_after_batch,
                               pytest.param(gen_dataset_map,
+                                           marks=pytest.mark.tfversion('2.2')),
+                              pytest.param(gen_dataset_map_after_batch,
                                            marks=pytest.mark.tfversion('2.2')),
                               pytest.param(gen_dataset_map_v1,
                                            marks=[pytest.mark.tfversion('2.0'),
                                                   pytest.mark.tfversion('2.1')]),
                               pytest.param(gen_dataset_interleave,
                                            marks=pytest.mark.tfversion('2.2')),
+                              pytest.param(gen_dataset_interleave_after_batch,
+                                           marks=pytest.mark.tfversion('2.2')),
                               pytest.param(gen_dataset_interleave_v1,
                                            marks=[pytest.mark.tfversion('2.0'),
                                                   pytest.mark.tfversion('2.1')]),
                               pytest.param(gen_dataset_parallel_interleave,
                                            marks=pytest.mark.tfversion('2.2')),
+                              pytest.param(gen_dataset_parallel_interleave_after_batch,
+                                           marks=pytest.mark.tfversion('2.2')),
                               pytest.param(gen_dataset_parallel_interleave_v1,
                                            marks=[pytest.mark.tfversion('2.0'),
                                                   pytest.mark.tfversion('2.1')]),
                               pytest.param(gen_dataset_parallel_map,
+                                           marks=pytest.mark.tfversion('2.2')),
+                              pytest.param(gen_dataset_parallel_map_after_batch,
                                            marks=pytest.mark.tfversion('2.2')),
                               pytest.param(gen_dataset_parallel_map_v1,
                                            marks=[pytest.mark.tfversion('2.0'),

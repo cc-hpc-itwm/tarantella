@@ -25,7 +25,8 @@ set(INSTALL_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib/tarantella")
 set(INSTALL_BIN_DIR "${CMAKE_INSTALL_PREFIX}/bin")
 
 find_package(GPI2 REQUIRED)
-find_package(pybind11 REQUIRED)
+find_package(PythonModules REQUIRED)
+find_package(pybind11 CONFIG REQUIRED)
 find_package(Tensorflow REQUIRED)
 
 add_subdirectory(${SRC_DIR})
@@ -46,8 +47,6 @@ if (ENABLE_TESTING)
                                       numpy
                                       pytest)
   enable_testing()
-  set(SLEEP_TIME_AFTER_TEST 2)
-
   add_subdirectory(${CMAKE_SOURCE_DIR}/test)
 endif() 
 

@@ -23,6 +23,8 @@ Tarantella can be built using a recent `gcc <https://gcc.gnu.org/>`_
 compiler (from version ``7.4.0``).
 You will also need the build tool `CMake <https://cmake.org/>`_ (from version ``3.8``).
 
+.. _gpi2-install-label:
+
 Installing GPI-2
 ^^^^^^^^^^^^^^^^
 
@@ -54,6 +56,8 @@ where ``${GPI2_INSTALLATION_PATH}`` needs to be replaced with the path where you
 GPI-2. Note the ``--with-ethernet`` option, which will use standard TCP sockets for communication.
 This is the correct option for laptops and workstations.
 
+.. _gpi-build-infiniband-label:
+
 In case you want to use Infiniband, replace the above option with ``--with-infiniband``.
 Now you are ready to install GPI-2 with
 
@@ -79,14 +83,14 @@ Then, create and activate an environment for Tarantella:
 
 .. code-block:: bash
 
-  conda create tarantella
+  conda create -n tarantella
   conda activate tarantella
 
 Now, you can install the latest supported TensorFlow version with
 
 .. code-block:: bash
 
-  conda install python=3.7
+  conda install python=3.8
   pip install --upgrade tensorflow==2.2
 
 Tarantella requires at least Python ``3.7``. Make sure the selected version also matches
@@ -134,7 +138,12 @@ in it:
   cd tarantella
   mkdir build && cd build
   export TARANTELLA_INSTALLATION_PATH=/your/installation/path
-  cmake -DCMAKE_INSTALL_PREFIX=${TARANTELLA_INSTALLATION_PATH} ..
+  cmake -DCMAKE_INSTALL_PREFIX=${TARANTELLA_INSTALLATION_PATH} ../
+
+This will configure your installation to use Ethernet as the underlying
+communication interconnect. To install Tarantella on a cluster equipped
+with Infiniband capabilities, follow the guidelines in the
+:ref:`next section <tnt-build-infiniband-label>`.
 
 Now, we can compile and install Tarantella to ``TARANTELLA_INSTALLATION_PATH``:
 
@@ -143,6 +152,39 @@ Now, we can compile and install Tarantella to ``TARANTELLA_INSTALLATION_PATH``:
   make
   make install
   export PATH=${TARANTELLA_INSTALLATION_PATH}/bin:${PATH}
+
+
+.. _tnt-build-infiniband-label:
+
+[Optional] Building Tarantella with Infiniband support
+------------------------------------------------------
+
+To install Tarantella with Infiniband communication backend, first
+download the code as in the previous section:
+
+.. code-block:: bash
+
+  git clone https://github.com/cc-hpc-itwm/tarantella.git
+
+Make sure that GPI-2 is installed with Infiniband support as shown
+:ref:`here <gpi-build-infiniband-label>`.
+Then, configure Tarantella using CMake in a separate ``build`` directory:
+
+.. code-block:: bash
+
+  cd tarantella
+  mkdir build && cd build
+  export TARANTELLA_INSTALLATION_PATH=/your/installation/path
+  cmake -DLINK_IB=ON -DCMAKE_INSTALL_PREFIX=${TARANTELLA_INSTALLATION_PATH} ../
+
+Finally, compile and install Tarantella as usual:
+
+.. code-block:: bash
+
+  make
+  make install
+  export PATH=${TARANTELLA_INSTALLATION_PATH}/bin:${PATH}
+
 
 [Optional] Building and running tests
 -------------------------------------
@@ -173,7 +215,10 @@ After having installed these libraries, make sure to configure Tarantella with t
 
 .. code-block:: bash
 
-  cmake -DENABLE_TESTING=ON ..
+  cd tarantella
+  mkdir build && cd build
+  export LD_LIBRARY_PATH=`pwd`:${LD_LIBRARY_PATH}
+  cmake -DENABLE_TESTING=ON ../
 
 Now you can compile Tarantella and run its tests in the ``build`` directory.
 

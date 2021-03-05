@@ -25,7 +25,7 @@ def current_date():
   return int(date.strftime("%Y%m%d"))
 
 def check_accuracy_greater(accuracy, acc_value):
-  logging.getLogger().info("Test accuracy: " % accuracy)
+  logging.getLogger().info("Test accuracy: {}".format(accuracy))
   assert accuracy > acc_value
 
 def compare_weights(weights1, weights2, tolerance):

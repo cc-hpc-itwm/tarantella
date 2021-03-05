@@ -126,6 +126,10 @@ def _get_transformation_info_take(dataset):
   kwargs = {"count": dataset._count}
   return (ds.TakeDataset, kwargs)
 
+def _get_transformation_info_restructured(dataset):
+  kwargs = {"structure" : dataset._structure}
+  return (ds._RestructuredDataset,kwargs)
+
 def _get_transformation_info_unbatch(dataset):
   kwargs = {}
   return (ds._UnbatchDataset, kwargs)
@@ -157,6 +161,7 @@ _transformations = {ds.BatchDataset : _get_transformation_info_batch,
                     ds.ShuffleDataset : _get_transformation_info_shuffle,
                     ds.SkipDataset : _get_transformation_info_skip,
                     ds.TakeDataset : _get_transformation_info_take,
+                    ds._RestructuredDataset : _get_transformation_info_restructured,
                     ds._UnbatchDataset : _get_transformation_info_unbatch,
                     ds.WindowDataset : _get_transformation_info_window,
                     ds._OptionsDataset : _get_transformation_info_withoptions,
@@ -179,7 +184,7 @@ def gen_dataset_transformations(dataset):
       raise RuntimeError("Unknown transformation provided: {}.".format(dataset._transformation_name))
     dataset = dataset._input_dataset
   return (dataset, list(reversed(stack)))
-
+      
 
 class BatchingOpInfo:
   def __init__(self, is_batched, last_batching_index = None,
@@ -222,10 +227,9 @@ class BatchingOpInfo:
     if not self.is_batched:
       raise RuntimeError("[BatchingOpInfo] Cannot apply batching transformation: dataset is unbatched.")
     kwargs = self._additional_kwargs
-    kwargs['batch_size'] = new_batch_size
+    kwargs['batch_size'] = tf.convert_to_tensor(new_batch_size,dtype=tf.int64)
     kwargs['drop_remainder'] = self.drop_remainder
     return self._transformation(dataset, **kwargs)
-
 
 def get_batching_info(dataset_transformations):
   last_batch_transf_index = None

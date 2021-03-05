@@ -13,7 +13,7 @@ what important points need to be taken into account when using Tarantella.
 Code example: LeNet-5 on MNIST
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-After having :ref:`build and installed <installation-label>` Tarantella
+After having :ref:`built and installed <installation-label>` Tarantella
 we are ready to add distributed training support to an existing TensorFlow 2/Keras model.
 We will first illustrate all the necessary steps, using the well-known example of
 **LeNet-5** on the **MNIST** dataset. Although this is not necessarily a good use case
@@ -77,15 +77,26 @@ Executing your model with ``tarantella``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Next, let's execute our model distributedly using ``tarantella`` on the command line.
-The simplest way to do that is by passing the Python script of the model to ``tarantella``:
+Make sure to add the path to your installed :ref:`GPI-2 libraries <gpi2-install-label>` to
+``LD_LIBRARY_PATH``:
+
+.. code-block:: bash
+
+   export LD_LIBRARY_PATH=${GPI2_INSTALLATION_PATH}/lib64:${LD_LIBRARY_PATH}
+
+.. todo::
+
+  Remove references to LD_LIBRARY_PATH when library is automatically linked
+
+The simplest way to run the model is by passing its Python script to ``tarantella``:
 
 .. code-block:: bash
 
    tarantella -- model.py
 
 This will execute our model distributedly on a single node, using all the available GPUs.
-In case no GPUs can be found, ``tarantella`` will executed in serial mode on the CPU,
-and an ``WARNING`` message will be issued. In case you have GPUs available, but
+In case no GPUs can be found, ``tarantella`` will be executed in serial mode on the CPU,
+and a ``WARNING`` message will be issued. In case you have GPUs available, but
 want to execute ``tarantella`` on CPUs nonetheless, you can specify the ``--no-gpu`` option.
 
 .. code-block:: bash
@@ -167,8 +178,17 @@ Sometimes, it might be useful to print outputs from all devices (e.g., for debug
 which can be switched on with the ``--output-on-all-devices`` option.
 
 ``tarantella`` uses GPI-2's ``gaspi_run`` internally, taking care of ``export`` ing
-environment variables, and generating an execution script from the user inputs.
+relevant environment variables (e.g., ``PYTHONPATH``), and generating an execution script
+from the user inputs.
 Details of this process can be monitored using the ``--dry-run`` option.
+
+To add your own environment variables, add ``-x ENV_VAR_NAME=VALUE`` to your
+``tarantella`` command. This option will ensure the environment variable ``ENV_VAR_NAME``
+is exported on all ranks before executing the code. An example is shown below:
+
+.. code-block:: bash
+
+   tarantella --hostfile hostfile -x TF_CPP_MIN_LOG_LEVEL=1 -- model.py
 
 Lastly, you can overwrite the *Tensor Fusion* threshold ``tarantella`` uses 
 with ``--fusion-threshold FUSION_THRESHOLD_KB``
@@ -326,7 +346,7 @@ to ``tnt.Model.save``, ``tnt.Model.save_weights`` and ``tnt.models.save_model``.
 Using distributed datasets
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This section explains what needs to be done in order to use Tarantella's distributed datasets correctly.
+This section explains how to use Tarantella's distributed datasets.
 
 The recommended way in which to provide your dataset to Tarantella is by passing a
 *batched* ``tf.data.Dataset`` to ``tnt.Model.fit``.

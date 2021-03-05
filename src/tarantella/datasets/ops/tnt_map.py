@@ -14,8 +14,9 @@ class TntMapDataset(ds.UnaryDataset):
     self._input_dataset = input_dataset
     self._use_inter_op_parallelism = use_inter_op_parallelism
     self._preserve_cardinality = preserve_cardinality
-    self._map_func = map_func # StructuredFunctionWrapper
-
+    self._map_func = ds.StructuredFunctionWrapper(map_func._func,
+                                                  self._transformation_name(),
+                                                  input_dataset)
     variant_tensor = gen_dataset_ops.map_dataset(
         input_dataset._variant_tensor,  # pylint: disable=protected-access
         self._map_func.function.captured_inputs,

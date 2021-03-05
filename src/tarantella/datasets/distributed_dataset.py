@@ -36,7 +36,6 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
                                                             self.num_ranks))
         else:
           micro_batch_size = self.get_microbatch_size(batch_size)
-
         if is_training:
           dataset = self.distributed_batch(dataset,
                                            batch_size = batch_size,
@@ -95,8 +94,8 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
         dataset = dataset.take(num_samples_multiple)
 
     dataset = self.batching_info.apply(dataset, new_batch_size = micro_batch_size)
-    dataset = dataset.shard(num_shards=self.num_ranks, index = self.rank)
 
+    dataset = dataset.shard(num_shards=self.num_ranks, index = self.rank)
     logger.info("Using batch size = {}, micro batch size = {}.".format(
                 batch_size, micro_batch_size))
     return dataset
