@@ -19,8 +19,8 @@ namespace tarantella
       TensorAllreducer(std::vector<TensorInfo> const&,
                        gaspi::group::Group const&,
                        gaspi::collectives::ReductionOp const&);
-      void exec_allreduce(std::vector<const void*> input_ptrs,
-                          std::vector<void*> output_ptrs);
+      void exec_allreduce(std::vector<const void*> const& input_ptrs,
+                          std::vector<void*> const& output_ptrs);
 
     private:
       std::vector<std::unique_ptr<gaspi::collectives::Collective>> allreduces;

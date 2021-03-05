@@ -22,8 +22,8 @@ namespace tarantella
     }
   }
 
-  void TensorAllreducer::exec_allreduce(std::vector<const void*> input_ptrs,
-                                        std::vector<void*> output_ptrs)
+  void TensorAllreducer::exec_allreduce(std::vector<const void*> const& input_ptrs,
+                                        std::vector<void*> const& output_ptrs)
   {
     if (input_ptrs.size() != allreduces.size())
     {
