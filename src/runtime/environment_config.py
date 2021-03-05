@@ -15,7 +15,18 @@ def get_tnt_variables_from_args(args):
 
 def get_tnt_gpus(gpus_per_node):
   return {TNTConfig.TNT_GPUS_PER_NODE.name : gpus_per_node}
-          
+
+def get_environment_vars_from_args(args):
+  envs = {}
+  for env in args.setenv:
+    try:
+      env_name, env_value = env.split("=")
+      envs[env_name] = env_value
+    except:
+      raise ValueError(
+      "[TNT_CLI] Specify environment variables as a space-separated KEY=VALUE list")
+  return envs
+
 def update_environment_paths(libraries_path):
   os.environ["PYTHONPATH"]=os.pathsep.join(sys.path)
 
