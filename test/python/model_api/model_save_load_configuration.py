@@ -33,7 +33,7 @@ class TestsModelSaveLoadInMemory:
 
     model_from_config = tnt.models.model_from_config(config)
     assert isinstance(model_from_config, tnt.Model)
-    assert util.is_model_configuration_identical(model_from_config, model)
+    util.check_model_configuration_identical(model_from_config, model)
 
   def test_model_from_json(self, tarantella_framework, model):
     tnt_model = tnt.Model(model)
@@ -41,7 +41,7 @@ class TestsModelSaveLoadInMemory:
 
     json_model = tnt.models.model_from_json(json)
     assert isinstance(json_model, tnt.Model)
-    assert util.is_model_configuration_identical(json_model, model)
+    util.check_model_configuration_identical(json_model, model)
 
   def test_model_from_yaml(self, tarantella_framework, model):
     tnt_model = tnt.Model(model)
@@ -49,4 +49,4 @@ class TestsModelSaveLoadInMemory:
 
     yaml_model = tnt.models.model_from_yaml(yaml)
     assert isinstance(yaml_model, tnt.Model)
-    assert util.is_model_configuration_identical(yaml_model, model)
+    util.check_model_configuration_identical(yaml_model, model)

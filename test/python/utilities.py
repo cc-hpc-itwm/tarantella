@@ -36,34 +36,29 @@ def compare_weights(weights1, weights2, tolerance):
   for (tensor1, tensor2) in wtocompare:
     assert np.allclose(tensor1, tensor2, atol=tolerance)
 
-#special case for tf version 2.1 and 2.0
-def check_dic_equal(d1,d2):
-  for kv1, kv2 in zip(d1.items(),d2.items()):
-    if(kv1[0] != kv2[0]):
-      return False
-    if(kv1[1] != kv2[1]):
-      if(isinstance(kv1[1], tuple) or isinstance(kv1[1], list)):
-        res = all([i == j for i, j in zip(kv1[1], kv2[1])])
-        if not res:
-          return False
-      else:
-        return False
-  return True
-        
+def check_model_configuration_identical(model1, model2):
+  config1 = model1.get_config()['layers']
+  config2 = model2.get_config()['layers']
+  assert config1 == config2
 
-def is_model_configuration_identical(model1, model2):
-  # comparing configurations directly fails because of comparing 
-  # input shapes defined with `None` placeholders
+def tuple_to_list_in_dictionary(dictionary):
+  for key, value in dictionary.items():
+    if isinstance(value, tuple):
+      dictionary[key] = list(value)
+  return dictionary
+
+def update_configuration(model_config):
+  for layer in model_config:
+    if 'config' in layer:
+      layer['config'] = tuple_to_list_in_dictionary(layer['config'])
+  return model_config
+
+def check_model_configuration_identical_legacy(model1, model2):
+  # for TF2.1/2.0, comparing configurations directly fails because
+  # model load converts tuple values to lists (e.g., tensor shapes)
   config1 = model1.get_config()['layers']
   config2 = model2.get_config()['layers']
 
-  if len(config1) != len(config2):
-    return False
-
-  for l1, l2 in zip(config1,config2):
-    if l1 != l2:
-      if not check_dic_equal(l1['config'],l2['config']):
-        print(l1)
-        print(l2)
-        return False
-  return True
+  config1 = update_configuration(config1)
+  config2 = update_configuration(config2)
+  assert config1 == config2
