@@ -39,3 +39,9 @@ tarantella_generate_python_gpi_test(NAME DistributedDatasets
                                     LOCALRANKS_LIST "1"
                                     TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/datasets/distributed_dataset.py
                                     TIMEOUT 3600)
+
+set(localranks_list 1 2 3 4)
+tarantella_generate_python_gpi_test(NAME TensorAllreducer
+                                    LOCALRANKS_LIST "${localranks_list}"
+                                    TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/tensor_reducer_test.py
+                                    TIMEOUT 3600)
