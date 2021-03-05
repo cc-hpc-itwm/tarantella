@@ -26,8 +26,8 @@ namespace tarantella
     }
   }
 
-  TensorBroadcaster::TensorBroadcaster(gaspi::group::Group const& group,
-                                       std::vector<collectives::TensorInfo> const& tensor_infos,
+  TensorBroadcaster::TensorBroadcaster(std::vector<collectives::TensorInfo> const& tensor_infos,
+                                       gaspi::group::Group const& group,
                                        gaspi::group::Rank root_rank)
   : group(group),
     root(root_rank),

@@ -14,8 +14,8 @@ namespace tarantella
   class TensorBroadcaster
   {
     public:
-      TensorBroadcaster(gaspi::group::Group const&,
-                        std::vector<collectives::TensorInfo> const&,
+      TensorBroadcaster(std::vector<collectives::TensorInfo> const &,
+                        gaspi::group::Group const &,
                         gaspi::group::Rank root_rank);
       void exec_broadcast(std::vector<void*> const&);
 

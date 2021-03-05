@@ -82,8 +82,8 @@ PYBIND11_MODULE(GPICommLib, m)
         {
           gaspi::group::Group group_all;
           return std::unique_ptr<tarantella::TensorBroadcaster>(
-            new tarantella::TensorBroadcaster(group_all,
-                                              tensor_infos,
+            new tarantella::TensorBroadcaster(tensor_infos,
+                                              group_all,
                                               group_all.toGroupRank(root_rank)));
         }))
     .def("broadcast",
