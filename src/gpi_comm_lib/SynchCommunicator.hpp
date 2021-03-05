@@ -37,7 +37,6 @@ namespace tarantella
 
     private:
       static gaspi::collectives::ReductionOp const reduction_op = gaspi::collectives::ReductionOp::SUM;
-      gaspi::group::Group const group;
 
       std::unordered_map<GradID, FusedID> fused_ids;
       std::unordered_map<FusedID, collectives::FusedTensorInfo> fused_tensor_infos;
@@ -54,11 +53,8 @@ namespace tarantella
 
       void create_fused_tensor_infos(std::vector<collectives::TensorInfo> const &tensor_infos);
 
-      template <typename Element, gaspi::collectives::AllreduceAlgorithm>
-      std::unique_ptr<Collective> create_allreduce_op(collectives::TensorInfo const&);
-
-      template <typename Element, gaspi::collectives::AllreduceAlgorithm>
-      void create_operators();
+      template <typename T, gaspi::collectives::AllreduceAlgorithm>
+      void create_operators(gaspi::group::Group const&);
 
       void create_fused_buffers();
       void copy_data_to_fused_buffer(GradID const&, const void*);
@@ -66,22 +62,16 @@ namespace tarantella
 
   };
 
-  template <typename Element, gaspi::collectives::AllreduceAlgorithm Algorithm>
-  std::unique_ptr<Collective> SynchCommunicator::create_allreduce_op(
-                               collectives::TensorInfo const& tensor_info)
-  {
-    using Allreduce = gaspi::collectives::Allreduce<Element, Algorithm>;
-    return std::make_unique<Allreduce>(group, tensor_info.get_nelems(), reduction_op);
-  }
-
-  template <typename Element, gaspi::collectives::AllreduceAlgorithm Algorithm>
-  void SynchCommunicator::create_operators()
+  template <typename T, gaspi::collectives::AllreduceAlgorithm Algorithm>
+  void SynchCommunicator::create_operators(gaspi::group::Group const& group)
   {
     for(auto const& fused_info : fused_tensor_infos)
     {
       auto const tensor_id = fused_info.first;
       auto const tensor_info = fused_info.second.to_tensor_info();
-      operators.emplace(tensor_id, create_allreduce_op<Element, Algorithm>(tensor_info));
+      operators.emplace(tensor_id,
+                        std::make_unique<gaspi::collectives::Allreduce<T, Algorithm>>(
+                          group, tensor_info.get_nelems(), reduction_op));
     }
   }
 }

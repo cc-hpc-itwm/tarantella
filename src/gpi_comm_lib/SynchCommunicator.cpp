@@ -29,8 +29,7 @@ namespace tarantella
   SynchCommunicator::SynchCommunicator(gaspi::group::Group const& group,
                                        std::vector<collectives::TensorInfo> const& tensor_infos,
                                        std::size_t threshold_for_tensor_fusion_bytes)
-  : group(group),
-    fused_ids(),
+  : fused_ids(),
     fused_tensor_infos(),
     operators(),
     fused_buffers(),
@@ -39,12 +38,12 @@ namespace tarantella
     ready_to_copy_back(),
     ready_to_reset_counters()
   {
-    using AllreduceElement = float;
+    using T = float;
     auto const algorithm = gaspi::collectives::AllreduceAlgorithm::RING;
 
     create_fused_tensor_infos_and_ids(tensor_infos, threshold_for_tensor_fusion_bytes);
     create_fused_tensors_synchronization();
-    create_operators<AllreduceElement, algorithm>();
+    create_operators<T, algorithm>(group);
     create_fused_buffers();
   }
 
