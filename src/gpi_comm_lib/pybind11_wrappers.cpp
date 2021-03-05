@@ -100,22 +100,16 @@ PYBIND11_MODULE(GPICommLib, m)
 
   py::class_<tarantella::TensorAllreducer>(m, "TensorAllreducer")
     .def(py::init(
-        [](tarantella::GPI::Context& context,
-           std::vector<tarantella::collectives::TensorInfo> tensor_infos)
+        [](std::vector<tarantella::collectives::TensorInfo> tensor_infos)
         {
-          tarantella::distribution::DataParallelGroupBuilder group_builder(context);
-          tarantella::distribution::DataParallelSegmentIDBuilder segment_id_builder{};
-
-          tarantella::collectives::Allreduce::ReductionOp reduction_op = tarantella::collectives::Allreduce::ReductionOp::SUM;
+          gaspi::collectives::ReductionOp reduction_op = gaspi::collectives::ReductionOp::SUM;
+          gaspi::group::Group group_all;
 
           return std::unique_ptr<tarantella::TensorAllreducer>(
-            new tarantella::TensorAllreducer(context,
-                                             segment_id_builder.get_segment_id(),
-                                             group_builder.get_group(),
-                                             reduction_op,
-                                             tensor_infos));
-        }),
-        py::keep_alive<1, 2>())
+            new tarantella::TensorAllreducer(tensor_infos,
+                                             group_all,
+                                             reduction_op));
+        }))
     .def("allreduce",
         [](tarantella::TensorAllreducer &reducer,
            std::vector<py::array>& tensor_list)

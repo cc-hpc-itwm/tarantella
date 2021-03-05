@@ -108,8 +108,6 @@ def __is_nonEmptyArray__(input):
 
 class TensorAllreducer():
   def __init__(self, input):
-    self.context = global_context
-
     if __is_nonEmptyList__(input):
       tensor_infos = [get_tensor_info(tid, tensor) for tid, tensor in enumerate(input)]
     elif __is_nonEmptyArray__(input):
@@ -118,8 +116,7 @@ class TensorAllreducer():
       raise TypeError("""[Tarantella][TensorAllreducer] Input should be
                       either a list or an array object and non-empty.""")
 
-    self.allreducer = GPICommLib.TensorAllreducer(self.context,
-                                                  tensor_infos)
+    self.allreducer = GPICommLib.TensorAllreducer(tensor_infos)
 
   def allreduce(self, input):
     if __is_nonEmptyList__(input):
