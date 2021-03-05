@@ -20,7 +20,7 @@ namespace tarantella
       }
 
       auto add_tensor_size_in_bytes = [](auto sum, auto tensor_info)
-                                      { return sum + tensor_info.get_size(); };
+                                      { return sum + tensor_info.get_size_bytes(); };
       auto const partition_size = std::accumulate(DNN.begin(), DNN.end(), 0UL, add_tensor_size_in_bytes);
       return partition_size;
     }
@@ -44,8 +44,8 @@ namespace tarantella
       auto current_buffer_index = 0UL;
       for (std::size_t i = 0; i < data_ptrs.size(); ++i)
       {
-        current_buffer_index += tensor_infos[i].get_size();
-        std::memcpy(&bcast_buffer[current_buffer_index], data_ptrs[i], tensor_infos[i].get_size());
+        current_buffer_index += tensor_infos[i].get_size_bytes();
+        std::memcpy(&bcast_buffer[current_buffer_index], data_ptrs[i], tensor_infos[i].get_size_bytes());
       }
       bcast_op->start(bcast_buffer.data());
     }
@@ -62,8 +62,8 @@ namespace tarantella
       auto current_buffer_index = 0UL;
       for (std::size_t i = 0; i < data_ptrs.size(); ++i)
       {
-        current_buffer_index += tensor_infos[i].get_size();
-        std::memcpy(data_ptrs[i], &bcast_buffer[current_buffer_index], tensor_infos[i].get_size());
+        current_buffer_index += tensor_infos[i].get_size_bytes();
+        std::memcpy(data_ptrs[i], &bcast_buffer[current_buffer_index], tensor_infos[i].get_size_bytes());
       }
     }
   }

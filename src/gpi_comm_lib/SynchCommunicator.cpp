@@ -144,7 +144,7 @@ namespace tarantella
     {
       auto const tensor_id = fused_info.first;
       auto const tensor_info = fused_info.second.to_tensor_info();
-      fused_buffers.emplace(tensor_id, std::vector<char>(tensor_info.get_size()));
+      fused_buffers.emplace(tensor_id, std::vector<char>(tensor_info.get_size_bytes()));
     }
   }
 }
