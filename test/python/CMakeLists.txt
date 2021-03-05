@@ -45,3 +45,7 @@ tarantella_generate_python_gpi_test(NAME TensorAllreducer
                                     LOCALRANKS_LIST "${localranks_list}"
                                     TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/tensor_reducer_test.py
                                     TIMEOUT 3600)
+tarantella_generate_python_gpi_test(NAME TensorBroadcaster
+                                    LOCALRANKS_LIST "${localranks_list}"
+                                    TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/tensor_broadcaster_test.py
+                                    TIMEOUT 3600)

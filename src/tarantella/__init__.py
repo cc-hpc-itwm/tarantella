@@ -90,21 +90,55 @@ def get_tensor_info(tensor_id, tensor):
                                int(np.prod(tensor.shape)), 
                                np.dtype(tf.dtypes.as_dtype(tensor.dtype).as_numpy_dtype()))
 
-class TensorBroadcaster():
-  def __init__(self, tensor_list, root_rank):
-    self.root_rank = root_rank
-
-    tensor_infos = [get_tensor_info(tid, tensor) for tid, tensor in enumerate(tensor_list)]
-    self.broadcaster = GPICommLib.TensorBroadcaster(tensor_infos, self.root_rank)
-
-  def broadcast(self, tensor_list):
-    self.broadcaster.broadcast(tensor_list)
-
 def __is_nonEmptyList__(input):
   return isinstance(input, list) and len(input) != 0
 
 def __is_nonEmptyArray__(input):
   return isinstance(input, np.ndarray) and input.size != 0
+
+class TensorBroadcaster():
+  def __init__(self, input, root_rank = get_master_rank()):
+    self.root_rank = root_rank
+    self.shapes = list()
+
+    if __is_nonEmptyList__(input):
+      tensor_infos = [get_tensor_info(tid, tensor) for tid, tensor in enumerate(input)]
+      self.shapes = [array.shape for array in input]
+    elif __is_nonEmptyArray__(input):
+      tensor_infos = [get_tensor_info(0, input)]
+      self.shapes = [input.shape]
+    else:
+      raise TypeError("""[Tarantella][TensorBroadcaster] Input should be
+                      either a list or an `np.ndarray` object and non-empty.""")
+
+    self.broadcaster = GPICommLib.TensorBroadcaster(tensor_infos, self.root_rank)
+
+  def broadcast(self, input = None):
+    if input is not None: # call with input on root rank
+      if get_rank() != self.root_rank:
+        raise RuntimeError("[Tarantella][TensorBroadcaster][broadcast] "
+                           "function with input must be called on root rank.")
+      if __is_nonEmptyList__(input):
+        self.broadcaster.broadcast(input)
+        return input
+      elif __is_nonEmptyArray__(input):
+        self.broadcaster.broadcast([input])[0]
+        return input
+      else:
+        raise TypeError("[Tarantella][TensorBroadcaster][broadcast] "
+                        "Input should be either a list or an `np.ndarray` "
+                        "object and non-empty.")
+    else: # non root ranks
+      if get_rank() == self.root_rank:
+        raise RuntimeError("[Tarantella][TensorBroadcaster][broadcast] "
+                           "function without input must be called on non-root rank.")
+      outputs = self.broadcaster.broadcast([])
+      for i in range(len(outputs)):
+        outputs[i] = outputs[i].reshape(self.shapes[i])
+      if len(outputs) == 1:
+        return outputs[0]
+      else:
+        return outputs
 
 class TensorAllreducer():
   def __init__(self, input):
@@ -114,7 +148,7 @@ class TensorAllreducer():
       tensor_infos = [get_tensor_info(0, input)]
     else:
       raise TypeError("""[Tarantella][TensorAllreducer] Input should be
-                      either a list or an array object and non-empty.""")
+                      either a list or an `np.ndarray` object and non-empty.""")
 
     self.allreducer = GPICommLib.TensorAllreducer(tensor_infos)
 
@@ -125,7 +159,7 @@ class TensorAllreducer():
       return self.allreducer.allreduce([input])[0]
     else:
       raise TypeError("""[Tarantella][TensorAllreducer] Input should be
-                      either a list or an array object and non-empty.""")
+                      either a list or an `np.ndarray` object and non-empty.""")
 
 class Barrier():
   def __init__(self):

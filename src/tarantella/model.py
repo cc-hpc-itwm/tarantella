@@ -306,14 +306,17 @@ class Model(tf.keras.models.Model):
       self._broadcast_weights()
 
   def _broadcast_weights(self):
-    weights = self.get_weights()
-
     if not self.broadcaster:
-      self.broadcaster = tarantella.TensorBroadcaster(weights,
-                                                      tarantella.get_master_rank())
+      weights = self.get_weights()
+      root_rank = tarantella.get_master_rank()
+      self.broadcaster = tarantella.TensorBroadcaster(weights, root_rank)
 
-    self.broadcaster.broadcast(weights)
-    self.model.set_weights(weights)
+    if self.rank == root_rank:
+      weights = self.get_weights()
+      self.broadcaster.broadcast(weights)
+    else:
+      new_weights = self.broadcaster.broadcast()
+      self.model.set_weights(new_weights)
 
     self.done_broadcast = True
 

@@ -87,15 +87,35 @@ PYBIND11_MODULE(GPICommLib, m)
                                               group_all.toGroupRank(root_rank)));
         }))
     .def("broadcast",
-        [](tarantella::TensorBroadcaster &tb, std::vector<py::array>& tensor_list)
+        [](tarantella::TensorBroadcaster& tensor_broadcaster, std::vector<py::array>& input_list)
         {
-          std::vector<void*> tensor_ptrs;
-          for (auto& tens : tensor_list)
+          // allocate memory for outputs
+          std::vector<py::array> output_list;
+          for (auto const& output_size : tensor_broadcaster.get_sizes())
           {
-            py::buffer_info info = tens.request(); 
-            tensor_ptrs.emplace_back(info.ptr);
+            output_list.push_back(py::array_t<float>(output_size));
           }
-          tb.exec_broadcast(tensor_ptrs);
+
+          // extract output pointers
+          std::vector<void*> output_ptrs;
+          for (auto const& output : output_list)
+          {
+            output_ptrs.push_back(output.request().ptr);
+          }
+
+          // extract pointers for inputs if `input_list` is not empty
+          // otherwise create list of as many `nullptr`s as outputs
+          std::vector<void const*> input_ptrs(output_ptrs.size());
+          if (input_list.size() > 0)
+          {
+            for (auto i = 0UL; i < input_ptrs.size(); ++i)
+            {
+              input_ptrs[i] = input_list[i].request().ptr;
+            }
+          }
+
+          tensor_broadcaster.exec_broadcast(input_ptrs, output_ptrs);
+          return output_list;
         });
 
   py::class_<tarantella::TensorAllreducer>(m, "TensorAllreducer")
