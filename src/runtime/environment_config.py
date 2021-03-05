@@ -23,7 +23,8 @@ def get_environment_vars_from_args(args):
       env_name, env_value = env.split("=")
       envs[env_name] = env_value
     except:
-      raise BaseException("[TNT_CLI] check the command line arguments")
+      raise ValueError(
+      "[TNT_CLI] Specify environment variables as a space-separated KEY=VALUE list")
   return envs
 
 def update_environment_paths(libraries_path):
