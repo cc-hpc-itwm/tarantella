@@ -62,6 +62,7 @@ def setup_gpus(rank, ngpus = None):
   logger.debug("Using device: {}".format(tf.config.experimental.get_visible_devices()))
 
 def init(devices_per_node = None):
+    GPICommLib.initGaspiCxx()
     logging_config.setup_logging(logger, global_tnt_config.log_level,
                                  get_rank(), is_master_rank(),
                                  global_tnt_config.log_on_all_devices)

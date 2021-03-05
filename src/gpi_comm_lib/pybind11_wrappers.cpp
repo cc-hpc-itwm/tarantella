@@ -20,6 +20,10 @@ PYBIND11_MODULE(GPICommLib, m)
 {
   m.doc() = "GPI communication library for Deep Learning";
 
+  m.def("initGaspiCxx", []()
+                {
+                  gaspi::initGaspiCxx();
+                });
   m.def("get_rank", []()
                 {
                   return gaspi::getRuntime().global_rank();
