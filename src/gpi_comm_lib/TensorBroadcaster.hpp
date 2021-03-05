@@ -20,11 +20,8 @@ namespace tarantella
       void exec_broadcast(std::vector<void*> const&);
 
     private:
-      gaspi::group::Group const group;
+      gaspi::group::Rank rank;
       gaspi::group::Rank root;
-
-      std::vector<collectives::TensorInfo> const tensor_infos;
-      std::vector<char> bcast_buffer;
-      std::unique_ptr<RootedSendCollective> bcast_op;
+      std::vector<std::unique_ptr<RootedSendCollective>> broadcasts;
   };
 }
