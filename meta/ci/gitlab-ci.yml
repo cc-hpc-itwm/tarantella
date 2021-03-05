@@ -17,8 +17,3 @@ include:
   - local: meta/ci/config/common.yml
   - local: meta/ci/config/tnt_cluster.yml
   - local: meta/ci/config/vm_centos.yml
-
-workflow:
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "push"'
-      when: never
