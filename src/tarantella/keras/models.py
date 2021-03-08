@@ -25,6 +25,10 @@ def load_model(filepath, compile = True, **kwargs):
       tnt_model._set_internal_optimizer(tnt_model.dist_optimizer)
       tnt_model.compiled = True
       tnt_model.done_broadcast = True
+
+      # required for TF2.0/2.1
+      if hasattr(tnt_model.model, '_experimental_run_tf_function'):
+        tnt_model.model._experimental_run_tf_function = False
     except:
       logger.info("The loaded model was not pre-compiled.")
   tnt_model.barrier.synchronize()

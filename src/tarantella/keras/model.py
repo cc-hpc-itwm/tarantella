@@ -131,6 +131,9 @@ class Model(tf.keras.models.Model):
     self.orig_optimizer = optimizer
     self.orig_optimizer_serialized = tf.keras.optimizers.serialize(optimizer)
 
+    if 'experimental_run_tf_function' in kwargs:
+      logger.info("Setting `experimental_run_tf_function` to False.")
+
     self.dist_optimizer = tarantella.distributed_optimizers.SynchDistributedOptimizer(self.orig_optimizer)
     return self.model.compile(optimizer = self.dist_optimizer,
                               loss = loss,
@@ -138,6 +141,7 @@ class Model(tf.keras.models.Model):
                               loss_weights = loss_weights,
                               sample_weight_mode = sample_weight_mode,
                               weighted_metrics = weighted_metrics,
+                              experimental_run_tf_function = False,
                               **kwargs)
 
   def compute_mask(self, inputs, mask):
