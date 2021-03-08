@@ -12,12 +12,11 @@ def save_model(model, filepath, **kwargs):
                      "a `tf.keras.Model`, or a `tnt.Model`")
   model.save(filepath, **kwargs)
 
-def load_model(filepath,compile=True,**kwargs):
+def load_model(filepath, compile = True, **kwargs):
   logger.debug("Load model from file: {}".format(filepath))
-  keras_model = tf.keras.models.load_model(filepath, compile = compile,**kwargs)
+  keras_model = tf.keras.models.load_model(filepath, compile = compile, **kwargs)
   tnt_model = tnt.Model(keras_model)
   if compile:
-    #The model may be saved without compile.
     try:
       tnt_optimzier = tnt.distributed_optimizers.SynchDistributedOptimizer(keras_model.optimizer)
       tnt_model.orig_optimizer = keras_model.optimizer
@@ -27,7 +26,8 @@ def load_model(filepath,compile=True,**kwargs):
       tnt_model.compiled = True
       tnt_model.done_broadcast = True
     except:
-      logger.info("Model is loaded without compiled")    
+      logger.info("The loaded model was not pre-compiled.")
+  tnt_model.barrier.synchronize()
   return tnt_model
 
 def model_from_config(config, **kwargs):
