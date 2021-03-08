@@ -1,6 +1,6 @@
 from models import mnist_models as mnist
 import utilities as util
-import tarantella
+import tarantella as tnt
 
 import tensorflow as tf
 from tensorflow import keras
@@ -8,9 +8,6 @@ from tensorflow import keras
 import pytest
 
 class TestsDataParallelOptimizers:
-  def test_initialization(self, tarantella_framework):
-    assert tarantella_framework
-
   @pytest.mark.parametrize("keras_model", [mnist.lenet5_model_generator,
                                            mnist.sequential_model_generator])
   @pytest.mark.parametrize("optimizer", [keras.optimizers.Adadelta,
@@ -23,9 +20,9 @@ class TestsDataParallelOptimizers:
                                         ])
   @pytest.mark.parametrize("micro_batch_size", [64])
   @pytest.mark.parametrize("nbatches", [230])
-  def test_compare_accuracy_optimizers(self, tarantella_framework, keras_model,
-                                      optimizer, micro_batch_size, nbatches):
-    batch_size = micro_batch_size * tarantella_framework.get_size()
+  def test_compare_accuracy_optimizers(self, keras_model, optimizer,
+                                       micro_batch_size, nbatches):
+    batch_size = micro_batch_size * tnt.get_size()
     nsamples = nbatches * batch_size
     (number_epochs, lr) = mnist.get_hyperparams(optimizer)
     (train_dataset, test_dataset) = util.load_dataset(mnist.load_mnist_dataset,
@@ -33,7 +30,7 @@ class TestsDataParallelOptimizers:
                                                       train_batch_size = batch_size,
                                                       test_size = 10000,
                                                       test_batch_size = batch_size)
-    model = tarantella.Model(keras_model())
+    model = tnt.Model(keras_model())
     model.compile(optimizer(learning_rate=lr),
                   loss = keras.losses.SparseCategoricalCrossentropy(),
                   metrics = [keras.metrics.SparseCategoricalAccuracy()])

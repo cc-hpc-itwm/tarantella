@@ -1,6 +1,6 @@
 from models import cifar10_models as cifar
 import utilities as util
-import tarantella
+import tarantella as tnt
 
 import tensorflow as tf
 from tensorflow import keras
@@ -8,9 +8,6 @@ from tensorflow import keras
 import pytest
 
 class TestsDataParallelOptimizersCIFAR10:
-  def test_initialization(self, tarantella_framework):
-    assert tarantella_framework
-
   @pytest.mark.parametrize("keras_model", [cifar.alexnet_model_generator])
   @pytest.mark.parametrize("optimizer", [keras.optimizers.Adadelta,
                                          keras.optimizers.Adagrad,
@@ -23,9 +20,8 @@ class TestsDataParallelOptimizersCIFAR10:
   @pytest.mark.parametrize("micro_batch_size", [64])
   @pytest.mark.parametrize("nbatches", [230])
   @pytest.mark.parametrize("ntest_batches", [40])
-  def test_cifar_alexnet(self, tarantella_framework, keras_model,
-                         optimizer, micro_batch_size, nbatches):
-    batch_size = micro_batch_size * tarantella_framework.get_size()
+  def test_cifar_alexnet(self, keras_model, optimizer, micro_batch_size, nbatches):
+    batch_size = micro_batch_size * tnt.get_size()
     nsamples = nbatches * batch_size
     (number_epochs, lr) = cifar.get_hyperparams(optimizer)
     (train_dataset, test_dataset) = util.load_dataset(cifar.load_cifar_dataset,
@@ -38,7 +34,7 @@ class TestsDataParallelOptimizersCIFAR10:
     else:
       keras_optimizer = optimizer(learning_rate=lr)
 
-    model = tarantella.Model(keras_model())
+    model = tnt.Model(keras_model())
     model.compile(keras_optimizer,
                   loss = keras.losses.SparseCategoricalCrossentropy(),
                   metrics = [keras.metrics.SparseCategoricalAccuracy()])

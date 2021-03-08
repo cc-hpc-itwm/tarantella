@@ -4,15 +4,9 @@ import os
 
 import tensorflow as tf
 
-@pytest.fixture(scope="session")
-def tarantella_framework():
+@pytest.fixture(scope="session", autouse = True)
+def setup_tests():
   os.environ['TF_CUDNN_DETERMINISTIC']='1'
-
-  import tarantella
-
-  logging.getLogger().info("init tarantella")
-  yield tarantella  # provide the fixture value
-  logging.getLogger().info("teardown tarantella")
 
 def pytest_configure(config):
     # register an additional marker
