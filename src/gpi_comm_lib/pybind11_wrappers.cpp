@@ -111,46 +111,29 @@ PYBIND11_MODULE(GPICommLib, m)
                                              reduction_op));
         }))
     .def("allreduce",
-        [](tarantella::TensorAllreducer &reducer,
-           std::vector<py::array>& tensor_list)
+        [](tarantella::TensorAllreducer& tensor_allreducer, std::vector<py::array>& input_list)
         {
-          std::vector<const void*> tensor_ptrs;
-
-          std::vector<py::array> output_list(tensor_list.size());
-          std::vector<void*> output_ptrs;
-
-          for (std::size_t i = 0; i < tensor_list.size(); ++i)
+          // allocate memory for outputs
+          std::vector<py::array> output_list;
+          for (auto const& input : input_list)
           {
-            py::buffer_info info = tensor_list[i].request();
-            tensor_ptrs.emplace_back(info.ptr);
-
-            auto src = py::array::ensure(tensor_list[i]);
-            if (py::isinstance<py::array_t<float>>(src))
-            {
-              output_list[i] = py::array_t<float>(info.size);
-            }
-            else if (py::isinstance<py::array_t<double>>(src))
-            {
-              output_list[i] = py::array_t<double>(info.size);
-            }            
-            else if (py::isinstance<py::array_t<std::int32_t>>(src))
-            {
-              output_list[i] = py::array_t<std::int32_t>(info.size);
-            }
-            else if (py::isinstance<py::array_t<std::int16_t>>(src))
-            {
-              output_list[i] = py::array_t<std::int16_t>(info.size);
-            }
-            else
-            {
-              throw std::runtime_error("[Pybind11][TensorAllreducer] Unknown buffer type");
-            }
-
-            py::buffer_info output_buffer = output_list[i].request();
-            output_ptrs.emplace_back(output_buffer.ptr);
+            auto const info = input.request();
+            output_list.push_back(py::array_t<float>(info.size));
           }
-          
-          reducer.exec_allreduce(tensor_ptrs, output_ptrs);
+
+          // extract pointers for inputs and outputs
+          std::vector<void const*> input_ptrs;
+          for (auto const& input : input_list)
+          {
+            input_ptrs.push_back(input.request().ptr);
+          }
+          std::vector<void*> output_ptrs;
+          for (auto const& output : output_list)
+          {
+            output_ptrs.push_back(output.request().ptr);
+          }
+
+          tensor_allreducer.exec_allreduce(input_ptrs, output_ptrs);
           return output_list;
         });
 
