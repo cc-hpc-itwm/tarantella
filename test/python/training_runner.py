@@ -22,9 +22,8 @@ class TrainingRunner:
 
   def compile_model(self, optimizer):
     self.model.compile(optimizer=optimizer,
-                loss=self.loss,
-                metrics=[self.metric],
-                experimental_run_tf_function=False)
+                       loss=self.loss,
+                       metrics=[self.metric])
 
   def train_model(self, train_dataset, number_epochs):
     self.model.fit(train_dataset,
