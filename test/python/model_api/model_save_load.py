@@ -40,10 +40,14 @@ class TestsModelLoadSave:
     tnt_model.save(save_dir)
     assert os.path.exists(save_dir)
 
+    # make sure the original model has the same weights on all ranks
+    tnt_model._broadcast_weights_if_necessary()
+
     # load file into a new Tarantella model
     loaded_model = tnt.models.load_model(save_dir, compile=True)
     assert isinstance(loaded_model, tnt.Model)
 
+    # check whether the weights of the two models match on each rank
     check_configuration_identical(loaded_model, tnt_model)
     
     # cleanup
