@@ -145,6 +145,37 @@ def _get_transformation_info_withoptions(dataset):
   kwargs = {"options": dataset._options}
   return (ds._OptionsDataset, kwargs)
 
+def pad_dataset(dataset,batch_size,comm_size,num_samples):
+  real_batch_size = int(batch_size//comm_size) * comm_size
+  print("real_batch_size is ",real_batch_size)
+  print("num_samples is ",num_samples)
+  #num_samples = 23 new_batch_size = 3*3 = 9
+  #num_padded = 9-(23 - 2 * 9) = 4
+  #take last 2*9 - 5 element as rest_dataset, rest_dataset has 14 elements
+  #first batch rest_dataset with batch_size 9,rest_dataset would contain 2 part. First with 9 element, second with 5    elements
+  #Then padded batch with batch_size 2 without passing padded shape,
+  #All dimensions of all components are padded to the maximum size in the batch.
+  #Now the size of rest_dataset is 1*2*9,with 2 unbatch,the size of rest_dataset is 18 with padded 0
+  #concat two dataset, now the size of dataset is 9 + 18 = 27,which is multiple of new_batch_size.
+  #batch the dataset with micro_batchsize 3,the shape of dataset is 9*3,then shard with 3 nodes,each node has dataset with shape 3*3
+  if num_samples % real_batch_size != 0:
+    num_padded = num_samples - int(num_samples // real_batch_size)*real_batch_size
+    num_padded = real_batch_size - num_padded
+    rest_dataset = dataset.take(2*real_batch_size - num_padded)
+    print("num_padded:",num_padded)
+
+    rest_dataset = rest_dataset.batch(real_batch_size,drop_remainder=False)
+
+    #If padded_shape is unset, all dimensions of all components are padded to the maximum size in the batch.
+    rest_dataset = rest_dataset.padded_batch(2)
+    rest_dataset = rest_dataset.unbatch()
+    rest_dataset = rest_dataset.unbatch()
+
+    ##take previous and concat togther with rest_dataset
+    rest_dataset = rest_dataset.skip(2*real_batch_size - num_padded)
+    dataset = rest_dataset.concatenate(dataset)
+  return dataset
+
 _transformations = {ds.BatchDataset : _get_transformation_info_batch,
                     ds.CacheDataset : _get_transformation_info_cache,
                     ds.ConcatenateDataset: _get_transformation_info_concatenate,
