@@ -376,7 +376,7 @@ def gen_dataset_zip(dataset, batch_size, drop_remainder,comm_size,pad=False):
   dataset = dataset.batch(batch_size, drop_remainder)
   return dataset
     
-def validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank):
+def validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank,comm_size=1):
   local_dataset_it = iter(local_dataset)
   expected_dataset_it = iter(ref_dataset)
 
@@ -391,9 +391,9 @@ def validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank):
       
     # extract the slice of the reference dataset that corresponds to `rank`
     print("expected_batch",expected_batch)
-    expected_micro_batch = expected_batch[rank * micro_batch_size:
-                                          ((rank+1) * micro_batch_size)]
-#     expected_micro_batch = expected_batch[rank::micro_batch_size]
+#     expected_micro_batch = expected_batch[rank * micro_batch_size:
+#                                           ((rank+1) * micro_batch_size)]
+    expected_micro_batch = expected_batch[rank::comm_size]
     
     # this might not be true now
     assert np.array_equal(local_batch,expected_micro_batch)
@@ -485,7 +485,7 @@ def test_no_drop_remainder(apply_transformations, dataset_generator,
                                         drop_remainder=drop_remainder,
                                         comm_size = comm_size,
                                         pad = True)
-    validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank)
+    validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank,comm_size = comm_size)
 
 
 @pytest.mark.parametrize("apply_transformations", transformation_test_cases)
@@ -525,4 +525,4 @@ def test_batch_not_multiple_num_ranks(apply_transformations, dataset_generator,
                                         drop_remainder=drop_remainder,
                                         comm_size = comm_size,
                                         pad = True)
-    validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank)
+    validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank,comm_size = comm_size)
