@@ -197,6 +197,8 @@ class SynchCommunicator():
     for grad, weight in gradients_and_weights:
       # add an Allreduce operation for each gradient
       grad_id = self.weight_to_index[weight.name]
+      number_partial_sums = get_size()
+      grad = grad / number_partial_sums
       output_grad = tnt_ops.start_allreduce_op(grad, tensor_id = grad_id,
                                               tnt_synchcomm = self.comm.get_raw_ptr())
       gradients_to_reduce.append(output_grad)
