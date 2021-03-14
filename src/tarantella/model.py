@@ -306,9 +306,9 @@ class Model(tf.keras.models.Model):
       self._broadcast_weights()
 
   def _broadcast_weights(self):
+    root_rank = tarantella.get_master_rank()
     if not self.broadcaster:
       weights = self.get_weights()
-      root_rank = tarantella.get_master_rank()
       self.broadcaster = tarantella.TensorBroadcaster(weights, root_rank)
 
     if self.rank == root_rank:
