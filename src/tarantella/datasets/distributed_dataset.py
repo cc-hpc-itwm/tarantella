@@ -80,20 +80,26 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
     if self.batching_info.drop_remainder == True:
       dataset = self.batching_info.apply(dataset, new_batch_size = micro_batch_size * self.num_ranks)
       dataset = dataset.unbatch()
-
-    num_samples = ds_helpers.get_num_samples(dataset)
-    if num_samples == tf.data.experimental.INFINITE_CARDINALITY:
-      raise ValueError("[DistributedDataset] Infinite dataset provided")
-    
-    ##get large batch, check is num_sample is multiple of new_batch_size
-    new_batch_size = micro_batch_size * self.num_ranks
-    dataset = ds_helpers.pad_dataset(dataset,new_batch_size,self.num_ranks,num_samples)
+    else:
+      num_samples = ds_helpers.get_num_samples(dataset)
+      if num_samples == tf.data.experimental.INFINITE_CARDINALITY:
+        raise ValueError("[DistributedDataset] Infinite dataset provided")
+      ##get large batch, check is num_sample is multiple of new_batch_size
+      new_batch_size = micro_batch_size * self.num_ranks
+#       print("dist num_samples is : new_batch_size is ",num_samples," ",new_batch_size)
+      if tf.version.VERSION >= "2.2.0":
+        #Always pad for version greater than 2.2.0
+        dataset = ds_helpers.pad_dataset(dataset,new_batch_size,self.num_ranks,num_samples)
+      else:
+        if num_samples % new_batch_size != 0:
+          num_samples_multiple = (num_samples // new_batch_size) * new_batch_size
+          logger.warn("Number of samples ({}) is not a multiple of batch size.\
+ Removing the last incomplete batch from the dataset. Now dataset has {} samples.".format(num_samples,num_samples_multiple))
+          dataset = dataset.take(num_samples_multiple)
     
     dataset = dataset.shard(num_shards=self.num_ranks, index = self.rank)
     dataset = self.batching_info.apply(dataset, new_batch_size = micro_batch_size)
-    #dataset = dataset.shard(num_shards=self.num_ranks, index = self.rank)
     
-
     logger.info("Using batch size = {}, micro batch size = {}.".format(
                 batch_size, micro_batch_size))
     return dataset

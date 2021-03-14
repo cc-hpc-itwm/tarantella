@@ -147,8 +147,6 @@ def _get_transformation_info_withoptions(dataset):
 
 def pad_dataset(dataset,batch_size,comm_size,num_samples):
   real_batch_size = int(batch_size//comm_size) * comm_size
-  print("real_batch_size is ",real_batch_size)
-  print("num_samples is ",num_samples)
   #num_samples = 23 new_batch_size = 3*3 = 9
   #num_padded = 9-(23 - 2 * 9) = 4
   #take last 2*9 - 5 element as rest_dataset, rest_dataset has 14 elements
@@ -162,8 +160,8 @@ def pad_dataset(dataset,batch_size,comm_size,num_samples):
     num_padded = num_samples - int(num_samples // real_batch_size)*real_batch_size
     num_padded = real_batch_size - num_padded
     rest_dataset = dataset.take(2*real_batch_size - num_padded)
-    print("num_padded:",num_padded)
-
+    logger.info("Dataset is padded with {} elements.".format(
+                num_padded))
     rest_dataset = rest_dataset.batch(real_batch_size,drop_remainder=False)
 
     #If padded_shape is unset, all dimensions of all components are padded to the maximum size in the batch.
