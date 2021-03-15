@@ -20,15 +20,12 @@ if args.data_format == "channels_first":
   print("Setting data format to 'channels_first'.")
   tf.keras.backend.set_image_data_format("channels_first")
 
+have_datapar = False
 if not args.without_datapar:
   import tarantella
+  have_datapar = True
 
 if __name__ == '__main__':
-
-  have_datapar = False
-  if not args.without_datapar:
-    tarantella.init()
-    have_datapar = True
 
   rank = 0
   comm_size = 1

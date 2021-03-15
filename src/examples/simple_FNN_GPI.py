@@ -19,7 +19,6 @@ def parse_args():
   parser.add_argument("-train", "--train_size", type=int, default=50000)
   parser.add_argument("-val", "--val_size", type=int, default=10000)
   parser.add_argument("-test", "--test_size", type=int, default=10000)
-  parser.add_argument("-ngpus", "--ngpus_per_node", type=int, default=0)
   parser.add_argument("-v", "--verbose", type=int, default=0)
   args = parser.parse_args()
   return args
@@ -56,7 +55,6 @@ def create_dataset_from_arrays(samples, labels, batch_size):
 
 args = parse_args()
 
-tnt.init(args.ngpus_per_node)
 rank = tnt.get_rank()
 comm_size = tnt.get_size()
 
