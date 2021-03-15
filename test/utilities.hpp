@@ -1,14 +1,15 @@
-#include "collectives/TensorInfo.hpp"
-#include "gpi/Types.hpp"
+#include "TensorInfo.hpp"
+
+#include <GaspiCxx/group/Group.hpp>
 
 #include <numeric>
 #include <vector>
 
 namespace tarantella
 {
-  std::vector<GPI::Rank> gen_group_ranks(size_t nranks_in_group)
+  std::vector<gaspi::group::GlobalRank> gen_group_ranks(size_t nranks_in_group)
   {
-    std::vector<GPI::Rank> group_ranks(nranks_in_group);
+    std::vector<gaspi::group::GlobalRank> group_ranks(nranks_in_group);
     std::iota(group_ranks.begin(), group_ranks.end(), 0);
     return group_ranks;
   }

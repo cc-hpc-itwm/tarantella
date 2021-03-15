@@ -1,5 +1,4 @@
 #include "SynchCommunicator.hpp"
-#include "collectives/allreduce/RecursiveHalvingDoubleBuffer.hpp"
 
 #include <cstring>
 #include <memory>
@@ -27,64 +26,52 @@ namespace tarantella
     }
   }
 
-  SynchCommunicator::SynchCommunicator(GPI::Context& context,
-                                       GPI::SegmentID segment_id,
-                                       GPI::Group const& group,
+  SynchCommunicator::SynchCommunicator(gaspi::group::Group const& group,
                                        std::vector<collectives::TensorInfo> const& tensor_infos,
                                        std::size_t threshold_for_tensor_fusion_bytes)
-  : resource_manager(context.get_resource_manager()),
-    segment_id(segment_id),
-    group(group),
-    queue_handler(),
-    fused_ids(),
+  : fused_ids(),
     fused_tensor_infos(),
     operators(),
+    fused_buffers(),
     ready_to_start_counters(),
     finished_counters(),
     ready_to_copy_back(),
-    ready_to_reset_counters(),
-    terminate_man_thread(false),
-    management_thread() // do not start the thread yet
+    ready_to_reset_counters()
   {
-    using AllreduceImplementation = collectives::Allreduce::RecursiveHalvingDoubleBuffer;
-    create_segment_resources<AllreduceImplementation>(tensor_infos);
+    using T = float;
+    auto const algorithm = gaspi::collectives::AllreduceAlgorithm::RING;
 
     create_fused_tensor_infos_and_ids(tensor_infos, threshold_for_tensor_fusion_bytes);
     create_fused_tensors_synchronization();
-    create_operators_with_state<AllreduceImplementation>();
-
-    // start the management thread only when all required resources are allocated
-    management_thread = std::thread(&tarantella::SynchCommunicator::management_thread_task, this);
+    create_operators<T, algorithm>(group);
+    create_fused_buffers();
   }
 
-  SynchCommunicator::SynchCommunicator(GPI::Context& context,
-                                       GPI::SegmentID segment_id,
-                                       GPI::Group const& group,
+  SynchCommunicator::SynchCommunicator(gaspi::group::Group const& group,
                                        std::vector<collectives::TensorInfo> const& tensor_infos)
-  : SynchCommunicator(context, segment_id, group, tensor_infos, 0UL)
+  : SynchCommunicator(group, tensor_infos, 0UL)
   { }
-
-  SynchCommunicator::~SynchCommunicator()
-  {
-    terminate_man_thread = true;
-    if (management_thread.joinable())
-    {
-      management_thread.join();
-    }
-  }
 
   void SynchCommunicator::start_allreduce_impl(GradID const& grad_id, const void* data_ptr)
   {
     auto const fused_id = fused_ids[grad_id];
 
-    // All `grad_id`s copy-in their respective data
-    copy_data_to_segment(grad_id, data_ptr);
+    const void* source_buffer = fused_buffers[fused_id].data();
+    if (fused_tensor_infos[fused_id].get_num_tensors() > 1)
+    {
+      copy_data_to_fused_buffer(grad_id, data_ptr);
+    }
+    else
+    {
+      source_buffer = data_ptr;
+    }
+    
     auto const value = ready_to_start_counters[fused_id]->fetch_add(1UL);
 
     // Make sure all copies are done, before last `grad_id` starts operator
     if (value == fused_tensor_infos[fused_id].get_num_tensors()-1)
     {
-      operators[fused_id].allreduce->start();
+      operators[fused_id]->start(source_buffer);
       ready_to_start_counters[fused_id]->store(0UL);
     }
   }
@@ -93,12 +80,18 @@ namespace tarantella
   {
     auto const fused_id = fused_ids[grad_id];
 
+    void* destination_buffer = fused_buffers[fused_id].data();
+    if (fused_tensor_infos[fused_id].get_num_tensors() == 1)
+    {
+      destination_buffer = results_ptr;
+    }
+
     // First `grad_id` to arrive waits for `has_finished`, and notifies
     // everyone that results can be copied back
     auto const num_arrived = finished_counters[fused_id]->fetch_add(1UL);
     if (num_arrived == 0)
     {
-      operators[fused_id].has_finished->wait();
+      operators[fused_id]->waitForCompletion(destination_buffer);
       ready_to_copy_back[fused_id]->store(true);
     }
 
@@ -108,7 +101,10 @@ namespace tarantella
     {
       if(ready_to_copy_back[fused_id]->load())
       {
-        copy_data_from_segment(grad_id, results_ptr);
+        if (fused_tensor_infos[fused_id].get_num_tensors() > 1)
+        {
+           copy_data_from_fused_buffer(grad_id, results_ptr);
+        }
         break;
       }
     }
@@ -117,51 +113,38 @@ namespace tarantella
     auto const copied_grads = ready_to_reset_counters[fused_id]->fetch_add(1UL);
     if (copied_grads == fused_tensor_infos[fused_id].get_num_tensors()-1)
     {
-      operators[fused_id].allreduce->reset_for_reuse();
       finished_counters[fused_id]->store(0UL);
       ready_to_copy_back[fused_id]->store(false);
       ready_to_reset_counters[fused_id]->store(0UL);
     }
   }
 
-  void SynchCommunicator::copy_data_to_segment(GradID const& grad_id, const void* data_ptr)
+  void SynchCommunicator::copy_data_to_fused_buffer(GradID const& grad_id, const void* data_ptr)
   {
     auto const fused_id = fused_ids[grad_id];
-    auto const segment_ptr = reinterpret_cast<char*>(operators[fused_id].allreduce->get_input_ptr())
-                             + fused_tensor_infos[fused_id].get_local_offset_bytes(grad_id);
-    std::memcpy(segment_ptr, data_ptr, fused_tensor_infos[fused_id].get_local_size_bytes(grad_id));
+    auto const fused_buffer_ptr = fused_buffers[fused_id].data() +
+                                  fused_tensor_infos[fused_id].get_local_offset_bytes(grad_id);
+    std::memcpy(fused_buffer_ptr, data_ptr,
+                fused_tensor_infos[fused_id].get_local_size_bytes(grad_id));
   }
 
-  void SynchCommunicator::copy_data_from_segment(GradID const& grad_id, void* results_ptr)
+  void SynchCommunicator::copy_data_from_fused_buffer(GradID const& grad_id, void* results_ptr)
   {
     auto const fused_id = fused_ids[grad_id];
-    auto const segment_ptr = reinterpret_cast<char*>( operators[fused_id].allreduce->get_result_ptr())
-                             + fused_tensor_infos[fused_id].get_local_offset_bytes(grad_id);
-    std::memcpy(results_ptr, segment_ptr, fused_tensor_infos[fused_id].get_local_size_bytes(grad_id));
+    auto const fused_buffer_ptr = fused_buffers[fused_id].data() +
+                                  fused_tensor_infos[fused_id].get_local_offset_bytes(grad_id);
+    std::memcpy(results_ptr, fused_buffer_ptr,
+                fused_tensor_infos[fused_id].get_local_size_bytes(grad_id));
   }
 
-  void SynchCommunicator::management_thread_task()
+  void SynchCommunicator::create_fused_buffers()
   {
-    while (!terminate_man_thread)
+    for(auto const& fused_info : fused_tensor_infos)
     {
-      while (true)
-      {
-        if (terminate_man_thread)
-        {
-          break;
-        }
-        for (auto& element : operators)
-        {
-          auto& op = *(element.second.allreduce.get());
-          if (op.is_finished()) continue;
-
-          op.trigger_communication_step();
-          if (op.is_finished())
-          {
-            element.second.has_finished->notify();
-          }
-        }
-      }
+      auto const tensor_id = fused_info.first;
+      auto const tensor_info = fused_info.second.to_tensor_info();
+      fused_buffers.emplace(tensor_id, std::vector<char>(tensor_info.get_size_bytes()));
     }
   }
 }
+

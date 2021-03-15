@@ -3,12 +3,13 @@ include (add_macros)
 set(GPI_LIB_MODULE "GPICommLib")
 
 set (GPICOMMLIB_SOURCES
-    ${SRC_DIR}/gpi_comm_lib/distribution/SegmentIDBuilder.cpp
-    ${SRC_DIR}/gpi_comm_lib/distribution/utilities.cpp
     ${SRC_DIR}/gpi_comm_lib/PipelineCommunicator.cpp
     ${SRC_DIR}/gpi_comm_lib/SynchCommunicator.cpp
-    ${SRC_DIR}/gpi_comm_lib/TensorBroadcaster.cpp
     ${SRC_DIR}/gpi_comm_lib/TensorAllreducer.cpp
+    ${SRC_DIR}/gpi_comm_lib/TensorBroadcaster.cpp
+    ${SRC_DIR}/gpi_comm_lib/TensorInfo.cpp
+    ${SRC_DIR}/gpi_comm_lib/FusedTensorInfo.cpp
+    ${SRC_DIR}/gpi_comm_lib/BufferElementType.cpp
 )
 
 extended_add_library(NAME gpicommlib
@@ -17,8 +18,7 @@ extended_add_library(NAME gpicommlib
             SOURCES
                 ${GPICOMMLIB_SOURCES}
             LIBRARIES
-                tnt::gpiresources
-                tnt::collectives
+                GaspiCxx::GaspiCxx
             INCLUDE_DIRECTORIES
                 ${SRC_DIR}/gpi_comm_lib/
             INSTALL

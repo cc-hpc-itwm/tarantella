@@ -1,12 +1,11 @@
-#include "collectives/BufferElementType.hpp"
-#include "collectives/TensorInfo.hpp"
-#include "distribution/GroupBuilder.hpp"
-#include "distribution/SegmentIDBuilder.hpp"
-#include "gpi/Context.hpp"
+#include "BufferElementType.hpp"
+#include "TensorInfo.hpp"
 #include "PipelineCommunicator.hpp"
 #include "SynchCommunicator.hpp"
 #include "TensorBroadcaster.hpp"
 #include "TensorAllreducer.hpp"
+
+#include <GaspiCxx/Runtime.hpp>
 
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
@@ -21,10 +20,18 @@ PYBIND11_MODULE(GPICommLib, m)
 {
   m.doc() = "GPI communication library for Deep Learning";
 
-  py::class_<tarantella::GPI::Context>(m, "GPIContext")
-      .def(py::init<>())
-      .def_property_readonly("rank", &tarantella::GPI::Context::get_rank)
-      .def_property_readonly("size", &tarantella::GPI::Context::get_comm_size);
+  m.def("initGaspiCxx", []()
+                {
+                  gaspi::initGaspiCxx();
+                });
+  m.def("get_rank", []()
+                {
+                  return gaspi::getRuntime().global_rank();
+                });
+  m.def("get_size", []()
+                {
+                  return gaspi::getRuntime().size();
+                });
 
   py::class_<tarantella::collectives::TensorInfo>(m, "TensorInfo")
     .def(py::init(
@@ -53,22 +60,15 @@ PYBIND11_MODULE(GPICommLib, m)
 
   py::class_<tarantella::SynchCommunicator>(m, "SynchDistCommunicator")
     .def(py::init(
-        [](tarantella::GPI::Context& context,
-           std::vector<tarantella::collectives::TensorInfo> tensor_infos,
+        [](std::vector<tarantella::collectives::TensorInfo> tensor_infos,
            std::size_t fusion_threshold_bytes)
         {
-          tarantella::distribution::DataParallelGroupBuilder group_builder(context);
-          tarantella::distribution::DataParallelSegmentIDBuilder segment_id_builder{};
-
+          gaspi::group::Group group_all;
           return std::unique_ptr<tarantella::SynchCommunicator>(
-            new tarantella::SynchCommunicator(context,
-                                              segment_id_builder.get_segment_id(),
-                                              group_builder.get_group(),
+            new tarantella::SynchCommunicator(group_all,
                                               tensor_infos,
                                               fusion_threshold_bytes));
-        }),
-        // ensure the `context` object is not garbage-collected as long as the SynchCommunicator is alive
-        py::keep_alive<1, 2>())
+        }))
     .def("get_raw_ptr", [](tarantella::SynchCommunicator& d) 
         {
           return reinterpret_cast<uint64_t>(&d);
@@ -77,139 +77,103 @@ PYBIND11_MODULE(GPICommLib, m)
 
   py::class_<tarantella::TensorBroadcaster>(m, "TensorBroadcaster")
     .def(py::init(
-        [](tarantella::GPI::Context& context,
-           std::vector<tarantella::collectives::TensorInfo> tensor_infos,
-           tarantella::GPI::Rank root_rank)
+        [](std::vector<tarantella::collectives::TensorInfo> tensor_infos,
+           gaspi::group::GlobalRank root_rank)
         {
-          tarantella::distribution::DataParallelGroupBuilder group_builder(context);
-          tarantella::distribution::DataParallelSegmentIDBuilder segment_id_builder{};
-
+          gaspi::group::Group group_all;
           return std::unique_ptr<tarantella::TensorBroadcaster>(
-            new tarantella::TensorBroadcaster(context,
-                                              segment_id_builder.get_segment_id(),
-                                              group_builder.get_group(),
-                                              tensor_infos,
-                                              root_rank));
-        }),
-        py::keep_alive<1, 2>())
+            new tarantella::TensorBroadcaster(tensor_infos,
+                                              group_all,
+                                              group_all.toGroupRank(root_rank)));
+        }))
     .def("broadcast",
-        [](tarantella::TensorBroadcaster &tb, std::vector<py::array>& tensor_list)
+        [](tarantella::TensorBroadcaster& tensor_broadcaster, std::vector<py::array>& input_list)
         {
-          std::vector<void*> tensor_ptrs;
-          for (auto& tens : tensor_list)
+          // allocate memory for outputs
+          std::vector<py::array> output_list;
+          for (auto const& output_size : tensor_broadcaster.get_sizes())
           {
-            py::buffer_info info = tens.request(); 
-            tensor_ptrs.emplace_back(info.ptr);
+            output_list.push_back(py::array_t<float>(output_size));
           }
-          tb.exec_broadcast(tensor_ptrs);
+
+          // extract output pointers
+          std::vector<void*> output_ptrs;
+          for (auto const& output : output_list)
+          {
+            output_ptrs.push_back(output.request().ptr);
+          }
+
+          // extract pointers for inputs if `input_list` is not empty
+          // otherwise create list of as many `nullptr`s as outputs
+          std::vector<void const*> input_ptrs(output_ptrs.size());
+          if (input_list.size() > 0)
+          {
+            for (auto i = 0UL; i < input_ptrs.size(); ++i)
+            {
+              input_ptrs[i] = input_list[i].request().ptr;
+            }
+          }
+
+          tensor_broadcaster.exec_broadcast(input_ptrs, output_ptrs);
+          return output_list;
         });
 
   py::class_<tarantella::TensorAllreducer>(m, "TensorAllreducer")
     .def(py::init(
-        [](tarantella::GPI::Context& context,
-           std::vector<tarantella::collectives::TensorInfo> tensor_infos)
+        [](std::vector<tarantella::collectives::TensorInfo> tensor_infos)
         {
-          tarantella::distribution::DataParallelGroupBuilder group_builder(context);
-          tarantella::distribution::DataParallelSegmentIDBuilder segment_id_builder{};
-
-          tarantella::collectives::Allreduce::ReductionOp reduction_op = tarantella::collectives::Allreduce::ReductionOp::SUM;
+          gaspi::collectives::ReductionOp reduction_op = gaspi::collectives::ReductionOp::SUM;
+          gaspi::group::Group group_all;
 
           return std::unique_ptr<tarantella::TensorAllreducer>(
-            new tarantella::TensorAllreducer(context,
-                                             segment_id_builder.get_segment_id(),
-                                             group_builder.get_group(),
-                                             reduction_op,
-                                             tensor_infos));
-        }),
-        py::keep_alive<1, 2>())
+            new tarantella::TensorAllreducer(tensor_infos,
+                                             group_all,
+                                             reduction_op));
+        }))
     .def("allreduce",
-        [](tarantella::TensorAllreducer &reducer,
-           std::vector<py::array>& tensor_list)
+        [](tarantella::TensorAllreducer& tensor_allreducer, std::vector<py::array>& input_list)
         {
-          std::vector<const void*> tensor_ptrs;
-
-          std::vector<py::array> output_list(tensor_list.size());
-          std::vector<void*> output_ptrs;
-
-          for (std::size_t i = 0; i < tensor_list.size(); ++i)
+          // allocate memory for outputs
+          std::vector<py::array> output_list;
+          for (auto const& input : input_list)
           {
-            py::buffer_info info = tensor_list[i].request();
-            tensor_ptrs.emplace_back(info.ptr);
-
-            auto src = py::array::ensure(tensor_list[i]);
-            if (py::isinstance<py::array_t<float>>(src))
-            {
-              output_list[i] = py::array_t<float>(info.size);
-            }
-            else if (py::isinstance<py::array_t<double>>(src))
-            {
-              output_list[i] = py::array_t<double>(info.size);
-            }            
-            else if (py::isinstance<py::array_t<std::int32_t>>(src))
-            {
-              output_list[i] = py::array_t<std::int32_t>(info.size);
-            }
-            else if (py::isinstance<py::array_t<std::int16_t>>(src))
-            {
-              output_list[i] = py::array_t<std::int16_t>(info.size);
-            }
-            else
-            {
-              throw std::runtime_error("[Pybind11][TensorAllreducer] Unknown buffer type");
-            }
-
-            py::buffer_info output_buffer = output_list[i].request();
-            output_ptrs.emplace_back(output_buffer.ptr);
+            auto const info = input.request();
+            output_list.push_back(py::array_t<float>(info.size));
           }
-          
-          reducer.exec_allreduce(tensor_ptrs, output_ptrs);
+
+          // extract pointers for inputs and outputs
+          std::vector<void const*> input_ptrs;
+          for (auto const& input : input_list)
+          {
+            input_ptrs.push_back(input.request().ptr);
+          }
+          std::vector<void*> output_ptrs;
+          for (auto const& output : output_list)
+          {
+            output_ptrs.push_back(output.request().ptr);
+          }
+
+          tensor_allreducer.exec_allreduce(input_ptrs, output_ptrs);
           return output_list;
         });
 
-  py::class_<tarantella::collectives::Barrier::GPIBarrierAllRanks>(m, "Barrier")
+  py::class_<gaspi::collectives::blocking::Barrier>(m, "Barrier")
     .def(py::init(
-        [](tarantella::GPI::Context&)
+        []()
         {
-          return std::unique_ptr<tarantella::collectives::Barrier::GPIBarrierAllRanks>(
-            new tarantella::collectives::Barrier::GPIBarrierAllRanks());
-        }),
-        py::keep_alive<1, 2>())
-    .def("blocking_barrier_all_ranks",
-        [](tarantella::collectives::Barrier::GPIBarrierAllRanks &barrier)
-        {
-          barrier.blocking_barrier();
-        });
+          gaspi::group::Group group_all;
+          return std::make_unique<gaspi::collectives::blocking::Barrier>(group_all);
+        }))
+    .def("blocking_barrier_all_ranks", &gaspi::collectives::blocking::Barrier::execute);
 
   py::class_<tarantella::PipelineCommunicator>(m, "PipelineCommunicator")
     .def(py::init(
-        [](tarantella::GPI::Context& context, 
-           std::unordered_map<tarantella::PipelineCommunicator::ConnectionID,
-                              std::pair<std::pair<tarantella::GPI::Rank, tarantella::GPI::Rank>, std::size_t>> edges,
+        [](std::unordered_map<tarantella::PipelineCommunicator::ConnectionID,
+                              std::pair<std::pair<gaspi::group::GlobalRank, gaspi::group::GlobalRank>, std::size_t>> edges,
            std::size_t num_micro_batches)
         {
-          auto const rank = context.get_rank();
-          std::unordered_map<tarantella::PipelineCommunicator::ConnectionID,
-                             tarantella::ConnectionInfo> conn_infos;
-          tarantella::distribution::PipelineSegmentIDBuilder segment_id_builder;
-
-          // build connection info (segment_id, other rank, buffer_size)
-          // for each edge connected to the current rank
-          for (auto const& [conn_id, edge_and_size] : edges)
-          {
-            auto const ranks = edge_and_size.first;
-            if (ranks.first != rank && ranks.second != rank) continue;
-            
-            auto const other_rank = (ranks.first == rank) ? ranks.second : ranks.first;
-            auto const buffer_size = edge_and_size.second;
-            auto const segment_id = segment_id_builder.get_segment_id(conn_id);
-            tarantella::ConnectionInfo const conn_info(segment_id, other_rank, buffer_size);
-            conn_infos.emplace(conn_id, conn_info);
-          }
-
-          return std::make_unique<tarantella::PipelineCommunicator>(context, conn_infos, num_micro_batches);
-        }),
-        // ensure the `context` object is not garbage-collected as long as the PipelineCommunicator is alive
-        py::keep_alive<1, 2>())
+          return std::make_unique<tarantella::PipelineCommunicator>(edges, num_micro_batches);
+        }))
     .def("get_raw_ptr", [](tarantella::PipelineCommunicator& comm) 
         {
           return reinterpret_cast<uint64_t>(&comm);

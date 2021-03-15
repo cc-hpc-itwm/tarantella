@@ -3,7 +3,6 @@ import tensorflow as tf
 import GPICommLib
 
 import runtime.tnt_config as tnt_config
-global_context = None
 global_tnt_config = tnt_config.TarantellaConfiguration()
 
 import logging
@@ -63,10 +62,7 @@ def setup_gpus(rank, ngpus = None):
   logger.debug("Using device: {}".format(tf.config.experimental.get_visible_devices()))
 
 def init(devices_per_node = None):
-  global global_context
-  if global_context is None:
-    global_context = GPICommLib.GPIContext()
-
+    GPICommLib.initGaspiCxx()
     logging_config.setup_logging(logger, global_tnt_config.log_level,
                                  get_rank(), is_master_rank(),
                                  global_tnt_config.log_on_all_devices)
@@ -75,10 +71,10 @@ def init(devices_per_node = None):
     # or as a `TNT_GPUS_PER_NODE` environment variable
     if devices_per_node is None:
       devices_per_node = global_tnt_config.gpus_per_node
-    setup_gpus(global_context.rank, ngpus = devices_per_node)
+    setup_gpus(get_rank(), ngpus = devices_per_node)
 
 def get_rank():
-  return global_context.rank
+  return GPICommLib.get_rank()
 
 def get_master_rank():
   return 0
@@ -87,25 +83,12 @@ def is_master_rank():
   return get_rank() == get_master_rank()
 
 def get_size():
-  return global_context.size
+  return GPICommLib.get_size()
 
 def get_tensor_info(tensor_id, tensor):
   return GPICommLib.TensorInfo(tensor_id,
                                int(np.prod(tensor.shape)), 
                                np.dtype(tf.dtypes.as_dtype(tensor.dtype).as_numpy_dtype()))
-
-class TensorBroadcaster():
-  def __init__(self, tensor_list, root_rank):
-    self.context = global_context
-    self.root_rank = root_rank
-
-    tensor_infos = [get_tensor_info(tid, tensor) for tid, tensor in enumerate(tensor_list)]
-    self.broadcaster = GPICommLib.TensorBroadcaster(self.context,
-                                                    tensor_infos,
-                                                    self.root_rank)
-
-  def broadcast(self, tensor_list):
-    self.broadcaster.broadcast(tensor_list)
 
 def __is_nonEmptyList__(input):
   return isinstance(input, list) and len(input) != 0
@@ -113,20 +96,61 @@ def __is_nonEmptyList__(input):
 def __is_nonEmptyArray__(input):
   return isinstance(input, np.ndarray) and input.size != 0
 
+class TensorBroadcaster():
+  def __init__(self, input, root_rank = get_master_rank()):
+    self.root_rank = root_rank
+    self.shapes = list()
+
+    if __is_nonEmptyList__(input):
+      tensor_infos = [get_tensor_info(tid, tensor) for tid, tensor in enumerate(input)]
+      self.shapes = [array.shape for array in input]
+    elif __is_nonEmptyArray__(input):
+      tensor_infos = [get_tensor_info(0, input)]
+      self.shapes = [input.shape]
+    else:
+      raise TypeError("""[Tarantella][TensorBroadcaster] Input should be
+                      either a list or an `np.ndarray` object and non-empty.""")
+
+    self.broadcaster = GPICommLib.TensorBroadcaster(tensor_infos, self.root_rank)
+
+  def broadcast(self, input = None):
+    if input is not None: # call with input on root rank
+      if get_rank() != self.root_rank:
+        raise RuntimeError("[Tarantella][TensorBroadcaster][broadcast] "
+                           "function with input must be called on root rank.")
+      if __is_nonEmptyList__(input):
+        self.broadcaster.broadcast(input)
+        return input
+      elif __is_nonEmptyArray__(input):
+        self.broadcaster.broadcast([input])[0]
+        return input
+      else:
+        raise TypeError("[Tarantella][TensorBroadcaster][broadcast] "
+                        "Input should be either a list or an `np.ndarray` "
+                        "object and non-empty.")
+    else: # non root ranks
+      if get_rank() == self.root_rank:
+        raise RuntimeError("[Tarantella][TensorBroadcaster][broadcast] "
+                           "function without input must be called on non-root rank.")
+      outputs = self.broadcaster.broadcast([])
+      for i in range(len(outputs)):
+        outputs[i] = outputs[i].reshape(self.shapes[i])
+      if len(outputs) == 1:
+        return outputs[0]
+      else:
+        return outputs
+
 class TensorAllreducer():
   def __init__(self, input):
-    self.context = global_context
-
     if __is_nonEmptyList__(input):
       tensor_infos = [get_tensor_info(tid, tensor) for tid, tensor in enumerate(input)]
     elif __is_nonEmptyArray__(input):
       tensor_infos = [get_tensor_info(0, input)]
     else:
       raise TypeError("""[Tarantella][TensorAllreducer] Input should be
-                      either a list or an array object and non-empty.""")
+                      either a list or an `np.ndarray` object and non-empty.""")
 
-    self.allreducer = GPICommLib.TensorAllreducer(self.context,
-                                                  tensor_infos)
+    self.allreducer = GPICommLib.TensorAllreducer(tensor_infos)
 
   def allreduce(self, input):
     if __is_nonEmptyList__(input):
@@ -135,18 +159,17 @@ class TensorAllreducer():
       return self.allreducer.allreduce([input])[0]
     else:
       raise TypeError("""[Tarantella][TensorAllreducer] Input should be
-                      either a list or an array object and non-empty.""")
+                      either a list or an `np.ndarray` object and non-empty.""")
 
 class Barrier():
   def __init__(self):
-    self.barrier = GPICommLib.Barrier(global_context)
+    self.barrier = GPICommLib.Barrier()
 
   def synchronize(self):
     self.barrier.blocking_barrier_all_ranks()
 
 class SynchCommunicator():
-  def __init__(self, global_context):
-    self.context = global_context
+  def __init__(self):
     self.weight_to_index = dict()
     self.comm = None
     self.threshold = global_tnt_config.fusion_threshold
@@ -167,13 +190,15 @@ class SynchCommunicator():
     grad_infos = list()
     for grad, weight in gradients_and_weights:
       grad_infos.append(get_tensor_info(self.weight_to_index[weight.name], grad))
-    self.comm = GPICommLib.SynchDistCommunicator(global_context, grad_infos, self.threshold)
+    self.comm = GPICommLib.SynchDistCommunicator(grad_infos, self.threshold)
 
   def reduce_gradients(self, gradients_and_weights):
     gradients_to_reduce = list()
     for grad, weight in gradients_and_weights:
       # add an Allreduce operation for each gradient
       grad_id = self.weight_to_index[weight.name]
+      number_partial_sums = get_size()
+      grad = grad / number_partial_sums
       output_grad = tnt_ops.start_allreduce_op(grad, tensor_id = grad_id,
                                               tnt_synchcomm = self.comm.get_raw_ptr())
       gradients_to_reduce.append(output_grad)

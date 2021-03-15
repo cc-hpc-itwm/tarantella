@@ -1,9 +1,9 @@
 #include "BufferElementType.hpp"
-#include "distribution/GroupBuilder.hpp"
-#include "distribution/SegmentIDBuilder.hpp"
-#include "GlobalContextFixture.hpp"
 #include "SynchCommunicator.hpp"
 #include "utilities.hpp"
+#include "GlobalContextFixture.hpp"
+
+#include <GaspiCxx/Runtime.hpp>
 
 #include <iostream>
 #include <numeric>
@@ -16,7 +16,7 @@ using boost::test_tools::per_element;
 
 namespace tarantella
 {
-  BOOST_GLOBAL_FIXTURE( GlobalContext );
+  BOOST_GLOBAL_FIXTURE(GlobalContext);
   float const epsilon_f(1e-6);
 
   std::vector<std::vector<collectives::TensorInfo>> test_cases
@@ -68,22 +68,18 @@ namespace tarantella
       public:
 
         SynchCommTestData(std::vector<collectives::TensorInfo> const& tensor_infos, 
-                          collectives::Allreduce::ReductionOp op,
+                          gaspi::collectives::ReductionOp op,
                           std::size_t threshold_bytes = 0UL)
-        : group_builder(GlobalContext::instance()->gpi_cont),
-          segment_id_builder(),
-          synch_comm(GlobalContext::instance()->gpi_cont,
-                     segment_id_builder.get_segment_id(),
-                     group_builder.get_group(),
+        : group(),
+          synch_comm(group,
                      tensor_infos,
                      threshold_bytes),
           expected_output_bufs(tensor_infos.size()),
           input_bufs(tensor_infos.size()),
           op(op)
         {
-          auto& context = GlobalContext::instance()->gpi_cont;
-          auto nranks = context.get_comm_size();
-          auto rank = context.get_rank();
+          auto nranks = gaspi::getRuntime().size();
+          auto rank = gaspi::getRuntime().global_rank();
 
           // generate data for each tensor and fill in the expected result after Allreduce
           for (auto grad_idx = 0U; grad_idx < tensor_infos.size(); ++grad_idx)
@@ -109,12 +105,12 @@ namespace tarantella
                               auto elem = -1.f;
                               switch (op)
                               {
-                                case collectives::Allreduce::ReductionOp::SUM:
+                                case gaspi::collectives::ReductionOp::SUM:
                                 {
                                   elem = idx * nranks * (nranks + 1.) / 2.;
                                   break;
                                 }
-                                case collectives::Allreduce::ReductionOp::AVERAGE:
+                                case gaspi::collectives::ReductionOp::AVERAGE:
                                 {
                                   elem = idx * (nranks + 1.) / 2.;
                                   break;
@@ -140,32 +136,26 @@ namespace tarantella
           return distance(ids.begin(), it);
         }
 
-        distribution::DataParallelGroupBuilder group_builder;  
-        distribution::DataParallelSegmentIDBuilder segment_id_builder;
+        gaspi::group::Group group;
         tarantella::SynchCommunicator synch_comm;
         std::vector<std::vector<float> > expected_output_bufs;
         std::vector<std::vector<float> > input_bufs;
         std::vector<tarantella::GradID> ids;
-        collectives::Allreduce::ReductionOp const op;
+        gaspi::collectives::ReductionOp const op;
   };
 
   BOOST_AUTO_TEST_SUITE(synch_communicator_unit)
 
     BOOST_DATA_TEST_CASE(synch_comm_creation, test_cases, test_case)
     {
-      distribution::DataParallelGroupBuilder group_builder(GlobalContext::instance()->gpi_cont);
-      distribution::DataParallelSegmentIDBuilder segment_id_builder{};
-
-      BOOST_REQUIRE_NO_THROW(SynchCommunicator synch_comm(GlobalContext::instance()->gpi_cont,
-                                                          segment_id_builder.get_segment_id(),
-                                                          group_builder.get_group(),
+      BOOST_REQUIRE_NO_THROW(SynchCommunicator synch_comm(gaspi::group::Group(),
                                                           test_case));
     }
 
     BOOST_TEST_DECORATOR(*boost::unit_test::tolerance(epsilon_f));
     BOOST_DATA_TEST_CASE(synch_comm_serialized_allred, test_cases * thresholds_bytes, test_case, threshold) // Cartesian product
     {
-      auto const op = collectives::Allreduce::ReductionOp::AVERAGE;
+      auto const op = gaspi::collectives::ReductionOp::SUM;
       SynchCommTestData synch_comm_data(test_case, op, threshold);
 
       for (auto &id : synch_comm_data.ids)
@@ -219,7 +209,7 @@ namespace tarantella
     BOOST_TEST_DECORATOR(*boost::unit_test::tolerance(epsilon_f));
     BOOST_DATA_TEST_CASE(synch_comm_parallel_allred, test_cases * thresholds_bytes, test_case, threshold)
     {
-      auto const op = collectives::Allreduce::ReductionOp::AVERAGE;
+      auto const op = gaspi::collectives::ReductionOp::SUM;
       SynchCommTestData synch_comm_data(test_case, op, threshold);
       execute_iteration(synch_comm_data);
     }
@@ -227,7 +217,7 @@ namespace tarantella
     BOOST_TEST_DECORATOR(*boost::unit_test::tolerance(epsilon_f));
     BOOST_DATA_TEST_CASE(synch_comm_repeat_parallel_allred, test_cases * thresholds_bytes, test_case, threshold)
     {
-      auto const op = collectives::Allreduce::ReductionOp::AVERAGE;
+      auto const op = gaspi::collectives::ReductionOp::SUM;
       auto nreps = 10UL;
       SynchCommTestData synch_comm_data(test_case, op, threshold);
       for (auto i = 0UL; i < nreps; ++i)

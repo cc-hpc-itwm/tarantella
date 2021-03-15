@@ -1,23 +1,14 @@
 #pragma once
 
-#include "gpi/Context.hpp"
+#include <GaspiCxx/Runtime.hpp>
 
 namespace tarantella
 {
-  class GlobalContext
-  {
-    public:
-
-      GlobalContext()
-      {
-        instance() = this;
-      }
-      static GlobalContext*& instance()
-      {
-        static GlobalContext* s_inst = 0;
-        return s_inst;
-      }
-
-      tarantella::GPI::Context gpi_cont;
+  struct GlobalContext {
+    GlobalContext()
+    {
+      gaspi::initGaspiCxx();
+    }
+    ~GlobalContext() = default;
   };
 }

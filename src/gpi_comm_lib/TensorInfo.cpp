@@ -22,5 +22,10 @@ namespace tarantella
     {
       return elem_type;
     }
+
+    std::size_t TensorInfo::get_size_bytes() const
+    {
+      return get_nelems() * getDataTypeSize(get_elem_type());
+    }
   }
 }

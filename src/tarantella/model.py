@@ -17,10 +17,6 @@ model_implemented_methods = ['model', 'rank', 'comm_size',
 
 class Model(tf.keras.models.Model):
   def __init__(self, model):
-    if not tarantella.global_context:
-      raise RuntimeError("""Cannot initialize a Model before the Tarantella library.
-      Please call "tarantella.init()" first.
-      """)
     self.rank = tarantella.get_rank()
     self.comm_size = tarantella.get_size()
 
@@ -310,14 +306,17 @@ class Model(tf.keras.models.Model):
       self._broadcast_weights()
 
   def _broadcast_weights(self):
-    weights = self.get_weights()
-
+    root_rank = tarantella.get_master_rank()
     if not self.broadcaster:
-      self.broadcaster = tarantella.TensorBroadcaster(weights,
-                                                      tarantella.get_master_rank())
+      weights = self.get_weights()
+      self.broadcaster = tarantella.TensorBroadcaster(weights, root_rank)
 
-    self.broadcaster.broadcast(weights)
-    self.model.set_weights(weights)
+    if self.rank == root_rank:
+      weights = self.get_weights()
+      self.broadcaster.broadcast(weights)
+    else:
+      new_weights = self.broadcaster.broadcast()
+      self.model.set_weights(new_weights)
 
     self.done_broadcast = True
 

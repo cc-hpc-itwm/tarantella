@@ -41,4 +41,4 @@ class TestsDataParallelOptimizers:
               epochs = number_epochs,
               verbose = 0)
     results = model.evaluate(test_dataset)
-    util.check_accuracy_greater(results[1], 0.91)
+    util.check_accuracy_greater(results[1], 0.9)

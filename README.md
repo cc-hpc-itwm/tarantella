@@ -14,6 +14,13 @@ A comprehensive documentation of the Tarantella software can be found
 Tarantella can be built using a recent `gcc` compiler (starting from gcc-7.4.0).
 `Cmake` (from version 3.8) is also required to build the library.
 
+### Dependencies
+
+Tarantella is built on top of the following libraries:
+* GPI-2
+* GaspiCxx
+
+
 ### SSH to localhost
 
 To run GPI programs on the local machine, make sure you can ssh to localhost without password.
@@ -32,6 +39,20 @@ CFLAGS="-fPIC" CPPFLAGS="-fPIC" ./configure --with-ethernet --prefix=${YOUR_INST
 make install
 
 export PATH=${YOUR_INSTALLATION_PATH}/bin/:$PATH
+```
+
+### Installing GaspiCxx
+
+Compile and install the GaspiCxx from the git repository as a shared library.
+
+```bash
+git clone git@gitlab.itwm.fraunhofer.de:gruenewa/GaspiCxx.git
+cd GaspiCxx
+mkdir build && cd build
+
+export GASPICXX_INSTALLATION_PATH=/your/gaspicxx/installation/path
+./cmake -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=${GASPICXX_INSTALLATION_PATH} ../
+make install
 ```
 
 ### Create a Conda environment
@@ -99,9 +120,9 @@ cd hpdlf
 mkdir build && cd build
 
 export TARANTELLA_INSTALLATION_PATH=/your/installation/path
-cmake -DCMAKE_INSTALL_PREFIX=${TARANTELLA_INSTALLATION_PATH} -DENABLE_TESTING=ON ..
+cmake -DCMAKE_INSTALL_PREFIX=${TARANTELLA_INSTALLATION_PATH} -DENABLE_TESTING=ON \
+      -DCMAKE_PREFIX_PATH=${GASPICXX_INSTALLATION_PATH} ..
 make
-ctest
 ```
 
 Finally, install Tarantella to `TARANTELLA_INSTALLATION_PATH`:
@@ -110,9 +131,27 @@ Finally, install Tarantella to `TARANTELLA_INSTALLATION_PATH`:
 make install
 export PATH=${TARANTELLA_INSTALLATION_PATH}/bin:${PATH}
 export LD_LIBRARY_PATH=${GPI2_INSTALLATION_PATH}/lib64:${LD_LIBRARY_PATH}
+export LD_LIBRARY_PATH=${GASPICXX_INSTALLATION_PATH}/lib:${LD_LIBRARY_PATH}
 
 tarantella --version
 ```
+
+#### Running the tests
+The tests can be executed from the `build` directory after adding the Tarantella `build`
+directory, the GPI-2 `lib64` and the GaspiCxx `lib` directories to `LD_LIBRARY_PATH`.
+
+```bash
+cd hpdlf/build
+
+export LD_LIBRARY_PATH=`pwd`:${LD_LIBRARY_PATH}
+export LD_LIBRARY_PATH=${GPI2_INSTALLATION_PATH}/lib64:${LD_LIBRARY_PATH}
+export LD_LIBRARY_PATH=${GASPICXX_INSTALLATION_PATH}/lib:${LD_LIBRARY_PATH}
+
+# Re-run cmake to make sure the test scripts are created with the right paths
+cmake ..
+ctest
+```
+
 
 #### Infiniband clusters
 
@@ -145,6 +184,7 @@ to the ``tarantella`` command. Make sure to add the path to the GPI-2 libraries 
 
 ```bash
   export LD_LIBRARY_PATH=${GPI2_INSTALLATION_PATH}/lib64:${LD_LIBRARY_PATH}
+  export LD_LIBRARY_PATH=${GASPICXX_INSTALLATION_PATH}/lib:${LD_LIBRARY_PATH}
 
   tarantella -- model.py --batch_size=64 --learning_rate=0.01
 ```
