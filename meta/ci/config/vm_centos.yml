@@ -7,10 +7,9 @@
     BASE_ENVIRONMENT_SETUP: ${RUNNER_HOME}/workspace/setup-env.sh
     CONDA_ENVIRONMENT_DIR: ${RUNNER_HOME}/conda_env
     SCL_ENVIRONMENT: devtoolset-7
-    TNT_DEPS_CMAKE: /home/gitlab-runner/workspace/spack/opt/spack/linux-centos7-x86_64/gcc-8.3.0/gaspicxx-2021-03-05-ewimmibpnurevjgr4vppj2gy2cn77mrv
     BOOST_MODULE: boost/1.67.0-gcc-8.3.0-6rtzd
     ONEDNN_MODULE: onednn
-    TNT_GASPICXX_MODULE: gaspicxx/2021-03-05-gcc-8.3.0-ewimm
+    TNT_GASPICXX_MODULE: gaspicxx/2021-03-15-gcc-8.3.0-g6hx3
     TNT_BARRIER_TIMEOUT: 1000
   before_script:
     - source ${BASE_ENVIRONMENT_SETUP}

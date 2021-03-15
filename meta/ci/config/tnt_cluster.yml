@@ -5,7 +5,6 @@
     - .common_after_script
   variables:
     CMAKE_MODULE: cmake/3.15.4-gcc-8.4.0-zvbii
-    TNT_DEPS_CMAKE: /opt/tools/spack/opt/spack/linux-ubuntu20.04-broadwell/gcc-8.4.0/GaspiCxx-2021-03-05-xyoeyqo53wxv7vs4mztvdac3lrwnqb53
     BOOST_MODULE: boost/1.68.0-gcc-9.3.0-gr57o
     GPI2_MODULE_ETH: gpi-2/1.4.0-gcc-8.4.0-eth-vswoi 
     GPI2_MODULE_IB:  gpi-2/1.4.0-gcc-8.4.0-infiniband-vngux 
