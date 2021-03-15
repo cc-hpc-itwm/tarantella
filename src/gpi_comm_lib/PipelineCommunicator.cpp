@@ -1,5 +1,9 @@
 #include "PipelineCommunicator.hpp"
 
+#include <GaspiCxx/Runtime.hpp>
+#include <GaspiCxx/singlesided/Endpoint.hpp>
+
+#include <algorithm>
 #include <cstring>
 
 namespace tarantella
@@ -10,28 +14,40 @@ namespace tarantella
   {
     for (auto& [connection_id, edge] : edges)
     {
-      auto partner_rank = edge.first;
       auto size_bytes = edge.second;
 
-      auto send_buffers_micro_batches = std::vector<std::unique_ptr<SourceBuffer>>(
-                                                    num_micro_batches,
-                                                    std::make_unique<SourceBuffer>(size_bytes));
-      send_buffers.emplace(connection_id, send_buffers_micro_batches);
+      std::vector<std::unique_ptr<SourceBuffer>> send_buffers_micro_batches(num_micro_batches);
+      std::generate(send_buffers_micro_batches.begin(), send_buffers_micro_batches.end(),
+                    [size_bytes]()
+                    {
+                      return std::make_unique<SourceBuffer>(size_bytes);
+                    });
+      send_buffers.emplace(connection_id, std::move(send_buffers_micro_batches));
 
-      auto recv_buffers_micro_batches = std::vector<std::unique_ptr<TargetBuffer>>(
-                                                    num_micro_batches,
-                                                    std::make_unique<TargetBuffer>(size_bytes));
-      receive_buffers.emplace(connection_id, recv_buffers_micro_batches);
+      std::vector<std::unique_ptr<TargetBuffer>> recv_buffers_micro_batches(num_micro_batches);
+      std::generate(recv_buffers_micro_batches.begin(), recv_buffers_micro_batches.end(),
+                    [size_bytes]()
+                    {
+                      return std::make_unique<TargetBuffer>(size_bytes);
+                    });
+      receive_buffers.emplace(connection_id, std::move(recv_buffers_micro_batches));
     }
 
+    using ConnectHandle = gaspi::singlesided::Endpoint::ConnectHandle;
+    std::vector<ConnectHandle> connection_handles;
     for (auto& [connection_id, buffers] : send_buffers)
     {
       for (auto micro_batch_id = 0UL; micro_batch_id < num_micro_batches; ++micro_batch_id)
       {
         SourceBuffer::Tag const tag = connection_id * num_micro_batches + micro_batch_id;
-        auto partner_rank = edges[connection_id].first;
-        gaspi::group::Group group({gaspi::getRuntime().globalRank(), partner_rank});
-        buffer->connectToRemoteTarget(group, group.toGroupRank(partner_rank), tag);
+        auto partner_rank = edges.at(connection_id).first;
+        gaspi::group::Group group({gaspi::getRuntime().global_rank(), partner_rank});
+
+        auto handle = buffers[micro_batch_id]->connectToRemoteTarget(
+                                                group,
+                                                group.toGroupRank(partner_rank),
+                                                tag);
+        connection_handles.emplace_back(std::move(handle));
       }
     }
 
@@ -40,25 +56,19 @@ namespace tarantella
       for (auto micro_batch_id = 0UL; micro_batch_id < num_micro_batches; ++micro_batch_id)
       {
         TargetBuffer::Tag const tag = connection_id * num_micro_batches + micro_batch_id;
-        auto partner_rank = edges[connection_id].first;
-        gaspi::group::Group group({gaspi::getRuntime().globalRank(), partner_rank});
-        buffers[micro_batch_id]->connectToRemoteSource(group, group.toGroupRank(partner_rank), tag);
+        auto partner_rank = edges.at(connection_id).first;
+        gaspi::group::Group group({gaspi::getRuntime().global_rank(), partner_rank});
+        auto handle = buffers[micro_batch_id]->connectToRemoteSource(
+                                                group,
+                                                group.toGroupRank(partner_rank),
+                                                tag);
+        connection_handles.push_back(std::move(handle));
       }
     }
 
-    for (auto& [_, buffers] : send_buffers)
+    for (auto& handle : connection_handles)
     {
-      for (auto& buffer : buffers)
-      {
-        buffer->waitForCompletion();
-      }
-    }
-    for (auto& [_, buffers] : receive_buffers)
-    {
-      for (auto& buffer : buffers)
-      {
-        buffer->waitForCompletion();
-      }
+      handle.waitForCompletion();
     }
   }
 
