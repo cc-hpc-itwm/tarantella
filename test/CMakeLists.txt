@@ -24,3 +24,5 @@ tarantella_compile_and_generate_test(NAME TensorFusor
                 SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/TensorFusor.cpp
                 LIBRARIES tnt::gpicommlib
                 INCLUDE_DIRECTORIES ${include_dirs})
+
+add_subdirectory(pipelining)
