@@ -49,3 +49,5 @@ tarantella_generate_python_gpi_test(NAME TensorBroadcaster
                                     LOCALRANKS_LIST "${localranks_list}"
                                     TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/tensor_broadcaster_test.py
                                     TIMEOUT 3600)
+
+add_subdirectory("pipelining_parallel")
