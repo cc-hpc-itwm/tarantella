@@ -2,14 +2,14 @@ import tensorflow as tf
 from tnt_tfops import tnt_ops
 
 class SendLayer(tf.keras.layers.Layer):
-  ''' Fwd: send output[`micro_batch_id`] to the layer on the remote rank 
+  ''' Fwd: send output[`micro_batch_id`] to the layer on the remote rank
       connected via `connection_id`
       Bwd: receive corresponding gradient from ibidem
   '''
   def __init__(self, pipeline_communicator):
     super().__init__()
     self.pipeline_comm_ptr = pipeline_communicator.get_raw_ptr()
-  
+
   def build(self, input_shape):
     return super(SendLayer, self).build(input_shape)
 
@@ -19,7 +19,7 @@ class SendLayer(tf.keras.layers.Layer):
   def call(self, inputs, connection_and_micro_batch_ids):
     @tf.custom_gradient
     def send_recv(x, tags):
-      # tags = [micro_batch_id, connection_id] 
+      # tags = [micro_batch_id, connection_id]
       micro_batch_id = tags[0][0]
       connection_id = tags[0][1]
 
@@ -37,7 +37,7 @@ class SendLayer(tf.keras.layers.Layer):
 
 
 class RecvLayer(tf.keras.layers.Layer):
-  ''' Fwd: receive output[`micro_batch_id`] from the layer on the remote rank 
+  ''' Fwd: receive output[`micro_batch_id`] from the layer on the remote rank
       connected via `connection_id`
       Bwd: send corresponding gradient back to ibidem
   '''
@@ -45,7 +45,7 @@ class RecvLayer(tf.keras.layers.Layer):
   def __init__(self, pipeline_communicator):
     super().__init__()
     self.pipeline_comm_ptr = pipeline_communicator.get_raw_ptr()
-  
+
   def build(self, input_shape):
     return super(RecvLayer, self).build(input_shape)
 
@@ -55,12 +55,12 @@ class RecvLayer(tf.keras.layers.Layer):
   def call(self, inputs, connection_and_micro_batch_ids):
     @tf.custom_gradient
     def recv_send(x, tags):
-      # tags = [micro_batch_id, connection_id] 
+      # tags = [micro_batch_id, connection_id]
       micro_batch_id = tags[0][0]
       connection_id = tags[0][1]
-      
+
       y = tnt_ops.recv_op(x, connection_id = connection_id,
-                          micro_batch_id = micro_batch_id, 
+                          micro_batch_id = micro_batch_id,
                           tnt_pipeline_comm = self.pipeline_comm_ptr)
       def grad(dy):
         dx = tnt_ops.send_op(dy, connection_id = connection_id,
@@ -76,7 +76,7 @@ class IdentityLayer(tf.keras.layers.Layer):
 
   def __init__(self, name='identity_layer'):
     super().__init__(name=name)
-  
+
   def call(self, inputs):
     return inputs
 
@@ -86,7 +86,7 @@ class PrintLayer(tf.keras.layers.Layer):
   def __init__(self, context, name='print_layer'):
     self.context = context
     super().__init__(name=name+'_print')
-  
+
   def call(self, inputs):
     @tf.custom_gradient
     def printing(inputs):
@@ -104,10 +104,12 @@ class RemoveSeqInput(tf.keras.layers.Layer):
 
   def __init__(self, name='remove_seq_input_layer'):
     super().__init__(name=name)
+    # defines a fake weight (and corresponding custom gradient) in order to
+    # force TF to execute the backward pass
     self.fake_weight = self.add_weight(shape=(1),
                                        initializer='ones',
                                        trainable=True)
-  
+
   def build(self, input_shape):
     super(RemoveSeqInput, self).build(input_shape)
     self.num_outputs = len(input_shape) - 1
@@ -161,7 +163,7 @@ class AddSeqOutput(tf.keras.layers.Layer):
 
   def compute_output_shape(self, input_shape):
     return self.oshape
-  
+
   def call(self, inputs):
     fake_output_shape = tf.TensorShape((self.mb_size, 1))
     fake_output = tf.zeros(fake_output_shape)
@@ -180,41 +182,3 @@ class AddSeqOutput(tf.keras.layers.Layer):
       output_tensors[i].set_shape(self.oshape[i])
 
     return output_tensors
-
-
-class ZeroMetric(tf.keras.metrics.Metric):
-
-  def __init__(self, name='zero_metric', **kwargs):
-    super(ZeroMetric, self).__init__(name=name, **kwargs)
-    self.zero = self.add_weight(name='tp', initializer='zeros')
-
-  def update_state(self, y_true, y_pred, sample_weight=None):
-    y_true = tf.cast(y_true, tf.bool)
-    y_pred = tf.cast(y_pred, tf.bool)
-    self.zero.assign(0)
-
-  def result(self):
-    return self.zero
-
-  def reset_states(self):
-    self.zero.assign(0)
-
-
-class ZeroLoss(tf.keras.losses.Loss):
-
-  def __init__(self, name='zero_loss'):
-    super().__init__(name=name)
-
-  def call(self, y_true, y_pred):
-    # placeholder loss, providing constant loss and gradients,
-    # to force TF to execute backward graph
-    @tf.custom_gradient
-    def compute_loss(x):
-      def grad(dy):
-        return tf.zeros_like(x)
-      return tf.zeros(0), grad
-
-    fwd_bwd = tf.py_function(func=compute_loss,
-                             inp=[y_pred],
-                             Tout=tf.float32)
-    return fwd_bwd
