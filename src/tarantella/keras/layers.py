@@ -1,5 +1,4 @@
 import tensorflow as tf
-from tnt_tfops import tnt_ops
 
 class SendLayer(tf.keras.layers.Layer):
   ''' Fwd: send output[`micro_batch_id`] to the layer on the remote rank
@@ -8,7 +7,7 @@ class SendLayer(tf.keras.layers.Layer):
   '''
   def __init__(self, pipeline_communicator):
     super().__init__()
-    self.pipeline_comm_ptr = pipeline_communicator.get_raw_ptr()
+    self.pipeline_comm = pipeline_communicator
 
   def build(self, input_shape):
     return super(SendLayer, self).build(input_shape)
@@ -22,14 +21,14 @@ class SendLayer(tf.keras.layers.Layer):
       # tags = [micro_batch_id, connection_id]
       micro_batch_id = tags[0][0]
       connection_id = tags[0][1]
+      print(" mbatch _id=", micro_batch_id, " conn_id=", connection_id)
 
-      y = tnt_ops.send_op(x, connection_id = connection_id,
-                          micro_batch_id = micro_batch_id,
-                          tnt_pipeline_comm = self.pipeline_comm_ptr)
+      y = self.pipeline_comm.send(x, connection_id = connection_id,
+                                  micro_batch_id = micro_batch_id)
+
       def grad(dy):
-        out = tnt_ops.recv_op(dy, connection_id = connection_id,
-                              micro_batch_id = micro_batch_id,
-                              tnt_pipeline_comm = self.pipeline_comm_ptr)
+        out = self.pipeline_comm.recv(dy, connection_id = connection_id,
+                                      micro_batch_id = micro_batch_id)
         return out, tf.zeros_like(tags)
       return y, grad
 
@@ -44,7 +43,7 @@ class RecvLayer(tf.keras.layers.Layer):
 
   def __init__(self, pipeline_communicator):
     super().__init__()
-    self.pipeline_comm_ptr = pipeline_communicator.get_raw_ptr()
+    self.pipeline_comm = pipeline_communicator
 
   def build(self, input_shape):
     return super(RecvLayer, self).build(input_shape)
@@ -59,13 +58,11 @@ class RecvLayer(tf.keras.layers.Layer):
       micro_batch_id = tags[0][0]
       connection_id = tags[0][1]
 
-      y = tnt_ops.recv_op(x, connection_id = connection_id,
-                          micro_batch_id = micro_batch_id,
-                          tnt_pipeline_comm = self.pipeline_comm_ptr)
+      y = self.pipeline_comm.recv(x, connection_id = connection_id,
+                                  micro_batch_id = micro_batch_id)
       def grad(dy):
-        dx = tnt_ops.send_op(dy, connection_id = connection_id,
-                             micro_batch_id = micro_batch_id,
-                             tnt_pipeline_comm = self.pipeline_comm_ptr)
+        dx = self.pipeline_comm.send(dy, connection_id = connection_id,
+                                     micro_batch_id = micro_batch_id)
         return dx, tf.zeros_like(tags)
       return y, grad
 
@@ -83,17 +80,17 @@ class IdentityLayer(tf.keras.layers.Layer):
 
 class PrintLayer(tf.keras.layers.Layer):
 
-  def __init__(self, context, name='print_layer'):
-    self.context = context
-    super().__init__(name=name+'_print')
+  def __init__(self, rank, name='print_layer'):
+    super().__init__(name=name)
+    self.rank = rank
 
   def call(self, inputs):
     @tf.custom_gradient
     def printing(inputs):
-      tf.print(self.name, ":: fwd : rank ", self.context.rank, " ", inputs,
+      tf.print(self.name, ":: fwd : rank ", self.rank, " ", inputs,
                "shape:", inputs.shape)
       def grad(dy):
-        tf.print(self.name, ":: bwd : rank ", self.context.rank, " ", dy,
+        tf.print(self.name, ":: bwd : rank ", self.rank, " ", dy,
                  "shape:", dy.shape)
         return dy
       return inputs, grad
