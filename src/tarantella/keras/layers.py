@@ -21,7 +21,6 @@ class SendLayer(tf.keras.layers.Layer):
       # tags = [micro_batch_id, connection_id]
       micro_batch_id = tags[0][0]
       connection_id = tags[0][1]
-      print(" mbatch _id=", micro_batch_id, " conn_id=", connection_id)
 
       y = self.pipeline_comm.send(x, connection_id = connection_id,
                                   micro_batch_id = micro_batch_id)
