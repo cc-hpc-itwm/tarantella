@@ -131,23 +131,24 @@ Finally, install Tarantella to `TARANTELLA_INSTALLATION_PATH`:
 make install
 export PATH=${TARANTELLA_INSTALLATION_PATH}/bin:${PATH}
 export LD_LIBRARY_PATH=${GPI2_INSTALLATION_PATH}/lib64:${LD_LIBRARY_PATH}
-export LD_LIBRARY_PATH=${GASPICXX_INSTALLATION_PATH}/lib:${LD_LIBRARY_PATH}
+export LD_LIBRARY_PATH=${GASPICXX_INSTALLATION_PATH}/lib64:${LD_LIBRARY_PATH}
 
 tarantella --version
 ```
 
 #### Running the tests
-The tests can be executed from the `build` directory after adding the Tarantella `build`
-directory, the GPI-2 `lib64` and the GaspiCxx `lib` directories to `LD_LIBRARY_PATH`.
+The tests can be executed from the `build` directory with `ctest`.
+In order to do this, add the Tarantella `build`
+directory, the GPI-2 `lib64` and the GaspiCxx `lib64` directories to `LD_LIBRARY_PATH`
+before running `cmake`.
 
 ```bash
 cd hpdlf/build
 
 export LD_LIBRARY_PATH=`pwd`:${LD_LIBRARY_PATH}
 export LD_LIBRARY_PATH=${GPI2_INSTALLATION_PATH}/lib64:${LD_LIBRARY_PATH}
-export LD_LIBRARY_PATH=${GASPICXX_INSTALLATION_PATH}/lib:${LD_LIBRARY_PATH}
+export LD_LIBRARY_PATH=${GASPICXX_INSTALLATION_PATH}/lib64:${LD_LIBRARY_PATH}
 
-# Re-run cmake to make sure the test scripts are created with the right paths
 cmake ..
 ctest
 ```
@@ -184,7 +185,7 @@ to the ``tarantella`` command. Make sure to add the path to the GPI-2 libraries 
 
 ```bash
   export LD_LIBRARY_PATH=${GPI2_INSTALLATION_PATH}/lib64:${LD_LIBRARY_PATH}
-  export LD_LIBRARY_PATH=${GASPICXX_INSTALLATION_PATH}/lib:${LD_LIBRARY_PATH}
+  export LD_LIBRARY_PATH=${GASPICXX_INSTALLATION_PATH}/lib64:${LD_LIBRARY_PATH}
 
   tarantella -- model.py --batch_size=64 --learning_rate=0.01
 ```
