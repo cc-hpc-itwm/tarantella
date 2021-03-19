@@ -11,7 +11,8 @@ namespace tarantella
                                      gaspi::group::Group const& group,
                                      gaspi::collectives::ReductionOp const& reduction_op)
   {
-    using T = float;
+    //TODO: Support for different data types
+    using T = double;
     auto const Algorithm = gaspi::collectives::AllreduceAlgorithm::RING;
 
     for (auto const& tensor_info : tensor_infos)

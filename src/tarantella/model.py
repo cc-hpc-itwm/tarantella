@@ -1,11 +1,11 @@
 import tensorflow as tf
 from tensorflow.python.data.ops import iterator_ops
 from tensorflow.python.keras.engine import training_utils
-from tensorflow.python.keras.callbacks import ModelCheckpoint
 
 import tarantella
 import tarantella.optimizers.synchronous_distributed_optimizer as distributed_optimizers
 import tarantella.datasets.distributed_dataset as ds
+import tarantella.callbacks as tnt_callbacks
 from tarantella import logger
 
 model_implemented_methods = ['model', 'rank', 'comm_size',
@@ -267,6 +267,7 @@ class Model(tf.keras.models.Model):
     self._validate_batch_size_argument(exec_type, args_dict)
     self._set_input_shapes(x)
     self._broadcast_weights_if_necessary()
+    self._add_default_callbacks(callbacks)
     self._preprocess_callbacks(callbacks)
 
   def _assert_compile_has_been_called(self):
@@ -320,15 +321,21 @@ class Model(tf.keras.models.Model):
 
     self.done_broadcast = True
 
+  def _add_default_callbacks(self, callbacks):
+    if callbacks is not None:
+      callbacks.append(tf.keras.callbacks.History())
+    else:
+      callbacks = tf.keras.callbacks.History()
+
   def _preprocess_callbacks(self, callbacks):
     if callbacks is not None:
       remove_tensorboard_index = None
 
       for index, callback in enumerate(callbacks):
         if isinstance(callback, tf.keras.callbacks.ModelCheckpoint):
-          tnt_callback = TntModelCheckpoint(keras_model_checkpoint = callback,
-                                            underlying_optimizer = self.orig_optimizer,
-                                            distributed_optimizer = self.dist_optimizer)
+          tnt_callback = tnt_callbacks.TntModelCheckpoint(keras_model_checkpoint = callback,
+                                                          underlying_optimizer = self.orig_optimizer,
+                                                          distributed_optimizer = self.dist_optimizer)
           callbacks[index] = tnt_callback
 
         elif isinstance(callback, tf.keras.callbacks.LearningRateScheduler):
@@ -343,54 +350,13 @@ class Model(tf.keras.models.Model):
             if not tarantella.is_master_rank():
               remove_tensorboard_index = index
 
+        elif isinstance(callback, tf.keras.callbacks.CSVLogger):
+          csv_callback = tnt_callbacks.TntCSVLogger(keras_csvlogger = callback)
+          callbacks[index] = csv_callback
+
+        elif isinstance(callback, tf.keras.callbacks.History):
+          hist_callback = tnt_callbacks.TntHistory(keras_history = callback)
+          callbacks[index] = hist_callback
+
       if remove_tensorboard_index is not None:
         del callbacks[remove_tensorboard_index]
-
-
-class TntModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
-  def __init__(self, keras_model_checkpoint, underlying_optimizer, distributed_optimizer):
-    super(TntModelCheckpoint, self).__init__(keras_model_checkpoint.filepath)
-    self.underlying_optimizer = underlying_optimizer
-    self.distributed_optimizer = distributed_optimizer
-
-    # set member variables from ModelCheckpoint instance
-    self.validation_data = keras_model_checkpoint.validation_data
-    self.model = keras_model_checkpoint.model
-    self._chief_worker_only = keras_model_checkpoint._chief_worker_only
-    self._supports_tf_logs = True
-    self.monitor = keras_model_checkpoint.monitor
-    self.filepath = keras_model_checkpoint.filepath
-    self.save_best_only = keras_model_checkpoint.save_best_only
-    self.save_weights_only = keras_model_checkpoint.save_weights_only
-    self.save_freq = keras_model_checkpoint.save_freq
-    self.epochs_since_last_save = keras_model_checkpoint.epochs_since_last_save
-
-    if hasattr(keras_model_checkpoint, '_batches_seen_since_last_saving'):  #TF>=2.2
-      self._batches_seen_since_last_saving = keras_model_checkpoint._batches_seen_since_last_saving
-    if hasattr(keras_model_checkpoint, '_samples_seen_since_last_saving'):  # TF2.0-2.1
-      self._samples_seen_since_last_saving = keras_model_checkpoint._samples_seen_since_last_saving
-
-    self._last_batch_seen = 0
-    self.load_weights_on_restart = keras_model_checkpoint.load_weights_on_restart
-    self.period = keras_model_checkpoint.period
-    self.monitor_op = keras_model_checkpoint.monitor_op
-    self.best = keras_model_checkpoint.best
-
-    # only master rank should save and thus print messages
-    self.verbose = keras_model_checkpoint.verbose if tarantella.is_master_rank() else 0
-
-  def on_train_begin(self, logs=None):
-    # As of TF 2.3, this only uses `self.model.load_weights`
-    super().on_train_begin(logs)
-
-  def on_train_batch_end(self, batch, logs=None):
-    # set the optimizer to the underlying to save a plain keras model
-    self.model.optimizer = self.underlying_optimizer
-    super().on_train_batch_end(batch, logs)
-    self.model.optimizer = self.distributed_optimizer
-
-  def on_epoch_end(self, epoch, logs=None):
-    # set the optimizer to the underlying to save a plain keras model
-    self.model.optimizer = self.underlying_optimizer
-    super().on_epoch_end(epoch, logs)
-    self.model.optimizer = self.distributed_optimizer
