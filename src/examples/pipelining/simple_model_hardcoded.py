@@ -1,6 +1,3 @@
-from utilities import *
-import tnt_keras_layers as tnt_layers
-
 import os
 import datetime
 import numpy as np
@@ -8,20 +5,23 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'  # suppress INFO messages from tf
+#os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'  # suppress INFO messages from tf
 
-### GPI setup
-import GPICommLib
-import tarantella
-tarantella.init()
+from utilities import *
+import tarantella as tnt
+import tarantella.keras.layers as tnt_layers
+import tarantella.keras.losses as tnt_losses
+import tarantella.keras.metrics as tnt_metrics
 
-comm_size = tarantella.get_size()
+comm_size = tnt.get_size()
 assert(comm_size == 2)
 
-rank = tarantella.get_rank()
+rank = tnt.get_rank()
 p_0_rank = 0
 p_1_rank = 1
 master_rank = p_1_rank # to test final accuracies on same rank
+
+number_tags = 2 # [micro_batch_id, connection_id]
 
 ### argument parsing
 args = parse_args()
@@ -67,10 +67,10 @@ assert comm_size == num_partitions
 p_0_id = 0
 p_1_id = 1
 size_of_float = 4
-partition_table = { 0 : ((p_0_id, p_1_id), fc_units * micro_batch_size * size_of_float),
-                    1 : ((p_0_id, p_1_id), fc_units * micro_batch_size * size_of_float) }
+partition_table = { 0 : ((p_0_rank, p_1_rank), fc_units * micro_batch_size * size_of_float),
+                    1 : ((p_0_rank, p_1_rank), fc_units * micro_batch_size * size_of_float) }
 
-ppl_comm = GPICommLib.PipelineCommunicator(tarantella.global_context, partition_table, num_micro_batches)
+ppl_comm = tnt.PipelineCommunicator(partition_table, num_micro_batches)
 
 # --- core model on partition 0
 tf.random.set_seed(42) # reset seed, so initial weights are same as for the reference model
@@ -85,7 +85,7 @@ p_0_core = keras.Model(inputs=p_0_core_input,
 # --- core model on partition 1
 p_1_core_input_0_shape = p_0_core.outputs[0].shape[1:]
 p_1_core_input_1_shape = p_0_core.outputs[1].shape[1:]
-p_1_core_input_0 = keras.Input(shape=p_1_core_input_0_shape)
+p_1_core_input_0 = keras.Input(shape=p_1_core_input_0_shape) # TODO: Maybe add dtypes?
 p_1_core_input_1 = keras.Input(shape=p_1_core_input_1_shape)
 p_1_core_x = p_1_core_input_0 + p_1_core_input_1
 p_1_core_output_0 = layers.Dense(num_mnist_classes, activation='softmax', name='dense_softmax')(p_1_core_x)
@@ -95,9 +95,9 @@ p_1_core = keras.Model(inputs=[p_1_core_input_0, p_1_core_input_1],
 
 # --- shared model on partition 0
 p_0_shared_input_0 = keras.Input(shape=(28,28,1,))
-p_0_shared_send_tag_0 = keras.Input(shape=(2,), dtype=tf.int32) # [fwd_tag, bwd_tag] for comm_layer0
-p_0_shared_send_tag_1 = keras.Input(shape=(2,), dtype=tf.int32) # [fwd_tag, bwd_tag] for comm_layer1
-p_0_shared_input_seq = keras.Input(shape=(1,))  # use to model sequential dependencies
+p_0_shared_send_tag_0 = keras.Input(shape=(number_tags,), dtype=tf.int32)
+p_0_shared_send_tag_1 = keras.Input(shape=(number_tags,), dtype=tf.int32)
+p_0_shared_input_seq = keras.Input(shape=(1,)) # use to model sequential dependencies # TODO: Add dtype?!
   
 p_0_shared_core_inputs = [p_0_shared_input_0]
 p_0_shared_recv_tags = [] 
@@ -116,8 +116,8 @@ p_0_shared_model = keras.Model(inputs=p_0_shared_inputs, outputs=p_0_shared_outp
 # --- shared model on partition 1
 p_1_shared_input_0 = keras.Input(shape = p_1_core.inputs[0].shape[1:])
 p_1_shared_input_1 = keras.Input(shape = p_1_core.inputs[1].shape[1:])
-p_1_shared_recv_tag_0 = keras.Input(shape=(2,), dtype=tf.int32)
-p_1_shared_recv_tag_1 = keras.Input(shape=(2,), dtype=tf.int32)
+p_1_shared_recv_tag_0 = keras.Input(shape=(number_tags,), dtype=tf.int32)
+p_1_shared_recv_tag_1 = keras.Input(shape=(number_tags,), dtype=tf.int32)
 p_1_shared_input_seq = keras.Input(shape=(1,))
 
 p_1_shared_core_inputs = [p_1_shared_input_0, p_1_shared_input_1]
@@ -137,10 +137,10 @@ p_1_shared_model = keras.Model(inputs=p_1_shared_inputs, outputs=p_1_shared_outp
 # --- microbatched model on partition 0
 p_0_shared_m_0_input_0 = keras.Input(shape=(28,28,1,), name="p_0_m_0_i_0")
 p_0_shared_m_1_input_0 = keras.Input(shape=(28,28,1,), name="p_0_m_1_i_0")
-p_0_shared_m_0_send_tag_0 = keras.Input(shape=(2,), name="p_0_m_0_s_0", dtype=tf.int32) # [connection_id, micro_batch_id] for m_0_comm_layer_0
-p_0_shared_m_0_send_tag_1 = keras.Input(shape=(2,), name="p_0_m_0_s_1", dtype=tf.int32) # [connection_id, micro_batch_id] for m_0_comm_layer_1
-p_0_shared_m_1_send_tag_0 = keras.Input(shape=(2,), name="p_0_m_1_s_0", dtype=tf.int32) # [connection_id, micro_batch_id] for m_1_comm_layer_0
-p_0_shared_m_1_send_tag_1 = keras.Input(shape=(2,), name="p_0_m_1_s_1", dtype=tf.int32) # [connection_id, micro_batch_id] for m_1_comm_layer_1
+p_0_shared_m_0_send_tag_0 = keras.Input(shape=(number_tags,), name="p_0_m_0_s_0", dtype=tf.int32)
+p_0_shared_m_0_send_tag_1 = keras.Input(shape=(number_tags,), name="p_0_m_0_s_1", dtype=tf.int32)
+p_0_shared_m_1_send_tag_0 = keras.Input(shape=(number_tags,), name="p_0_m_1_s_0", dtype=tf.int32)
+p_0_shared_m_1_send_tag_1 = keras.Input(shape=(number_tags,), name="p_0_m_1_s_1", dtype=tf.int32)
 p_0_shared_input_seq = keras.Input(shape=(1,), name = "p_0_start_seq")
   
 p_0_shared_core_inputs = [p_0_shared_m_0_input_0, p_0_shared_m_1_input_0]
@@ -166,10 +166,10 @@ p_1_shared_m_0_input_0 = keras.Input(shape=p_1_core.inputs[0].shape[1:], name="p
 p_1_shared_m_0_input_1 = keras.Input(shape=p_1_core.inputs[1].shape[1:], name="p_1_m_0_i_1")
 p_1_shared_m_1_input_0 = keras.Input(shape=p_1_core.inputs[0].shape[1:], name="p_1_m_1_i_0")
 p_1_shared_m_1_input_1 = keras.Input(shape=p_1_core.inputs[1].shape[1:], name="p_1_m_1_i_1")
-p_1_shared_m_0_recv_tag_0 = keras.Input(shape=(2,), name="p_1_m_0_r_0", dtype=tf.int32)
-p_1_shared_m_0_recv_tag_1 = keras.Input(shape=(2,), name="p_1_m_0_r_1", dtype=tf.int32)
-p_1_shared_m_1_recv_tag_0 = keras.Input(shape=(2,), name="p_1_m_1_r_0", dtype=tf.int32)
-p_1_shared_m_1_recv_tag_1 = keras.Input(shape=(2,), name="p_1_m_1_r_1", dtype=tf.int32)
+p_1_shared_m_0_recv_tag_0 = keras.Input(shape=(number_tags,), name="p_1_m_0_r_0", dtype=tf.int32)
+p_1_shared_m_0_recv_tag_1 = keras.Input(shape=(number_tags,), name="p_1_m_0_r_1", dtype=tf.int32)
+p_1_shared_m_1_recv_tag_0 = keras.Input(shape=(number_tags,), name="p_1_m_1_r_0", dtype=tf.int32)
+p_1_shared_m_1_recv_tag_1 = keras.Input(shape=(number_tags,), name="p_1_m_1_r_1", dtype=tf.int32)
 p_1_shared_input_seq = keras.Input(shape=(1,), name = "p_1_start_seq")
 
 p_1_shared_core_inputs = [p_1_shared_m_0_input_0, p_1_shared_m_0_input_1,
@@ -191,6 +191,9 @@ p_1 = keras.Model(inputs=p_1_inputs, outputs=p_1_outputs, name="p_1")
 
 # datasets
 
+# TODO:
+# Does the fake datasets/labels need a finite size, when used in a "middle" partition,
+# so `fit` would know, when to stop training?
 x_comm_0 = tf.data.Dataset.from_tensors(np.zeros(p_1_core.inputs[0].shape[1:])).repeat()
 x_comm_1 = tf.data.Dataset.from_tensors(np.zeros(p_1_core.inputs[1].shape[1:])).repeat()
 y_zero_loss = tf.data.Dataset.from_tensors(np.zeros(1)).repeat()
@@ -207,43 +210,43 @@ p_0_train_dataset = create_micro_batched_dataset(samples = [tf.data.Dataset.from
                     .shuffle(len(x_train), shuffle_seed)
 p_0_val_dataset = create_micro_batched_dataset(samples = [tf.data.Dataset.from_tensor_slices(x_val)],
                                                labels = [y_zero_loss, y_zero_loss],
-                                               recv_connection_ids=p_0_recv_connection_ids, 
-                                               send_connection_ids=p_0_send_connection_ids, 
-                                               partition_id=p_0_id,
-                                               num_micro_batches=num_micro_batches,
-                                               micro_batch_size=micro_batch_size)
+                                               recv_connection_ids = p_0_recv_connection_ids, 
+                                               send_connection_ids = p_0_send_connection_ids, 
+                                               partition_id = p_0_id,
+                                               num_micro_batches = num_micro_batches,
+                                               micro_batch_size = micro_batch_size)
 p_0_test_dataset = create_micro_batched_dataset(samples = [tf.data.Dataset.from_tensor_slices(x_test)],
                                                 labels = [y_zero_loss, y_zero_loss],
-                                                recv_connection_ids=p_0_recv_connection_ids, 
-                                                send_connection_ids=p_0_send_connection_ids, 
-                                                partition_id=p_0_id,
-                                                num_micro_batches=num_micro_batches,
-                                                micro_batch_size=micro_batch_size)
+                                                recv_connection_ids = p_0_recv_connection_ids, 
+                                                send_connection_ids = p_0_send_connection_ids, 
+                                                partition_id = p_0_id,
+                                                num_micro_batches = num_micro_batches,
+                                                micro_batch_size = micro_batch_size)
 
 p_1_recv_connection_ids = [0, 1]
 p_1_send_connection_ids = []
 p_1_train_dataset = create_micro_batched_dataset(samples = [x_comm_0, x_comm_1],
                                                  labels = [tf.data.Dataset.from_tensor_slices(y_train)],
-                                                 recv_connection_ids=p_1_recv_connection_ids,
-                                                 send_connection_ids=p_1_send_connection_ids,
-                                                 partition_id=p_1_id,
-                                                 num_micro_batches=num_micro_batches,
-                                                 micro_batch_size=micro_batch_size) \
+                                                 recv_connection_ids = p_1_recv_connection_ids,
+                                                 send_connection_ids = p_1_send_connection_ids,
+                                                 partition_id = p_1_id,
+                                                 num_micro_batches = num_micro_batches,
+                                                 micro_batch_size = micro_batch_size) \
                     .shuffle(len(x_train), shuffle_seed)
 p_1_val_dataset = create_micro_batched_dataset(samples = [x_comm_0, x_comm_1],
                                                labels = [tf.data.Dataset.from_tensor_slices(y_val)],
-                                               recv_connection_ids=p_1_recv_connection_ids,
-                                               send_connection_ids=p_1_send_connection_ids,
-                                               partition_id=p_1_id,
-                                               num_micro_batches=num_micro_batches,
-                                               micro_batch_size=micro_batch_size)
+                                               recv_connection_ids = p_1_recv_connection_ids,
+                                               send_connection_ids = p_1_send_connection_ids,
+                                               partition_id = p_1_id,
+                                               num_micro_batches = num_micro_batches,
+                                               micro_batch_size = micro_batch_size)
 p_1_test_dataset = create_micro_batched_dataset(samples = [x_comm_0, x_comm_1],
                                                 labels = [tf.data.Dataset.from_tensor_slices(y_test)],
-                                                recv_connection_ids=p_1_recv_connection_ids,
-                                                send_connection_ids=p_1_send_connection_ids,
-                                                partition_id=p_1_id,
-                                                num_micro_batches=num_micro_batches,
-                                                micro_batch_size=micro_batch_size)
+                                                recv_connection_ids = p_1_recv_connection_ids,
+                                                send_connection_ids = p_1_send_connection_ids,
+                                                partition_id = p_1_id,
+                                                num_micro_batches = num_micro_batches,
+                                                micro_batch_size = micro_batch_size)
 
 # write model descriptions to files for debugging
 callbacks = []
@@ -281,44 +284,42 @@ if rank == master_rank:
 
 # pipelined model
 if rank == p_0_rank:
-  p_0_losses = {"p_0_m_0_o_0" : tnt_layers.ZeroLoss(),
-                "p_0_m_0_o_1" : tnt_layers.ZeroLoss(),
-                "p_0_m_1_o_0" : tnt_layers.ZeroLoss(),
-                "p_0_m_1_o_1" : tnt_layers.ZeroLoss(),
-                "p_0_end_seq" : tnt_layers.ZeroLoss()}
+  p_0_losses = {"p_0_m_0_o_0" : tnt_losses.ZeroLoss(),
+                "p_0_m_0_o_1" : tnt_losses.ZeroLoss(),
+                "p_0_m_1_o_0" : tnt_losses.ZeroLoss(),
+                "p_0_m_1_o_1" : tnt_losses.ZeroLoss(),
+                "p_0_end_seq" : tnt_losses.ZeroLoss()}
   p_0.compile(optimizer = sgd,
-              loss = p_0_losses,
-              experimental_run_tf_function = False)
+              loss = p_0_losses)
   p_0.fit(p_0_train_dataset,
           validation_data = p_0_val_dataset,
           epochs = number_epochs,
           verbose = 0,
           callbacks = callbacks)
-  p_0.evaluate(p_0_test_dataset,
-               verbose = 0)
+  # p_0.evaluate(p_0_test_dataset,
+  #              verbose = 0)
 if rank == p_1_rank:
   print("\nTraining pipelined model")
   p_1_losses = {"p_1_m_0_o_0" : keras.losses.SparseCategoricalCrossentropy(),
                 "p_1_m_1_o_0" : keras.losses.SparseCategoricalCrossentropy(),
-                "p_1_end_seq" : tnt_layers.ZeroLoss()}
+                "p_1_end_seq" : tnt_losses.ZeroLoss()}
   p_1_loss_weights = {"p_1_m_0_o_0" : 1./num_micro_batches,
                       "p_1_m_1_o_0" : 1./num_micro_batches,
                       "p_1_end_seq" : 0.}
   p_1_metrics = {"p_1_m_0_o_0" : keras.metrics.SparseCategoricalAccuracy(),
                  "p_1_m_1_o_0" : keras.metrics.SparseCategoricalAccuracy(),
-                 "p_1_end_seq" : tnt_layers.ZeroMetric()}
+                 "p_1_end_seq" : tnt_metrics.ZeroMetric()}
   p_1.compile(optimizer = sgd,
               loss = p_1_losses,
               loss_weights = p_1_loss_weights,
-              metrics = p_1_metrics,
-              experimental_run_tf_function = False)
+              metrics = p_1_metrics)
   p_1.fit(p_1_train_dataset,
           validation_data = p_1_val_dataset,
           epochs = number_epochs,
           verbose = user_verbosity,
           callbacks = callbacks)
-  pipelining_results = p_1.evaluate(p_1_test_dataset,
-                                    verbose = user_verbosity)
+  # pipelining_results = p_1.evaluate(p_1_test_dataset,
+  #                                   verbose = user_verbosity)
   print("Reference model results: [%.8f, %.8f]" % (single_rank_results[0], single_rank_results[1]))
-  print("Pipelined model results: [%.8f, %.8f]" % (pipelining_results[0],
-                                                   (pipelining_results[-2]+pipelining_results[-3])/2))
+  # print("Pipelined model results: [%.8f, %.8f]" % (pipelining_results[0],
+  #                                                  (pipelining_results[-2]+pipelining_results[-3])/2))
