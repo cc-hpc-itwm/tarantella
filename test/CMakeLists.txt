@@ -14,7 +14,7 @@ add_subdirectory(python)
 set(localranks_list 1 2 4 5 8)
 tarantella_compile_and_generate_gpi_test(NAME SynchCommunicator
                 LOCALRANKS_LIST "${localranks_list}"
-                TIMEOUT 40
+                TIMEOUT 300
                 SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/SynchCommunicator.cpp
                 LIBRARIES tnt::gpicommlib
                 INCLUDE_DIRECTORIES ${include_dirs})
