@@ -93,4 +93,20 @@ namespace tarantella
     auto const buffer_ptr = buffer->address();
     std::memcpy(local_recv_buf, buffer_ptr, buffer->description().size());
   }
+
+  void PipelineCommunicator::send_with_acknowledgement(void* const local_send_buf,
+                                                       ConnectionID conn_id,
+                                                       MicrobatchID micro_id)
+  {
+    non_blocking_send(local_send_buf, conn_id, micro_id);
+    send_buffers[conn_id][micro_id]->waitForTransferAck();
+  }
+
+  void PipelineCommunicator::recv_with_acknowledgement(void* local_recv_buf,
+                                                       ConnectionID conn_id,
+                                                       MicrobatchID micro_id)
+  {
+    blocking_recv(local_recv_buf, conn_id, micro_id);
+    receive_buffers[conn_id][micro_id]->ackTransfer();
+  }
 }

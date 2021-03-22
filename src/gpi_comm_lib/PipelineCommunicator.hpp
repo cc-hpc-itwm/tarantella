@@ -27,12 +27,10 @@ namespace tarantella
       PipelineCommunicator(LayerEdges const& edges,
                            std::size_t num_micro_batches);
 
-      void non_blocking_send(void* local_send_buf,
-                             ConnectionID,
-                             MicrobatchID);
-      void blocking_recv(void* local_recv_buf,
-                         ConnectionID,
-                         MicrobatchID);
+      void non_blocking_send(void* local_send_buf, ConnectionID, MicrobatchID);
+      void blocking_recv(void* local_recv_buf, ConnectionID, MicrobatchID);
+      void send_with_acknowledgement(void* local_send_buf, ConnectionID, MicrobatchID);
+      void recv_with_acknowledgement(void* local_recv_buf, ConnectionID, MicrobatchID);
 
     private:
       std::unordered_map<ConnectionID, std::vector<std::unique_ptr<SourceBuffer>>> send_buffers;
