@@ -106,8 +106,10 @@ p_0_shared_start_seq = [p_0_shared_input_seq]
 
 p_0_shared_x = tnt_layers.RemoveSeqInput()(p_0_shared_core_inputs + p_0_shared_start_seq)
 p_0_shared_x = p_0_core(p_0_shared_x)
-p_0_shared_output_0 = tnt_layers.SendLayer(pipeline_communicator = ppl_comm)(p_0_shared_x[0], p_0_shared_send_tags[0])
-p_0_shared_output_1 = tnt_layers.SendLayer(pipeline_communicator = ppl_comm)(p_0_shared_x[1], p_0_shared_send_tags[1])
+p_0_shared_output_0 = tnt_layers.SynchSendLayer(pipeline_communicator = ppl_comm)(
+                                                p_0_shared_x[0], p_0_shared_send_tags[0])
+p_0_shared_output_1 = tnt_layers.SynchSendLayer(pipeline_communicator = ppl_comm)(
+                                                p_0_shared_x[1], p_0_shared_send_tags[1])
 p_0_shared_outputs = [p_0_shared_output_0, p_0_shared_output_1]
 p_0_shared_outputs = tnt_layers.AddSeqOutput(micro_batch_size = micro_batch_size)(p_0_shared_outputs)
 p_0_shared_inputs = p_0_shared_core_inputs + p_0_shared_recv_tags + p_0_shared_send_tags + p_0_shared_start_seq
@@ -126,8 +128,10 @@ p_1_shared_send_tags = []
 p_1_shared_start_seq = [p_1_shared_input_seq]
 
 p_1_shared_x = tnt_layers.RemoveSeqInput()(p_1_shared_core_inputs + p_1_shared_start_seq)
-p_1_shared_recved_0 = tnt_layers.RecvLayer(pipeline_communicator = ppl_comm)(p_1_shared_x[0], p_1_shared_recv_tags[0])
-p_1_shared_recved_1 = tnt_layers.RecvLayer(pipeline_communicator = ppl_comm)(p_1_shared_x[1], p_1_shared_recv_tags[1])
+p_1_shared_recved_0 = tnt_layers.SynchRecvLayer(pipeline_communicator = ppl_comm)(
+                                                p_1_shared_x[0], p_1_shared_recv_tags[0])
+p_1_shared_recved_1 = tnt_layers.SynchRecvLayer(pipeline_communicator = ppl_comm)(
+                                                p_1_shared_x[1], p_1_shared_recv_tags[1])
 
 p_1_shared_outputs = p_1_core([p_1_shared_recved_0, p_1_shared_recved_1])
 p_1_shared_outputs = tnt_layers.AddSeqOutput(micro_batch_size=micro_batch_size)(p_1_shared_outputs)
@@ -296,8 +300,9 @@ if rank == p_0_rank:
           epochs = number_epochs,
           verbose = 0,
           callbacks = callbacks)
-  # p_0.evaluate(p_0_test_dataset,
-  #              verbose = 0)
+
+  p_0.evaluate(p_0_test_dataset,
+               verbose = 0)
 if rank == p_1_rank:
   print("\nTraining pipelined model")
   p_1_losses = {"p_1_m_0_o_0" : keras.losses.SparseCategoricalCrossentropy(),
@@ -318,8 +323,10 @@ if rank == p_1_rank:
           epochs = number_epochs,
           verbose = user_verbosity,
           callbacks = callbacks)
-  # pipelining_results = p_1.evaluate(p_1_test_dataset,
-  #                                   verbose = user_verbosity)
+
+  pipelining_results = p_1.evaluate(p_1_test_dataset,
+                                    verbose = user_verbosity)
   print("Reference model results: [%.8f, %.8f]" % (single_rank_results[0], single_rank_results[1]))
-  # print("Pipelined model results: [%.8f, %.8f]" % (pipelining_results[0],
-  #                                                  (pipelining_results[-2]+pipelining_results[-3])/2))
+  print("Pipelined model results: [%.8f, %.8f]" % (pipelining_results[0],
+                                                   (pipelining_results[-2]+pipelining_results[-3])/2))
+
