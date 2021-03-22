@@ -14,6 +14,8 @@ class DistributedDataset:
     self.base_dataset, self.dataset_transformations = \
            ds_helpers.gen_dataset_transformations(dataset)
     self.batching_info = ds_helpers.get_batching_info(self.dataset_transformations)
+    self.diff_micro_batch = False
+    self.micro_batch_size = None
 
   def distribute_dataset_across_ranks(self, user_micro_batch_size = None, is_training = True):
     dataset = self.base_dataset
@@ -78,14 +80,14 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
 
   def distributed_batch(self, dataset, batch_size, micro_batch_size):
     if self.batching_info.drop_remainder == True:
-      dataset = self.batching_info.apply(dataset, new_batch_size = micro_batch_size * self.num_ranks)
+      dataset = self.batching_info.apply(dataset, new_batch_size = batch_size)
       dataset = dataset.unbatch()
     else:
       num_samples = ds_helpers.get_num_samples(dataset)
       if num_samples == tf.data.experimental.INFINITE_CARDINALITY:
         raise ValueError("[DistributedDataset] Infinite dataset provided")
-      ##get large batch, check is num_sample is multiple of new_batch_size
-      new_batch_size = micro_batch_size * self.num_ranks
+      #get large batch, check is num_sample is multiple of new_batch_size
+      new_batch_size = batch_size
 #       print("dist num_samples is : new_batch_size is ",num_samples," ",new_batch_size)
       if tf.version.VERSION >= "2.2.0":
         #Always pad for version greater than 2.2.0
@@ -97,8 +99,14 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
  Removing the last incomplete batch from the dataset. Now dataset has {} samples.".format(num_samples,num_samples_multiple))
           dataset = dataset.take(num_samples_multiple)
     
-    dataset = dataset.shard(num_shards=self.num_ranks, index = self.rank)
-    dataset = self.batching_info.apply(dataset, new_batch_size = micro_batch_size)
+    if self.diff_micro_batch:
+      print("use dataset.window(),micro_batch_size is",self.micro_batch_size)
+      dataset = dataset.skip(self.rank)
+      dataset = dataset.window(size = self.micro_batch_size,shift = batch_size,stride = self.num_ranks,drop_remainder = False)
+    else:
+      print("here")
+      dataset = dataset.shard(num_shards=self.num_ranks, index = self.rank)
+      dataset = self.batching_info.apply(dataset, new_batch_size = self.micro_batch_size)
     
     logger.info("Using batch size = {}, micro batch size = {}.".format(
                 batch_size, micro_batch_size))
@@ -107,7 +115,18 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
   def get_microbatch_size(self, batch_size):
     if batch_size is None or batch_size == 0:
       raise ValueError("[DistributedDataset]Incorrectly defined batch size")
-
-    logger.debug("Batch size ({}) is a multiple of the number of ranks {}.".format(
+    
+    self.micro_batch_size = int(batch_size // self.num_ranks)
+    
+    remain_element = batch_size % self.num_ranks
+    
+    if remain_element != 0:
+      logger.debug("Batch size ({}) is a not multiple of the number of ranks {}.".format(
                  batch_size, self.num_ranks))
-    return int(batch_size // self.num_ranks)
+      self.diff_micro_batch = True
+      if self.rank + 1 <= remain_element:
+        self.micro_batch_size = self.micro_batch_size + 1
+      
+    logger.debug("Rank {} has micro batch {}.".format(
+                 self.rank, self.micro_batch_size))
+    return self.micro_batch_size
