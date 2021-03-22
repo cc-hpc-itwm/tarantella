@@ -1,10 +1,6 @@
 import tensorflow as tf
 
-class SendLayer(tf.keras.layers.Layer):
-  ''' Fwd: send output[`micro_batch_id`] to the layer on the remote rank
-      connected via `connection_id`
-      Bwd: receive corresponding gradient from ibidem
-  '''
+class P2PLayer(tf.keras.layers.Layer):
   def __init__(self, pipeline_communicator):
     super().__init__()
     self.pipeline_comm = pipeline_communicator
@@ -15,6 +11,14 @@ class SendLayer(tf.keras.layers.Layer):
   def compute_output_shape(self, input_shape):
     return input_shape
 
+  def get_config(self):
+    return super().get_config()
+
+class SendLayer(P2PLayer):
+  ''' Fwd: send output[`micro_batch_id`] to the layer on the remote rank
+      connected via `connection_id`
+      Bwd: receive corresponding gradient from ibidem
+  '''
   def call(self, inputs, connection_and_micro_batch_ids):
     @tf.custom_gradient
     def send_recv(x, tags):
@@ -33,22 +37,11 @@ class SendLayer(tf.keras.layers.Layer):
     return send_recv(inputs, connection_and_micro_batch_ids)
 
 
-class RecvLayer(tf.keras.layers.Layer):
+class RecvLayer(P2PLayer):
   ''' Fwd: receive output[`micro_batch_id`] from the layer on the remote rank
       connected via `connection_id`
       Bwd: send corresponding gradient back to ibidem
   '''
-
-  def __init__(self, pipeline_communicator):
-    super().__init__()
-    self.pipeline_comm = pipeline_communicator
-
-  def build(self, input_shape):
-    return super().build(input_shape)
-
-  def compute_output_shape(self, input_shape):
-    return input_shape
-
   def call(self, inputs, connection_and_micro_batch_ids):
     @tf.custom_gradient
     def recv_send(x, tags):
@@ -66,21 +59,11 @@ class RecvLayer(tf.keras.layers.Layer):
 
     return recv_send(inputs, connection_and_micro_batch_ids)
 
-class SynchSendLayer(tf.keras.layers.Layer):
+class SynchSendLayer(P2PLayer):
   ''' Fwd: send output[`micro_batch_id`] to the layer on the remote rank
       connected via `connection_id` and wait for acknowledgement from receiver
       Bwd: receive corresponding gradient from ibidem
   '''
-  def __init__(self, pipeline_communicator):
-    super().__init__()
-    self.pipeline_comm = pipeline_communicator
-
-  def build(self, input_shape):
-    return super().build(input_shape)
-
-  def compute_output_shape(self, input_shape):
-    return input_shape
-
   def call(self, inputs, connection_and_micro_batch_ids):
     @tf.custom_gradient
     def send_recv(x, tags):
@@ -99,22 +82,11 @@ class SynchSendLayer(tf.keras.layers.Layer):
     return send_recv(inputs, connection_and_micro_batch_ids)
 
 
-class SynchRecvLayer(tf.keras.layers.Layer):
+class SynchRecvLayer(P2PLayer):
   ''' Fwd: receive output[`micro_batch_id`] from the layer on the remote rank
       connected via `connection_id` and send receipt acknowledgement to sender
       Bwd: send corresponding gradient back to ibidem
   '''
-
-  def __init__(self, pipeline_communicator):
-    super().__init__()
-    self.pipeline_comm = pipeline_communicator
-
-  def build(self, input_shape):
-    return super().build(input_shape)
-
-  def compute_output_shape(self, input_shape):
-    return input_shape
-
   def call(self, inputs, connection_and_micro_batch_ids):
     @tf.custom_gradient
     def recv_send(x, tags):
@@ -172,12 +144,15 @@ class RemoveSeqInput(tf.keras.layers.Layer):
                                        trainable=True)
 
   def build(self, input_shape):
-    super(RemoveSeqInput, self).build(input_shape)
+    super().build(input_shape)
     self.num_outputs = len(input_shape) - 1
     self.oshape = input_shape[:-1]
 
   def compute_output_shape(self, input_shape):
     return self.oshape
+
+  def get_config(self):
+    return super().get_config()
 
   def call(self, inputs):
     if type(inputs) is not list or len(inputs) <= 1:
@@ -216,11 +191,14 @@ class AddSeqOutput(tf.keras.layers.Layer):
     super().__init__(name=name)
 
   def build(self, input_shape):
-    super(AddSeqOutput, self).build(input_shape)
+    super().build(input_shape)
     if isinstance(input_shape, list):
       self.oshape = input_shape + [tf.TensorShape([None, 1])]
     else:
       self.oshape = [input_shape] + [tf.TensorShape([None, 1])]
+
+  def get_config(self):
+    return super().get_config()
 
   def compute_output_shape(self, input_shape):
     return self.oshape
