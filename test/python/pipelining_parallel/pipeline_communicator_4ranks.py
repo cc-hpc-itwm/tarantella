@@ -41,6 +41,7 @@ partition_test_cases = [
   },
   ]
 
+@pytest.mark.tfversion(['2.2', '2.3'])
 class TestPipelineCommunicator:
 
   @pytest.mark.parametrize("partition", partition_test_cases)
