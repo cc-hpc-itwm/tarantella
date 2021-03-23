@@ -58,18 +58,6 @@ class PipelineCommunicator:
                            micro_batch_id = micro_batch_id,
                            tnt_pipeline_comm = self.pipeline_comm.get_raw_ptr())
 
-  def send_with_acknowledgement(self, input, connection_id, micro_batch_id):
-    return tnt_ops.send_with_ack_op(input,
-                                    connection_id = connection_id,
-                                    micro_batch_id = micro_batch_id,
-                                    tnt_pipeline_comm = self.pipeline_comm.get_raw_ptr())
-
-  def recv_with_acknowledgement(self, input, connection_id, micro_batch_id):
-    return tnt_ops.recv_with_ack_op(input,
-                                    connection_id = connection_id,
-                                    micro_batch_id = micro_batch_id,
-                                    tnt_pipeline_comm = self.pipeline_comm.get_raw_ptr())
-
   def get_local_connection_ids(self):
     return self.local_edge_list.keys()
 

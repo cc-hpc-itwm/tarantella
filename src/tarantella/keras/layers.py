@@ -59,50 +59,6 @@ class RecvLayer(P2PLayer):
 
     return recv_send(inputs, connection_and_micro_batch_ids)
 
-class SynchSendLayer(P2PLayer):
-  ''' Fwd: send output[`micro_batch_id`] to the layer on the remote rank
-      connected via `connection_id` and wait for acknowledgement from receiver
-      Bwd: receive corresponding gradient from ibidem
-  '''
-  def call(self, inputs, connection_and_micro_batch_ids):
-    @tf.custom_gradient
-    def send_recv(x, tags):
-      # tags = [micro_batch_id, connection_id]
-      micro_batch_id = tags[0][0]
-      connection_id = tags[0][1]
-
-      y = self.pipeline_comm.send_with_acknowledgement(x, connection_id = connection_id,
-                                                       micro_batch_id = micro_batch_id)
-      def grad(dy):
-        out = self.pipeline_comm.recv(dy, connection_id = connection_id,
-                                      micro_batch_id = micro_batch_id)
-        return out, tf.zeros_like(tags)
-      return y, grad
-
-    return send_recv(inputs, connection_and_micro_batch_ids)
-
-
-class SynchRecvLayer(P2PLayer):
-  ''' Fwd: receive output[`micro_batch_id`] from the layer on the remote rank
-      connected via `connection_id` and send receipt acknowledgement to sender
-      Bwd: send corresponding gradient back to ibidem
-  '''
-  def call(self, inputs, connection_and_micro_batch_ids):
-    @tf.custom_gradient
-    def recv_send(x, tags):
-      # tags = [micro_batch_id, connection_id]
-      micro_batch_id = tags[0][0]
-      connection_id = tags[0][1]
-
-      y = self.pipeline_comm.recv_with_acknowledgement(x, connection_id = connection_id,
-                                                       micro_batch_id = micro_batch_id)
-      def grad(dy):
-        dx = self.pipeline_comm.send(dy, connection_id = connection_id,
-                                     micro_batch_id = micro_batch_id)
-        return dx, tf.zeros_like(tags)
-      return y, grad
-
-    return recv_send(inputs, connection_and_micro_batch_ids)
 
 
 class IdentityLayer(tf.keras.layers.Layer):

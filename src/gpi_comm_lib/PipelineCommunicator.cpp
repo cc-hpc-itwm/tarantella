@@ -11,6 +11,7 @@ namespace tarantella
   PipelineCommunicator::PipelineCommunicator(
     LayerEdges const& edges,
     std::size_t num_micro_batches)
+  : num_micro_batches(num_micro_batches)
   {
     for (auto& [connection_id, edge] : edges)
     {
@@ -72,7 +73,7 @@ namespace tarantella
     }
   }
 
-  void PipelineCommunicator::non_blocking_send(void* const local_send_buf,
+  void PipelineCommunicator::send(void* const local_send_buf,
                                                ConnectionID conn_id,
                                                MicrobatchID micro_id)
   {
@@ -81,32 +82,28 @@ namespace tarantella
     std::memcpy(buffer_ptr, local_send_buf, buffer->description().size());
 
     buffer->initTransfer();
+    if (micro_id == num_micro_batches - 1)
+    {
+      // block in send until the data is received for the last micro-batch to ensure
+      // mini-batch-level synchronization between partitions (within the forward pass)
+      buffer->waitForTransferAck();
+    }
   }
 
-  void PipelineCommunicator::blocking_recv(void* local_recv_buf,
+  void PipelineCommunicator::recv(void* local_recv_buf,
                                            ConnectionID conn_id,
                                            MicrobatchID micro_id)
   {
     auto& buffer = receive_buffers[conn_id][micro_id];
     buffer->waitForCompletion();
-
     auto const buffer_ptr = buffer->address();
     std::memcpy(local_recv_buf, buffer_ptr, buffer->description().size());
-  }
 
-  void PipelineCommunicator::send_with_acknowledgement(void* const local_send_buf,
-                                                       ConnectionID conn_id,
-                                                       MicrobatchID micro_id)
-  {
-    non_blocking_send(local_send_buf, conn_id, micro_id);
-    send_buffers[conn_id][micro_id]->waitForTransferAck();
-  }
-
-  void PipelineCommunicator::recv_with_acknowledgement(void* local_recv_buf,
-                                                       ConnectionID conn_id,
-                                                       MicrobatchID micro_id)
-  {
-    blocking_recv(local_recv_buf, conn_id, micro_id);
-    receive_buffers[conn_id][micro_id]->ackTransfer();
+    if (micro_id == num_micro_batches - 1)
+    {
+      // acknowledge data transfer after the last micro-batch to ensure
+      // mini-batch-level synchronization between partitions (within the forward pass)
+      buffer->ackTransfer();
+    }
   }
 }
