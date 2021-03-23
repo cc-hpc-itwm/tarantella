@@ -103,6 +103,9 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
       print("use dataset.window(),micro_batch_size is",self.micro_batch_size)
       dataset = dataset.skip(self.rank)
       dataset = dataset.window(size = self.micro_batch_size,shift = batch_size,stride = self.num_ranks,drop_remainder = False)
+      def create_seqeunce_ds(a,b):
+        return tf.data.Dataset.zip((a.batch(self.micro_batch_size, drop_remainder=False),b.batch(self.micro_batch_size, drop_remainder=False)))
+      dataset = dataset.flat_map(create_seqeunce_ds)
     else:
       print("here")
       dataset = dataset.shard(num_shards=self.num_ranks, index = self.rank)
