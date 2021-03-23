@@ -163,7 +163,7 @@ namespace tarantella
 
         for (auto mbatch_id = 0UL; mbatch_id < partition.get_num_microbatches(); ++mbatch_id)
         {
-          pipeline_comm.non_blocking_send(send_buffer.data(), connection_id, mbatch_id);
+          pipeline_comm.send(send_buffer.data(), connection_id, mbatch_id);
         }
       }
 
@@ -177,7 +177,7 @@ namespace tarantella
                     partition.get_other_rank(connection_id));
 
           std::vector<T> recv_buffer(partition.get_num_elements(connection_id));
-          pipeline_comm.blocking_recv(recv_buffer.data(), connection_id, mbatch_id);
+          pipeline_comm.recv(recv_buffer.data(), connection_id, mbatch_id);
           BOOST_TEST_REQUIRE(recv_buffer == expected_buffer);
         }
       }

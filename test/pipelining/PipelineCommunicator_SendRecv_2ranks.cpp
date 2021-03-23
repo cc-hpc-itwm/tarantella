@@ -77,13 +77,13 @@ namespace tarantella
                                                 partition_info.num_micro_batches);
       if (rank == 0)
       {
-        pipeline_comm.non_blocking_send(send_buffer.data(), conn_id, mbatch_id);
+        pipeline_comm.send(send_buffer.data(), conn_id, mbatch_id);
       }
       else if (rank == 1)
       {
         std::vector<T> recv_buffer(partition_info.num_elements);
 
-        pipeline_comm.blocking_recv(recv_buffer.data(), conn_id, mbatch_id);
+        pipeline_comm.recv(recv_buffer.data(), conn_id, mbatch_id);
         BOOST_TEST_REQUIRE(recv_buffer == send_buffer);
       }
     }
@@ -107,18 +107,18 @@ namespace tarantella
       if (rank == 0)
       {
         std::vector<T> recv_buffer(partition_info.num_elements);
-        pipeline_comm.non_blocking_send(send_buffer_0to1.data(), conn_id, mbatch_id);
+        pipeline_comm.send(send_buffer_0to1.data(), conn_id, mbatch_id);
 
-        pipeline_comm.blocking_recv(recv_buffer.data(), conn_id, mbatch_id);
+        pipeline_comm.recv(recv_buffer.data(), conn_id, mbatch_id);
         BOOST_TEST_REQUIRE(recv_buffer == send_buffer_1to0);
       }
       else if (rank == 1)
       {
         std::vector<T> recv_buffer(partition_info.num_elements);
-        pipeline_comm.blocking_recv(recv_buffer.data(), conn_id, mbatch_id);
+        pipeline_comm.recv(recv_buffer.data(), conn_id, mbatch_id);
         BOOST_TEST_REQUIRE(recv_buffer == send_buffer_0to1);
 
-        pipeline_comm.non_blocking_send(send_buffer_1to0.data(), conn_id, mbatch_id);
+        pipeline_comm.send(send_buffer_1to0.data(), conn_id, mbatch_id);
       }
     }
 
