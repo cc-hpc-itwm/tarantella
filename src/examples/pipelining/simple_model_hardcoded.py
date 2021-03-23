@@ -106,10 +106,10 @@ p_0_shared_start_seq = [p_0_shared_input_seq]
 
 p_0_shared_x = tnt_layers.RemoveSeqInput()(p_0_shared_core_inputs + p_0_shared_start_seq)
 p_0_shared_x = p_0_core(p_0_shared_x)
-p_0_shared_output_0 = tnt_layers.SynchSendLayer(pipeline_communicator = ppl_comm)(
-                                                p_0_shared_x[0], p_0_shared_send_tags[0])
-p_0_shared_output_1 = tnt_layers.SynchSendLayer(pipeline_communicator = ppl_comm)(
-                                                p_0_shared_x[1], p_0_shared_send_tags[1])
+p_0_shared_output_0 = tnt_layers.SendLayer(pipeline_communicator = ppl_comm)(
+                                           p_0_shared_x[0], p_0_shared_send_tags[0])
+p_0_shared_output_1 = tnt_layers.SendLayer(pipeline_communicator = ppl_comm)(
+                                           p_0_shared_x[1], p_0_shared_send_tags[1])
 p_0_shared_outputs = [p_0_shared_output_0, p_0_shared_output_1]
 p_0_shared_outputs = tnt_layers.AddSeqOutput(micro_batch_size = micro_batch_size)(p_0_shared_outputs)
 p_0_shared_inputs = p_0_shared_core_inputs + p_0_shared_recv_tags + p_0_shared_send_tags + p_0_shared_start_seq
@@ -128,10 +128,10 @@ p_1_shared_send_tags = []
 p_1_shared_start_seq = [p_1_shared_input_seq]
 
 p_1_shared_x = tnt_layers.RemoveSeqInput()(p_1_shared_core_inputs + p_1_shared_start_seq)
-p_1_shared_recved_0 = tnt_layers.SynchRecvLayer(pipeline_communicator = ppl_comm)(
-                                                p_1_shared_x[0], p_1_shared_recv_tags[0])
-p_1_shared_recved_1 = tnt_layers.SynchRecvLayer(pipeline_communicator = ppl_comm)(
-                                                p_1_shared_x[1], p_1_shared_recv_tags[1])
+p_1_shared_recved_0 = tnt_layers.RecvLayer(pipeline_communicator = ppl_comm)(
+                                           p_1_shared_x[0], p_1_shared_recv_tags[0])
+p_1_shared_recved_1 = tnt_layers.RecvLayer(pipeline_communicator = ppl_comm)(
+                                           p_1_shared_x[1], p_1_shared_recv_tags[1])
 
 p_1_shared_outputs = p_1_core([p_1_shared_recved_0, p_1_shared_recved_1])
 p_1_shared_outputs = tnt_layers.AddSeqOutput(micro_batch_size=micro_batch_size)(p_1_shared_outputs)
