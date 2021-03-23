@@ -8,15 +8,10 @@ import tarantella.optimizers.synchronous_distributed_optimizer as distributed_op
 import tarantella.datasets.distributed_dataset as ds
 from tarantella import logger
 
-model_implemented_methods = ['model', 'rank', 'comm_size',
-                             'call', 'build', 'done_broadcast', 'set_weights', 'load_weights',
-                             'get_weights', '_broadcast_weights_if_necessary', '_broadcast_weights',
-                             'broadcaster', 'default_shuffle_seed',
-                             'orig_optimizer', 'orig_loss', 'orig_metrics',
-                             'orig_loss_weights', 'orig_sample_weight_mode', 'orig_weighted_metrics']
 
 class Model(tf.keras.models.Model):
   def __init__(self, model):
+    super(Model, self).__init__()
     self.rank = tarantella.get_rank()
     self.comm_size = tarantella.get_size()
 
@@ -43,30 +38,92 @@ class Model(tf.keras.models.Model):
                                'predict' : 0,
                               }
 
+  @property
+  def metrics(self):
+    return self.model.metrics
+  
+  @property
+  def metrics_names(self):
+    return self.model.metrics_names
+  
+  @property
+  def distribute_strategy(self):
+    return None
+  
+  @property
+  def run_eagerly(self):
+    return self.model.run_eagerly
+  
+  @property
+  def layers(self):
+    if hasattr(self, 'model'):
+      return self.model.layers
+    # condition needed for super(Model, self).__init__() to pass without error, 
+    # as self.model does not exist at the time of init call
+    else:
+      return super(Model, self).layers
+
+  @property
+  def dynamic(self):
+    return self.model.dynamic
+  
+  @property
+  def stateful(self):
+    return self.model.stateful
+  
+  @property
+  def state_updates(self):
+    return self.model.state_updates
+  
+  @property
+  def weights(self):
+    return self.model.weights
+  
+  @property
+  def trainable_weights(self):
+    return self.model.trainable_weights
+  
+  @property
+  def non_trainable_weights(self):
+    return self.model.non_trainable_weights
+  
+  @property
+  def input_spec(self):
+    return self.model.input_spec
+
+  @property
+  def losses(self):
+    return self.model.losses
+
   def call(self, inputs):
     return self.model.call(inputs)
 
   def build(self, input_shape):
     return self.model.build(input_shape)
 
-  def __getattr__(self, name):
-    if name in model_implemented_methods or \
-       'model' not in self.__dict__:
-      return getattr(self.__dict__, name)
-    return getattr(self.__dict__['model'], name)
+  def get_layer(self, name=None, index=None):
+    return self.model.get_layer(name, index)
   
-  def __setattr__(self, name, value):
-    if name in model_implemented_methods or \
-       'model' not in self.__dict__:
-      self.__dict__[name] = value
-    else:
-      setattr(self.__dict__['model'], name, value)
+  def reset_metrics(self):
+    self.model.reset_metrics()
+
+  def reset_states(self):
+    self.model.reset_states()
   
-  def __delattr__(self, name):
-    if name in model_implemented_methods or \
-       'model' not in self.__dict__:
-      delattr(self.__dict__, name)
-    delattr(self.__dict__['model'], name)
+  def compute_mask(self, inputs, mask):
+    return self.model.compute_mask(inputs, mask)
+  
+  def compute_output_shape(self, input_shape):
+    return self.model.compute_output_shape(input_shape)
+
+  def add_loss(self, losses, inputs=None):
+    self.model.add_loss(losses, inputs)
+  
+  def add_metric(self, value, aggregation=None, name=None):
+    self.model.add_metric(value, aggregation, name)
+  
+  def connect_ancillary_layers(model, created_layers):
+    raise AttributeError('Not supported by tarantella model. Call connect_ancillary_layers on keras model before calling tnt.Model() instead.')
 
   def compile(self,
               optimizer='rmsprop',
