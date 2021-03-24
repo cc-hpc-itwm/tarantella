@@ -1,5 +1,5 @@
 import tarantella as tnt
-import tarantella.parallel.utils as utils
+import tarantella.collectives.utils as utils
 
 from tnt_tfops import tnt_ops
 import GPICommLib
@@ -46,7 +46,7 @@ class SynchCommunicator():
     # This ensures that the graph execution does not get delayed by waiting
     # for gradients to be reduced as long as there are remaining computations
     # in the backward pass.
-    temp_gradients = tnt_ops.barrier_op(gradients_to_reduce, 
+    temp_gradients = tnt_ops.barrier_op(gradients_to_reduce,
                                          Tout = [tf.float32] * len(gradients_to_reduce))
 
     # Add individual ops that wait for each gradient to be reduced before updating

@@ -11,5 +11,5 @@ def __is_nonEmptyArray__(input):
 
 def get_tensor_info(tensor_id, tensor):
   return GPICommLib.TensorInfo(tensor_id,
-                               int(np.prod(tensor.shape)), 
+                               int(np.prod(tensor.shape)),
                                np.dtype(tf.dtypes.as_dtype(tensor.dtype).as_numpy_dtype()))

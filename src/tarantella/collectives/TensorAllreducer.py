@@ -1,6 +1,6 @@
 import GPICommLib
 
-import tarantella.parallel.utils as utils
+from . import utils
 
 class TensorAllreducer:
   def __init__(self, input):

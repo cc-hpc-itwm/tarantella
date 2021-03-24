@@ -3,7 +3,7 @@ include (add_test)
 function (tarantella_compile_and_generate_gpi_test)
   set (one_value_options NAME DESCRIPTION TIMEOUT)
   set (multi_value_options LOCALRANKS_LIST SOURCES LIBRARIES INCLUDE_DIRECTORIES
-                           SYSTEM_INCLUDE_DIRECTORIES ARGS COMPILE_FLAGS)
+                           SYSTEM_INCLUDE_DIRECTORIES ARGS COMPILE_FLAGS LABELS)
   set (required_options NAME SOURCES LOCALRANKS_LIST)
   _parse_arguments (ARG "${options}" "${one_value_options}" 
                         "${multi_value_options}" "${required_options}" ${ARGN})
@@ -31,7 +31,8 @@ function (tarantella_compile_and_generate_gpi_test)
                 RUNCOMMAND ${GPI2_GASPI_RUN}
                 CLEANUP ${CLEANUP_TEST_NAME}
                 TIMEOUT ${ARG_TIMEOUT}
-                SLEEP ${SLEEP_TIME_AFTER_TEST})
+                SLEEP ${SLEEP_TIME_AFTER_TEST}
+                LABELS ${ARG_LABELS})
   endforeach()
 endfunction()
 

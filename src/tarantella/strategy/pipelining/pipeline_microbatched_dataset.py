@@ -2,51 +2,7 @@ import argparse
 import re
 
 import tensorflow as tf
-from tensorflow import keras
 from enum import Enum
-
-def parse_args():
-  parser = argparse.ArgumentParser()
-  parser.add_argument("-bs", "--batch_size", type=int, default=64)
-  parser.add_argument("-micro", "--num_micro_batches", type=int, default=2)
-  parser.add_argument("-e", "--number_epochs", type=int, default=1)
-  parser.add_argument("-lr", "--learning_rate", type=float, default=0.01)
-  parser.add_argument("-train", "--train_size", type=int, default=50000)
-  parser.add_argument("-val", "--val_size", type=int, default=10000)
-  parser.add_argument("-test", "--test_size", type=int, default=10000)
-  parser.add_argument("-v", "--verbose", type=int, default=0)
-  args = parser.parse_args()
-  return args
-
-def mnist_as_np_arrays(training_samples, validation_samples, test_samples):
-  mnist_train_size = 60000
-  mnist_test_size = 10000
-  assert(training_samples + validation_samples <= mnist_train_size)
-  assert(test_samples <= mnist_test_size)
-
-  # load given number of samples
-  (x_train_all, y_train_all), (x_test_all, y_test_all) = keras.datasets.mnist.load_data()
-  x_train = x_train_all[:training_samples]
-  y_train = y_train_all[:training_samples]
-  x_val = x_train_all[training_samples:training_samples+validation_samples]
-  y_val = y_train_all[training_samples:training_samples+validation_samples]
-  x_test = x_test_all[:test_samples]
-  y_test = y_test_all[:test_samples]
-
-  # normalization and reshape
-  x_train = x_train.reshape(training_samples, 28, 28, 1).astype('float32') / 255.
-  x_val = x_val.reshape(validation_samples, 28, 28, 1).astype('float32') / 255.
-  x_test = x_test.reshape(test_samples, 28, 28, 1).astype('float32') / 255.
-  y_train = y_train.astype('float32')
-  y_val = y_val.astype('float32')
-  y_test = y_test.astype('float32')
-
-  return (x_train, y_train), (x_val, y_val), (x_test, y_test)
-
-def create_dataset_from_arrays(samples, labels, batch_size):
-  assert(len(samples) == len(labels))
-  ds = tf.data.Dataset.from_tensor_slices((samples, labels))
-  return ds.batch(batch_size)
 
 class InoutLayerType(Enum):
     input = 'i'
@@ -60,7 +16,7 @@ def create_name_partition(partition_id):
   return 'p_%s' % (str(partition_id))
 
 def create_name_micro_batched_layer(partition_id, element_type, layer_id = None, micro_batch_id = None):
-  """Create a name for a layer of `type` either input/output, based on the partition_id, 
+  """Create a name for a layer of `type` either input/output, based on the partition_id,
   layer_id, and an optional micro_batch_id
   """
   if not isinstance(element_type, InoutLayerType):
@@ -96,34 +52,34 @@ def create_micro_batched_dataset(samples, labels, recv_connection_ids, send_conn
   num_recvs = len(recv_connection_ids)
   num_sends = len(send_connection_ids)
 
-  input_names = create_names_micro_batched_model(partition_id=partition_id, 
+  input_names = create_names_micro_batched_model(partition_id=partition_id,
                                                  num_core_elements=num_inputs,
-                                                 element_type=InoutLayerType.input, 
+                                                 element_type=InoutLayerType.input,
                                                  num_micro_batches=num_micro_batches)
-  recv_tag_names = create_names_micro_batched_model(partition_id=partition_id, 
+  recv_tag_names = create_names_micro_batched_model(partition_id=partition_id,
                                                     num_core_elements=num_recvs,
-                                                    element_type=InoutLayerType.recv_tag, 
+                                                    element_type=InoutLayerType.recv_tag,
                                                     num_micro_batches=num_micro_batches)
-  send_tag_names = create_names_micro_batched_model(partition_id=partition_id, 
+  send_tag_names = create_names_micro_batched_model(partition_id=partition_id,
                                                     num_core_elements=num_sends,
-                                                    element_type=InoutLayerType.send_tag, 
+                                                    element_type=InoutLayerType.send_tag,
                                                     num_micro_batches=num_micro_batches)
   start_seq_name = create_name_micro_batched_layer(partition_id=partition_id,
                                                    element_type=InoutLayerType.start_seq)
-  output_names = create_names_micro_batched_model(partition_id=partition_id, 
+  output_names = create_names_micro_batched_model(partition_id=partition_id,
                                                   num_core_elements=num_outputs,
-                                                  element_type=InoutLayerType.output, 
+                                                  element_type=InoutLayerType.output,
                                                   num_micro_batches=num_micro_batches)
   end_seq_name = create_name_micro_batched_layer(partition_id=partition_id,
                                                  element_type=InoutLayerType.end_seq)
-  
+
   # create micro-batched inputs/outputs from original samples/labels and
   # an additional placeholder dataset each, for sequential micro-batch execution
   input_datasets = list()
   for i in range(num_inputs):
     for m in range(num_micro_batches):
       input_datasets.append(samples[i].batch(micro_batch_size).shard(num_micro_batches, m))
-  
+
   recv_tag_datasets = list()
   for connection_id in recv_connection_ids:
     for m in range(num_micro_batches):
@@ -144,7 +100,7 @@ def create_micro_batched_dataset(samples, labels, recv_connection_ids, send_conn
   end_seq_dataset = [tf.data.Dataset.from_tensors(tf.constant(0.0)).batch(1).repeat()]
 
   # create generator function that implements an iterator over pairs of
-  # input/output dict's, which map from the input,recv_tag,send_tag/output layer name 
+  # input/output dict's, which map from the input,recv_tag,send_tag/output layer name
   # to an input,recv_tag,send_tag/output sample
   def generator():
     for inout in zip(*input_datasets, *recv_tag_datasets, *send_tag_datasets,

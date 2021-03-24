@@ -1,7 +1,7 @@
 import GPICommLib
 
 import tarantella as tnt
-import tarantella.parallel.utils as utils
+from . import utils
 
 class TensorBroadcaster():
   def __init__(self, input, root_rank = tnt.get_master_rank()):
