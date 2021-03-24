@@ -91,10 +91,12 @@ namespace tarantella
 {
   BOOST_GLOBAL_FIXTURE(GlobalContext);
 
+  // Assumption: the partitioning graph is oriented,
+  // such that each rank receives data from smaller ranks and sends to larger ranks
   std::vector<PartitionTestCase> partition_test_cases = {
     // Test case 1:
     // (rank) --conn_id-- (rank)
-    // (0) --0-- (1) --1-- (2) --2-- (3)
+    // (0) --0--> (1) --1--> (2) --2--> (3)
     { 2, // num microbatches
       { // conn_id, <rank,  size>
           {{0,         {1,   100}}  // rank 0
@@ -110,11 +112,12 @@ namespace tarantella
       }
     },
    // Test case 2
-   // (0) --3-- (2)
-   //            |
-   //            2
-   //            |
-   //           (1) --1-- (3)
+   // (0) --3--> (2)
+   //             ^
+   //             |
+   //             2
+   //             |
+   //            (1) --1--> (3)
     { 3, // num microbatches
       { // conn_id, <rank,  size>
           {{3,         {2,     4}}  // rank 0
@@ -158,6 +161,10 @@ namespace tarantella
       // send from all connections
       for (auto connection_id : partition.get_connection_ids())
       {
+        if (partition.get_other_rank(connection_id) < rank)
+        {
+          continue;
+        }
         std::vector<T> send_buffer(partition.get_num_elements(connection_id));
         std::iota(send_buffer.begin(), send_buffer.end(), rank);
 
@@ -172,6 +179,10 @@ namespace tarantella
       {
         for (auto connection_id : partition.get_connection_ids())
         {
+          if (partition.get_other_rank(connection_id) > rank)
+          {
+            continue;
+          }
           std::vector<T> expected_buffer(partition.get_num_elements(connection_id));
           std::iota(expected_buffer.begin(), expected_buffer.end(),
                     partition.get_other_rank(connection_id));
