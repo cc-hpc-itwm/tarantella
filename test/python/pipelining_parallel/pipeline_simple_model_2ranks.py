@@ -20,9 +20,12 @@ shuffle_seed = 17
 learning_rate = 0.01
 elem_type = np.dtype(np.float32)
 
-num_partitions = 2
+number_connections = 2
+number_partitions = 2
 p_0_id = 0
 p_1_id = 1
+# Results correctness is checked on the `master_rank`, which has to be on rank=0 to be able to
+# forward the test exit code to `gaspi_run`
 p_0_rank = 1
 p_1_rank = 0
 master_rank = p_1_rank
@@ -233,6 +236,12 @@ def check_predictions_match(reference_results, pipeline_results):
   assert np.allclose(reference_results[0], pipeline_results[0])
   assert np.allclose(reference_results[1], (pipeline_results[-2] + pipeline_results[-3])/2)
 
+@pytest.fixture(autouse=True)
+def setup_tf_threading_before_tests():
+  if tf.config.threading.get_inter_op_parallelism_threads() < number_connections:
+    tf.config.threading.set_inter_op_parallelism_threads(number_connections)
+  yield
+
 @pytest.mark.tfversion(['2.2', '2.3'])
 class TestPipelineSimpleModel:
 
@@ -240,7 +249,10 @@ class TestPipelineSimpleModel:
   @pytest.mark.parametrize("num_batches", [10])
   @pytest.mark.parametrize("number_epochs", [1])
   def test_train(self, batch_size, num_batches, number_epochs):
-    assert tnt.get_size() == num_partitions
+    # at least as many parallel ops as connection IDs are needed to ensure the (blocking) send
+    # operation on the last micro-batches can make progress
+    assert tf.config.threading.get_inter_op_parallelism_threads() >= number_connections
+    assert tnt.get_size() == number_partitions
     train_size = num_batches * batch_size
     micro_batch_size = batch_size // num_micro_batches
 
@@ -311,7 +323,7 @@ class TestPipelineSimpleModel:
   @pytest.mark.parametrize("num_test_batches", [100])
   @pytest.mark.parametrize("number_epochs", [2])
   def test_train_and_evaluate(self, batch_size, num_batches, num_test_batches, number_epochs):
-    assert tnt.get_size() == num_partitions
+    assert tnt.get_size() == number_partitions
     train_size = num_batches * batch_size
     test_size = num_test_batches * batch_size
     micro_batch_size = batch_size // num_micro_batches
