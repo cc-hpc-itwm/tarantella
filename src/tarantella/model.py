@@ -358,5 +358,9 @@ class Model(tf.keras.models.Model):
           hist_callback = tnt_callbacks.TntHistory(keras_history = callback)
           callbacks[index] = hist_callback
 
+        elif isinstance(callback, tf.keras.callbacks.EarlyStopping):
+          early_stopping_callback = tnt_callbacks.TntEarlyStopping(keras_early_stopping = callback)
+          callbacks[index] = early_stopping_callback
+
       if remove_tensorboard_index is not None:
         del callbacks[remove_tensorboard_index]

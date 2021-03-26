@@ -70,18 +70,33 @@ def __get_agg_metrics__(input):
 class TntCSVLogger(tf.keras.callbacks.CSVLogger):
   def __init__(self, keras_csvlogger):
     super(TntCSVLogger, self).__init__(keras_csvlogger.filename)
+
+    # set member variables from keras csvlogger instance
+    self.sep = keras_csvlogger.sep
+    self.append = keras_csvlogger.append
+
     self.logs = {}
+    self.allreducer = None
 
   def on_train_begin(self, logs=None):
+    # only master rank should open a file
     if tnt.is_master_rank():
       super().on_train_begin(logs)
 
   def on_epoch_end(self, epoch, logs=None):
-    self.logs = __get_agg_metrics__(logs)
+    if self.allreducer is None:
+      self.allreducer = tnt.TensorAllreducer(logs)
+    
+    # do an allreduce on all ranks and get averaged values over all ranks
+    self.logs = self.allreducer.allreduce(logs)
+    self.logs.update((k, v / tnt.get_size()) for k, v in self.logs.items())
+
+    # only master rank will write logs to created file
     if tnt.is_master_rank():
       super().on_epoch_end(epoch, self.logs)
 
   def on_train_end(self, logs=None):
+    # only master rank has created a file and thus needs to be closed
     if tnt.is_master_rank():
       super().on_train_end(logs)
 
@@ -89,7 +104,41 @@ class TntHistory(tf.keras.callbacks.History):
   def __init__(self, keras_history):
     super(TntHistory, self).__init__()
     self.logs = {}
+    self.allreducer = None
 
   def on_epoch_end(self, epoch, logs=None):
-    self.logs = __get_agg_metrics__(logs)
+    if self.allreducer is None:
+      self.allreducer = tnt.TensorAllreducer(logs)
+    
+    # do an allreduce on all ranks and get averaged values over all ranks
+    self.logs = self.allreducer.allreduce(logs)
+    self.logs.update((k, v / tnt.get_size()) for k, v in self.logs.items())
+
     super().on_epoch_end(epoch, self.logs)
+
+class TntEarlyStopping(tf.keras.callbacks.EarlyStopping):
+  def __init__(self, keras_early_stopping):
+    super(TntEarlyStopping, self).__init__()
+    self.logs = {}
+    self.allreducer = None
+
+    # set member variables from keras csvlogger instance
+    self.monitor = keras_early_stopping.monitor
+    self.patience = keras_early_stopping.patience
+    self.baseline = keras_early_stopping.baseline
+    self.min_delta = keras_early_stopping.min_delta
+    self.restore_best_weights = keras_early_stopping.restore_best_weights
+    self.monitor_op = keras_early_stopping.monitor_op
+
+    # only master rank should save and thus print messages
+    self.verbose = keras_early_stopping.verbose if tnt.is_master_rank() else 0
+
+  def get_monitor_value(self, logs):
+    if self.allreducer is None:
+      self.allreducer = tnt.TensorAllreducer(logs)
+    
+    # do an allreduce on all ranks and get averaged values over all ranks
+    self.logs = self.allreducer.allreduce(logs)
+    self.logs.update((k, v / tnt.get_size()) for k, v in self.logs.items())
+
+    super().get_monitor_value(self.logs)

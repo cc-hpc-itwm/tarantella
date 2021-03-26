@@ -1,4 +1,5 @@
 #include "TensorAllreducer.hpp"
+#include "BufferElementType.hpp"
 
 #include <GaspiCxx/collectives/non_blocking/collectives_lowlevel/AllreduceRing.hpp>
 
@@ -11,15 +12,23 @@ namespace tarantella
                                      gaspi::group::Group const& group,
                                      gaspi::collectives::ReductionOp const& reduction_op)
   {
-    //TODO: Support for different data types
-    using T = double;
+    using tensor_type = tarantella::collectives::BufferElementType;
     auto const Algorithm = gaspi::collectives::AllreduceAlgorithm::RING;
 
     for (auto const& tensor_info : tensor_infos)
     {
-      allreduces.push_back(std::make_unique<gaspi::collectives::Allreduce<T, Algorithm>>(
-                           group, tensor_info.get_nelems(), reduction_op));
-
+      switch(tensor_info.get_elem_type())
+      {
+        case tensor_type::FLOAT: 
+            allreduces.push_back(std::make_unique<gaspi::collectives::Allreduce<float, Algorithm>>(
+                          group, tensor_info.get_nelems(), reduction_op));
+            break;
+        case tensor_type::DOUBLE:
+            allreduces.push_back(std::make_unique<gaspi::collectives::Allreduce<double, Algorithm>>(
+                          group, tensor_info.get_nelems(), reduction_op));
+            break;
+        default: throw std::logic_error("TensorAllreducer::TensorAllreducer() Unsupported tensor data type");
+      }
     }
   }
 
