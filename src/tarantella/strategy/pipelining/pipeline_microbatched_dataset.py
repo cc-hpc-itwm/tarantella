@@ -1,16 +1,20 @@
+import tarantella.strategy.pipelining.partition_info as pinfo
+
 import argparse
 import re
 
 import tensorflow as tf
 from enum import Enum
 
-class InoutLayerType(Enum):
-    input = 'i'
-    output = 'o'
+class ModelInoutTypes(Enum):
+    input_real = 'i'
+    output_real = 'o'
+    input_edge = 'i_edge'
+    output_edge = 'o_edge'
     start_seq = 'start_seq'
     end_seq = 'end_seq'
-    recv_tag = 'r'
-    send_tag = 's'
+    recv_tag = 'r_tag'
+    send_tag = 's_tag'
 
 def create_name_partition(partition_id):
   return 'p_%s' % (str(partition_id))
@@ -19,9 +23,9 @@ def create_name_micro_batched_layer(partition_id, element_type, layer_id = None,
   """Create a name for a layer of `type` either input/output, based on the partition_id,
   layer_id, and an optional micro_batch_id
   """
-  if not isinstance(element_type, InoutLayerType):
-    raise TypeError("[create_name_micro_batched_layer] Layer type should be an `InoutLayerType` object")
-  if not element_type in [InoutLayerType.start_seq, InoutLayerType.end_seq]:
+  if not isinstance(element_type, pinfo.EndpointType):
+    raise TypeError("[create_name_micro_batched_layer] Layer type should be an `EndpointType` object")
+  if not element_type in [pinfo.EndpointType.seq_input, pinfo.EndpointType.seq_output]:
     name = 'p_%s' % (str(partition_id))
     if micro_batch_id is not None:
       name = name + '_m_%s' % (str(micro_batch_id))
@@ -54,24 +58,24 @@ def create_micro_batched_dataset(samples, labels, recv_connection_ids, send_conn
 
   input_names = create_names_micro_batched_model(partition_id=partition_id,
                                                  num_core_elements=num_inputs,
-                                                 element_type=InoutLayerType.input,
+                                                 element_type=pinfo.EndpointType.inp,
                                                  num_micro_batches=num_micro_batches)
   recv_tag_names = create_names_micro_batched_model(partition_id=partition_id,
                                                     num_core_elements=num_recvs,
-                                                    element_type=InoutLayerType.recv_tag,
+                                                    element_type=pinfo.EndpointType.recv_tag,
                                                     num_micro_batches=num_micro_batches)
   send_tag_names = create_names_micro_batched_model(partition_id=partition_id,
                                                     num_core_elements=num_sends,
-                                                    element_type=InoutLayerType.send_tag,
+                                                    element_type=pinfo.EndpointType.send_tag,
                                                     num_micro_batches=num_micro_batches)
   start_seq_name = create_name_micro_batched_layer(partition_id=partition_id,
-                                                   element_type=InoutLayerType.start_seq)
+                                                   element_type=pinfo.EndpointType.seq_input)
   output_names = create_names_micro_batched_model(partition_id=partition_id,
                                                   num_core_elements=num_outputs,
-                                                  element_type=InoutLayerType.output,
+                                                  element_type=pinfo.EndpointType.out,
                                                   num_micro_batches=num_micro_batches)
   end_seq_name = create_name_micro_batched_layer(partition_id=partition_id,
-                                                 element_type=InoutLayerType.end_seq)
+                                                 element_type=pinfo.EndpointType.seq_output)
 
   # create micro-batched inputs/outputs from original samples/labels and
   # an additional placeholder dataset each, for sequential micro-batch execution
@@ -90,14 +94,14 @@ def create_micro_batched_dataset(samples, labels, recv_connection_ids, send_conn
     for m in range(num_micro_batches):
       send_tag_datasets.append(tf.data.Dataset.from_tensors(tf.constant([m, connection_id], dtype=tf.int32)).batch(1).repeat())
 
-  start_seq_dataset = [tf.data.Dataset.from_tensors(tf.constant(0.0)).batch(1).repeat()]
+  start_seq_dataset = [tf.data.Dataset.from_tensors(tf.constant(0.0, dtype=tf.float32)).batch(1).repeat()]
 
   output_datasets = list()
   for o in range(num_outputs):
     for m in range(num_micro_batches):
       output_datasets.append(labels[o].batch(micro_batch_size).shard(num_micro_batches, m))
 
-  end_seq_dataset = [tf.data.Dataset.from_tensors(tf.constant(0.0)).batch(1).repeat()]
+  end_seq_dataset = [tf.data.Dataset.from_tensors(tf.constant(0.0, dtype=tf.float32)).batch(1).repeat()]
 
   # create generator function that implements an iterator over pairs of
   # input/output dict's, which map from the input,recv_tag,send_tag/output layer name
