@@ -5,6 +5,7 @@ import tarantella as tnt
 import tarantella.keras.layers as tnt_layers
 import tarantella.keras.losses as tnt_losses
 import tarantella.keras.metrics as tnt_metrics
+import tarantella.strategy.pipelining.partition_info as pinfo
 import tarantella.strategy.pipelining.pipeline_microbatched_dataset as pipelining
 
 import tensorflow as tf
@@ -128,13 +129,13 @@ def get_partitioned_model(shared_model):
   if rank == p_0_rank:
     p_0_shared_model = shared_model
     # --- microbatched model on partition 0
-    p_0_shared_m_0_input_0 = keras.Input(shape=(28,28,1,), name="p_0_m_0_i_0")
-    p_0_shared_m_1_input_0 = keras.Input(shape=(28,28,1,), name="p_0_m_1_i_0")
-    p_0_shared_m_0_send_tag_0 = keras.Input(shape=(number_tags,), name="p_0_m_0_s_0", dtype=tf.int32)
-    p_0_shared_m_0_send_tag_1 = keras.Input(shape=(number_tags,), name="p_0_m_0_s_1", dtype=tf.int32)
-    p_0_shared_m_1_send_tag_0 = keras.Input(shape=(number_tags,), name="p_0_m_1_s_0", dtype=tf.int32)
-    p_0_shared_m_1_send_tag_1 = keras.Input(shape=(number_tags,), name="p_0_m_1_s_1", dtype=tf.int32)
-    p_0_shared_input_seq = keras.Input(shape=(1,), name = "p_0_start_seq")
+    p_0_shared_m_0_input_0 = keras.Input(shape=(28,28,1,), name="p_0_m_0_real_input_0")
+    p_0_shared_m_1_input_0 = keras.Input(shape=(28,28,1,), name="p_0_m_1_real_input_0")
+    p_0_shared_m_0_send_tag_0 = keras.Input(shape=(number_tags,), name="p_0_m_0_send_tag_0", dtype=tf.int32)
+    p_0_shared_m_0_send_tag_1 = keras.Input(shape=(number_tags,), name="p_0_m_0_send_tag_1", dtype=tf.int32)
+    p_0_shared_m_1_send_tag_0 = keras.Input(shape=(number_tags,), name="p_0_m_1_send_tag_0", dtype=tf.int32)
+    p_0_shared_m_1_send_tag_1 = keras.Input(shape=(number_tags,), name="p_0_m_1_send_tag_1", dtype=tf.int32)
+    p_0_shared_input_seq = keras.Input(shape=(1,), name = "p_0_seq_input")
 
     p_0_shared_core_inputs = [p_0_shared_m_0_input_0, p_0_shared_m_1_input_0]
     p_0_shared_recv_tags = []
@@ -146,11 +147,11 @@ def get_partitioned_model(shared_model):
     p_0_m_1_outputs = p_0_shared_model(p_0_shared_core_inputs[1:2] + p_0_shared_send_tags[2:4] + [p_0_m_0_outputs[-1]])
 
     p_0_outputs = p_0_m_0_outputs[:-1] + p_0_m_1_outputs[:-1] + [p_0_m_1_outputs[-1]]
-    p_0_outputs[0] = tnt_layers.IdentityLayer(name="p_0_m_0_o_0")(p_0_outputs[0])
-    p_0_outputs[1] = tnt_layers.IdentityLayer(name="p_0_m_0_o_1")(p_0_outputs[1])
-    p_0_outputs[2] = tnt_layers.IdentityLayer(name="p_0_m_1_o_0")(p_0_outputs[2])
-    p_0_outputs[3] = tnt_layers.IdentityLayer(name="p_0_m_1_o_1")(p_0_outputs[3])
-    p_0_outputs[4] = tnt_layers.IdentityLayer(name="p_0_end_seq")(p_0_outputs[4])
+    p_0_outputs[0] = tnt_layers.IdentityLayer(name="p_0_m_0_edge_output_0")(p_0_outputs[0])
+    p_0_outputs[1] = tnt_layers.IdentityLayer(name="p_0_m_0_edge_output_1")(p_0_outputs[1])
+    p_0_outputs[2] = tnt_layers.IdentityLayer(name="p_0_m_1_edge_output_0")(p_0_outputs[2])
+    p_0_outputs[3] = tnt_layers.IdentityLayer(name="p_0_m_1_edge_output_1")(p_0_outputs[3])
+    p_0_outputs[4] = tnt_layers.IdentityLayer(name="p_0_seq_output")(p_0_outputs[4])
     p_0_inputs = p_0_shared_core_inputs + p_0_shared_recv_tags + p_0_shared_send_tags + p_0_shared_start_seq
     p_0 = keras.Model(inputs=p_0_inputs, outputs=p_0_outputs, name="p_0")
     return p_0
@@ -158,15 +159,15 @@ def get_partitioned_model(shared_model):
   elif rank == p_1_rank:
     p_1_shared_model = shared_model
     # --- microbatched model on partition 1
-    p_1_shared_m_0_input_0 = keras.Input(shape=p_1_shared_model.inputs[0].shape[1:], name="p_1_m_0_i_0")
-    p_1_shared_m_0_input_1 = keras.Input(shape=p_1_shared_model.inputs[1].shape[1:], name="p_1_m_0_i_1")
-    p_1_shared_m_1_input_0 = keras.Input(shape=p_1_shared_model.inputs[0].shape[1:], name="p_1_m_1_i_0")
-    p_1_shared_m_1_input_1 = keras.Input(shape=p_1_shared_model.inputs[1].shape[1:], name="p_1_m_1_i_1")
-    p_1_shared_m_0_recv_tag_0 = keras.Input(shape=(number_tags,), name="p_1_m_0_r_0", dtype=tf.int32)
-    p_1_shared_m_0_recv_tag_1 = keras.Input(shape=(number_tags,), name="p_1_m_0_r_1", dtype=tf.int32)
-    p_1_shared_m_1_recv_tag_0 = keras.Input(shape=(number_tags,), name="p_1_m_1_r_0", dtype=tf.int32)
-    p_1_shared_m_1_recv_tag_1 = keras.Input(shape=(number_tags,), name="p_1_m_1_r_1", dtype=tf.int32)
-    p_1_shared_input_seq = keras.Input(shape=(1,), name = "p_1_start_seq")
+    p_1_shared_m_0_input_0 = keras.Input(shape=p_1_shared_model.inputs[0].shape[1:], name="p_1_m_0_edge_input_0")
+    p_1_shared_m_0_input_1 = keras.Input(shape=p_1_shared_model.inputs[1].shape[1:], name="p_1_m_0_edge_input_1")
+    p_1_shared_m_1_input_0 = keras.Input(shape=p_1_shared_model.inputs[0].shape[1:], name="p_1_m_1_edge_input_0")
+    p_1_shared_m_1_input_1 = keras.Input(shape=p_1_shared_model.inputs[1].shape[1:], name="p_1_m_1_edge_input_1")
+    p_1_shared_m_0_recv_tag_0 = keras.Input(shape=(number_tags,), name="p_1_m_0_recv_tag_0", dtype=tf.int32)
+    p_1_shared_m_0_recv_tag_1 = keras.Input(shape=(number_tags,), name="p_1_m_0_recv_tag_1", dtype=tf.int32)
+    p_1_shared_m_1_recv_tag_0 = keras.Input(shape=(number_tags,), name="p_1_m_1_recv_tag_0", dtype=tf.int32)
+    p_1_shared_m_1_recv_tag_1 = keras.Input(shape=(number_tags,), name="p_1_m_1_recv_tag_1", dtype=tf.int32)
+    p_1_shared_input_seq = keras.Input(shape=(1,), name = "p_1_seq_input")
 
     p_1_shared_core_inputs = [p_1_shared_m_0_input_0, p_1_shared_m_0_input_1,
                               p_1_shared_m_1_input_0, p_1_shared_m_1_input_1]
@@ -179,45 +180,54 @@ def get_partitioned_model(shared_model):
     p_1_m_1_outputs = p_1_shared_model(p_1_shared_core_inputs[2:4] + p_1_shared_recv_tags[2:4] + [p_1_m_0_outputs[-1]])
 
     p_1_outputs = p_1_m_0_outputs[:-1] + p_1_m_1_outputs[:-1] + [p_1_m_1_outputs[-1]]
-    p_1_outputs[0] = tnt_layers.IdentityLayer(name="p_1_m_0_o_0")(p_1_outputs[0])
-    p_1_outputs[1] = tnt_layers.IdentityLayer(name="p_1_m_1_o_0")(p_1_outputs[1])
-    p_1_outputs[2] = tnt_layers.IdentityLayer(name="p_1_end_seq")(p_1_outputs[2])
+    p_1_outputs[0] = tnt_layers.IdentityLayer(name="p_1_m_0_real_output_0")(p_1_outputs[0])
+    p_1_outputs[1] = tnt_layers.IdentityLayer(name="p_1_m_1_real_output_0")(p_1_outputs[1])
+    p_1_outputs[2] = tnt_layers.IdentityLayer(name="p_1_seq_output")(p_1_outputs[2])
     p_1_inputs = p_1_shared_core_inputs + p_1_shared_recv_tags + p_1_shared_send_tags + p_1_shared_start_seq
     p_1 = keras.Model(inputs=p_1_inputs, outputs=p_1_outputs, name="p_1")
     return p_1
 
+def get_partition_info(core_model):
+  if rank == p_0_rank:
+    partition_info = pinfo.PartitionInfo(p_0_id, core_model)
+
+    in_0 = pinfo.EndpointInfo(0, core_model.inputs[0].shape, tf.float32)
+    partition_info.real_input_infos = [in_0]
+    partition_info.edge_input_infos = []
+    partition_info.real_output_infos = []
+
+    out_edge_0 = pinfo.EndpointInfo(0, core_model.outputs[0].shape, tf.float32)
+    out_edge_1 = pinfo.EndpointInfo(1, core_model.outputs[1].shape, tf.float32)
+    partition_info.edge_output_infos = [out_edge_0, out_edge_1]
+
+  elif rank == p_1_rank:
+    partition_info = pinfo.PartitionInfo(p_1_id, core_model)
+    partition_info.real_input_infos = []
+
+    in_edge_0 = pinfo.EndpointInfo(0, core_model.inputs[0].shape, tf.float32)
+    in_edge_1 = pinfo.EndpointInfo(1, core_model.inputs[1].shape, tf.float32)
+    partition_info.edge_input_infos = [in_edge_0, in_edge_1]
+
+    out_0 = pinfo.EndpointInfo(0, core_model.outputs[0].shape, tf.float32)
+    partition_info.real_output_infos = [out_0]
+    partition_info.edge_output_infos = []
+  return partition_info
+
+
 def get_microbatched_dataset(samples, labels, micro_batch_size, core_model):
   if rank == p_0_rank:
-    y_zero_loss = tf.data.Dataset.from_tensors(np.zeros(1)).repeat()
-
     partition_samples = [tf.data.Dataset.from_tensor_slices(samples)]
-    partition_labels = [y_zero_loss, y_zero_loss]
-
-    recv_connection_ids = [] # recv connection ids for each RecvLayer
-    send_connection_ids = [0, 1] # send connection ids for each SendLayer
-    partition_id = p_0_id
+    partition_labels = []
   elif rank == p_1_rank:
-    # TODO:
-    # Does the fake datasets/labels need a finite size, when used in a "middle" partition,
-    # so `fit` would know, when to stop training?
-    x_comm_0 = tf.data.Dataset.from_tensors(np.zeros(core_model.inputs[0].shape[1:])).repeat()
-    x_comm_1 = tf.data.Dataset.from_tensors(np.zeros(core_model.inputs[1].shape[1:])).repeat()
-
-    partition_samples = [x_comm_0, x_comm_1]
+    partition_samples = []
     partition_labels = [tf.data.Dataset.from_tensor_slices(labels)]
 
-    recv_connection_ids = [0, 1]
-    send_connection_ids = []
-    partition_id = p_1_id
-
+  partition_info = get_partition_info(core_model)
   return pipelining.create_micro_batched_dataset(samples = partition_samples,
                                                  labels = partition_labels,
-                                                 recv_connection_ids = recv_connection_ids,
-                                                 send_connection_ids = send_connection_ids,
-                                                 partition_id = partition_id,
+                                                 partition_info = partition_info,
                                                  num_micro_batches = num_micro_batches,
                                                  micro_batch_size = micro_batch_size)
-
 
 def check_histories_match(reference_history, pipeline_history, prefix = ""):
   loss_name = prefix + 'loss'
@@ -226,8 +236,8 @@ def check_histories_match(reference_history, pipeline_history, prefix = ""):
   for i in range(len(reference_history.history[loss_name])):
     assert np.allclose(reference_history.history[loss_name], pipeline_history.history[loss_name])
     assert np.allclose(reference_history.history[prefix + metric_name][i],
-                       (pipeline_history.history[prefix + 'p_1_m_0_o_0_' + metric_name][i] +
-                        pipeline_history.history[prefix + 'p_1_m_1_o_0_' + metric_name][i])/2)
+                       (pipeline_history.history[prefix + 'p_1_m_0_real_output_0_' + metric_name][i] +
+                        pipeline_history.history[prefix + 'p_1_m_1_real_output_0_' + metric_name][i])/2)
 
 def check_validation_histories_match(reference_history, pipeline_history):
   check_histories_match(reference_history, pipeline_history, prefix = "val_")
@@ -289,23 +299,23 @@ class TestPipelineSimpleModel:
 
     # pipelined model
     if rank == p_0_rank:
-      partition_losses = {"p_0_m_0_o_0" : tnt_losses.ZeroLoss(),
-                          "p_0_m_0_o_1" : tnt_losses.ZeroLoss(),
-                          "p_0_m_1_o_0" : tnt_losses.ZeroLoss(),
-                          "p_0_m_1_o_1" : tnt_losses.ZeroLoss(),
-                          "p_0_end_seq" : tnt_losses.ZeroLoss()}
+      partition_losses = {"p_0_m_0_edge_output_0" : tnt_losses.ZeroLoss(),
+                          "p_0_m_0_edge_output_1" : tnt_losses.ZeroLoss(),
+                          "p_0_m_1_edge_output_0" : tnt_losses.ZeroLoss(),
+                          "p_0_m_1_edge_output_1" : tnt_losses.ZeroLoss(),
+                          "p_0_seq_output" : tnt_losses.ZeroLoss()}
       partition_loss_weights = None
       partition_metrics = None
     if rank == p_1_rank:
-      partition_losses = {"p_1_m_0_o_0" : keras.losses.SparseCategoricalCrossentropy(),
-                          "p_1_m_1_o_0" : keras.losses.SparseCategoricalCrossentropy(),
-                          "p_1_end_seq" : tnt_losses.ZeroLoss()}
-      partition_loss_weights = {"p_1_m_0_o_0" : 1./num_micro_batches,
-                                "p_1_m_1_o_0" : 1./num_micro_batches,
-                                "p_1_end_seq" : 0.}
-      partition_metrics = {"p_1_m_0_o_0" : keras.metrics.SparseCategoricalAccuracy(),
-                           "p_1_m_1_o_0" : keras.metrics.SparseCategoricalAccuracy(),
-                           "p_1_end_seq" : tnt_metrics.ZeroMetric()}
+      partition_losses = {"p_1_m_0_real_output_0" : keras.losses.SparseCategoricalCrossentropy(),
+                          "p_1_m_1_real_output_0" : keras.losses.SparseCategoricalCrossentropy(),
+                          "p_1_seq_output" : tnt_losses.ZeroLoss()}
+      partition_loss_weights = {"p_1_m_0_real_output_0" : 1./num_micro_batches,
+                                "p_1_m_1_real_output_0" : 1./num_micro_batches,
+                                "p_1_seq_output" : 0.}
+      partition_metrics = {"p_1_m_0_real_output_0" : keras.metrics.SparseCategoricalAccuracy(),
+                           "p_1_m_1_real_output_0" : keras.metrics.SparseCategoricalAccuracy(),
+                           "p_1_seq_output" : tnt_metrics.ZeroMetric()}
 
     microbatched_model.compile(optimizer = sgd,
                                loss = partition_losses,
@@ -371,23 +381,23 @@ class TestPipelineSimpleModel:
 
     # pipelined model
     if rank == p_0_rank:
-      partition_losses = {"p_0_m_0_o_0" : tnt_losses.ZeroLoss(),
-                          "p_0_m_0_o_1" : tnt_losses.ZeroLoss(),
-                          "p_0_m_1_o_0" : tnt_losses.ZeroLoss(),
-                          "p_0_m_1_o_1" : tnt_losses.ZeroLoss(),
-                          "p_0_end_seq" : tnt_losses.ZeroLoss()}
+      partition_losses = {"p_0_m_0_edge_output_0" : tnt_losses.ZeroLoss(),
+                          "p_0_m_0_edge_output_1" : tnt_losses.ZeroLoss(),
+                          "p_0_m_1_edge_output_0" : tnt_losses.ZeroLoss(),
+                          "p_0_m_1_edge_output_1" : tnt_losses.ZeroLoss(),
+                          "p_0_seq_output" : tnt_losses.ZeroLoss()}
       partition_loss_weights = None
       partition_metrics = None
     if rank == p_1_rank:
-      partition_losses = {"p_1_m_0_o_0" : keras.losses.SparseCategoricalCrossentropy(),
-                          "p_1_m_1_o_0" : keras.losses.SparseCategoricalCrossentropy(),
-                          "p_1_end_seq" : tnt_losses.ZeroLoss()}
-      partition_loss_weights = {"p_1_m_0_o_0" : 1./num_micro_batches,
-                                "p_1_m_1_o_0" : 1./num_micro_batches,
-                                "p_1_end_seq" : 0.}
-      partition_metrics = {"p_1_m_0_o_0" : keras.metrics.SparseCategoricalAccuracy(),
-                           "p_1_m_1_o_0" : keras.metrics.SparseCategoricalAccuracy(),
-                           "p_1_end_seq" : tnt_metrics.ZeroMetric()}
+      partition_losses = {"p_1_m_0_real_output_0" : keras.losses.SparseCategoricalCrossentropy(),
+                          "p_1_m_1_real_output_0" : keras.losses.SparseCategoricalCrossentropy(),
+                          "p_1_seq_output" : tnt_losses.ZeroLoss()}
+      partition_loss_weights = {"p_1_m_0_real_output_0" : 1./num_micro_batches,
+                                "p_1_m_1_real_output_0" : 1./num_micro_batches,
+                                "p_1_seq_output" : 0.}
+      partition_metrics = {"p_1_m_0_real_output_0" : keras.metrics.SparseCategoricalAccuracy(),
+                           "p_1_m_1_real_output_0" : keras.metrics.SparseCategoricalAccuracy(),
+                           "p_1_seq_output" : tnt_metrics.ZeroMetric()}
 
     microbatched_model.compile(optimizer = sgd,
                                loss = partition_losses,

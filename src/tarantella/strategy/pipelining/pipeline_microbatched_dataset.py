@@ -128,28 +128,29 @@ def create_micro_batched_dataset(samples, # list of real inputs on the partition
       outputs = real_outputs
       outputs.update(edge_outputs)
       outputs.update(seq_output)
+
       yield (inputs, outputs)
 
   input_types = map_layer_names_to_tensor_types(
-    real_input_datasets, pinfo.EndpointType.inp, partition_info.pid, num_micro_batches)
+    real_input_datasets, pinfo.EndpointType.inp, partition_info.pid, num_real_inputs, num_micro_batches)
   input_types.update(
     map_layer_names_to_tensor_types(
-      edge_input_datasets, pinfo.EndpointType.inp_edge, partition_info.pid, num_micro_batches))
+      edge_input_datasets, pinfo.EndpointType.inp_edge, partition_info.pid, num_edge_inputs, num_micro_batches))
   input_types.update(
     map_layer_names_to_tensor_types(
-      recv_tag_datasets, pinfo.EndpointType.recv_tag, partition_info.pid, num_micro_batches))
+      recv_tag_datasets, pinfo.EndpointType.recv_tag, partition_info.pid, num_edge_inputs, num_micro_batches))
   input_types.update(
     map_layer_names_to_tensor_types(
-      send_tag_datasets, pinfo.EndpointType.send_tag, partition_info.pid, num_micro_batches))
+      send_tag_datasets, pinfo.EndpointType.send_tag, partition_info.pid, num_edge_outputs, num_micro_batches))
   input_types.update(
     map_layer_names_to_tensor_types(
       seq_input_dataset, pinfo.EndpointType.seq_input, partition_info.pid))
 
   output_types = map_layer_names_to_tensor_types(
-    real_output_datasets, pinfo.EndpointType.out, partition_info.pid, num_micro_batches)
+    real_output_datasets, pinfo.EndpointType.out, partition_info.pid, num_real_outputs, num_micro_batches)
   output_types.update(
     map_layer_names_to_tensor_types(
-      edge_output_datasets, pinfo.EndpointType.out_edge, partition_info.pid, num_micro_batches))
+      edge_output_datasets, pinfo.EndpointType.out_edge, partition_info.pid, num_edge_outputs, num_micro_batches))
   output_types.update(
     map_layer_names_to_tensor_types(
       seq_output_dataset, pinfo.EndpointType.seq_output, partition_info.pid))
@@ -208,14 +209,16 @@ def map_layer_names_to_samples(samples, endpoint_type, partition_id, num_inputs 
       index += 1
   return mappings
 
-def map_layer_names_to_tensor_types(datasets, endpoint_type, partition_id, num_micro_batches = None):
+def map_layer_names_to_tensor_types(datasets, endpoint_type, partition_id, num_inputs = None, num_micro_batches = None):
   if endpoint_type in [pinfo.EndpointType.seq_input, pinfo.EndpointType.seq_output]:
     name = create_name_micro_batched_layer(partition_id, endpoint_type)
     return {name : datasets[0].element_spec.dtype}
 
   mappings = dict()
-  for i in range(len(datasets)):
+  index = 0
+  for i in range(num_inputs):
     for m in range(num_micro_batches):
       name = create_name_micro_batched_layer(partition_id, endpoint_type, layer_id = i, micro_batch_id = m)
-      mappings[name] = datasets[i].element_spec.dtype
+      mappings[name] = datasets[index].element_spec.dtype
+      index += 1
   return mappings
