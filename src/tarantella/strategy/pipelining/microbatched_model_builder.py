@@ -8,6 +8,7 @@ import tarantella.strategy.pipelining.pipeline_microbatched_dataset as dataset_u
 
 import tensorflow.keras as keras
 
+import copy
 import enum
 
 
@@ -51,14 +52,14 @@ class MicrobatchedModelBuilder(model_builder.ModelBuilder):
       current_seq_input = [stage_outputs[-1]]
       # the remaining outputs represent the list of outputs of the current micro_batch
       outputs_by_mbatch[mbatch_id] = stage_outputs[:-1]
-    seq_output = current_seq_input
+    seq_output = stage_outputs[-1]
 
     real_outputs_by_mbatch, edge_outputs_by_mbatch = self.slice_microbatched_outputs(outputs_by_mbatch)
 
     # create identity layers to rename all types of outputs
     real_outputs_by_mbatch = self.rename_microbatched_outputs(real_outputs_by_mbatch, pinfo.EndpointType.out)
     edge_outputs_by_mbatch = self.rename_microbatched_outputs(edge_outputs_by_mbatch, pinfo.EndpointType.out_edge)
-    seq_output = self.rename_seq_output(seq_output)
+    seq_output = [self.rename_seq_output(seq_output)]
 
     inputs = self.build_microbatched_inputs_list(real_inputs_by_mbatch = real_inputs_by_mbatch,
                                                  edge_inputs_by_mbatch = edge_inputs_by_mbatch,
@@ -74,7 +75,17 @@ class MicrobatchedModelBuilder(model_builder.ModelBuilder):
   def get_losses(self, losses_by_output_id):
     real_losses = self.build_real_losses(losses_by_output_id)
     edge_losses = self.build_edge_losses()
-    return {**real_losses, **edge_losses}
+    seq_output_loss = self.build_seq_output_loss()
+    return {**real_losses, **edge_losses, **seq_output_loss}
+
+  def get_loss_weights(self, user_loss_weights = None):
+    if user_loss_weights is not None:
+      raise NotImplementedError("Loss weights from users are not supported")
+
+    real_loss_weights = self.build_real_loss_weights()
+    edge_loss_weights = self.build_edge_loss_weights()
+    seq_loss_weight = self.build_seq_loss_weight()
+    return {**real_loss_weights, **edge_loss_weights, **seq_loss_weight}
 
   def get_metrics(self, metrics_by_output_id):
     real_metrics = self.build_real_metrics(metrics_by_output_id)
@@ -166,7 +177,7 @@ class MicrobatchedModelBuilder(model_builder.ModelBuilder):
                                                                     layer_id = index,
                                                                     micro_batch_id = mbatch_id)
         if endpoint_type == pinfo.EndpointType.out:
-          microbatched_objectives[output_name] = losses_or_metrics[out_info.endpoint_id]
+          microbatched_objectives[output_name] = copy.deepcopy(losses_or_metrics[out_info.endpoint_id])
         elif endpoint_type == pinfo.EndpointType.out_edge:
           if objective_type == ObjectiveType.loss:
             microbatched_objectives[output_name] = tnt_losses.ZeroLoss()
@@ -181,9 +192,41 @@ class MicrobatchedModelBuilder(model_builder.ModelBuilder):
   def build_edge_losses(self):
     return self.build_objectives(pinfo.EndpointType.out_edge, ObjectiveType.loss)
 
+  def build_seq_output_loss(self):
+    name = dataset_utils.create_name_micro_batched_layer(self.partition_info.pid,
+                                                         element_type = pinfo.EndpointType.seq_output)
+    return {name : tnt_losses.ZeroLoss()}
+
   def build_real_metrics(self, metrics):
     return self.build_objectives(pinfo.EndpointType.out, ObjectiveType.metric, metrics)
 
   def build_edge_metrics(self):
     return self.build_objectives(pinfo.EndpointType.out_edge, ObjectiveType.metric)
 
+  def build_loss_weights(self, endpoint_type):
+    microbatched_loss_weights = dict()
+    output_infos = self.partition_info.get_infos(endpoint_type)
+
+    for index, out_info in enumerate(output_infos):
+      for mbatch_id in range(self.number_micro_batches):
+        output_name = dataset_utils.create_name_micro_batched_layer(self.partition_info.pid,
+                                                                    element_type = endpoint_type,
+                                                                    layer_id = index,
+                                                                    micro_batch_id = mbatch_id)
+        if endpoint_type == pinfo.EndpointType.out:
+          microbatched_loss_weights[output_name] = 1. / self.number_micro_batches
+        elif endpoint_type == pinfo.EndpointType.out_edge:
+          microbatched_loss_weights[output_name] = 0.
+
+    return microbatched_loss_weights
+
+  def build_real_loss_weights(self):
+    return self.build_loss_weights(pinfo.EndpointType.out)
+
+  def build_edge_loss_weights(self):
+    return self.build_loss_weights(pinfo.EndpointType.out_edge)
+
+  def build_seq_loss_weight(self):
+    name = dataset_utils.create_name_micro_batched_layer(self.partition_info.pid,
+                                                         element_type = pinfo.EndpointType.seq_output)
+    return {name : 0.}
