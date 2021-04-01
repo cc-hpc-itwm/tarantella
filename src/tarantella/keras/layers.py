@@ -162,7 +162,7 @@ class AddSeqOutput(tf.keras.layers.Layer):
   def call(self, inputs):
     fake_output_shape = tf.TensorShape((self.mb_size, 1))
     fake_output = tf.zeros(fake_output_shape)
-    if type(inputs) is list and len(inputs) >= 2:
+    if isinstance(inputs, list):
       outputs = inputs + [fake_output]
     else:
       outputs = [inputs] + [fake_output]
