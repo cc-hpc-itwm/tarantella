@@ -200,7 +200,7 @@ class TestPipelineSimpleModel:
                                               epochs = number_epochs,
                                               verbose = 0)
     if rank == master_rank:
-      check_histories_match(reference_history, pipeline_history)
+      check_histories_match(reference_history, pipeline_history, num_micro_batches)
 
 
   @pytest.mark.parametrize("batch_size", [64])
@@ -268,7 +268,7 @@ class TestPipelineSimpleModel:
     pipeline_result = microbatched_model.evaluate(ds["partition_test_dataset"],
                                                   verbose = 0)
     if rank == master_rank:
-      check_histories_match(reference_history, pipeline_history)
-      check_validation_histories_match(reference_history, pipeline_history)
-      check_predictions_match(reference_result, pipeline_result)
+      check_histories_match(reference_history, pipeline_history, num_micro_batches)
+      check_validation_histories_match(reference_history, pipeline_history, num_micro_batches)
+      check_predictions_match(reference_result, pipeline_result, num_micro_batches)
 

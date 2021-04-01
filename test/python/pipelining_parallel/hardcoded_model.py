@@ -146,19 +146,31 @@ def load_datasets(batch_size, num_batches, num_test_batches, num_micro_batches, 
            "partition_val_dataset"   : partition_val_dataset,
            "partition_test_dataset"  : partition_test_dataset }
 
-def check_histories_match(reference_history, pipeline_history, prefix = ""):
+def check_histories_match(reference_history, pipeline_history, num_micro_batches, prefix = ""):
   loss_name = prefix + 'loss'
   metric_name = 'sparse_categorical_accuracy'
 
   for i in range(len(reference_history.history[loss_name])):
+    # check loss matches
     assert np.allclose(reference_history.history[loss_name], pipeline_history.history[loss_name])
-    assert np.allclose(reference_history.history[prefix + metric_name][i],
-                       (pipeline_history.history[prefix + 'p_1_m_0_real_output_0_' + metric_name][i] +
-                        pipeline_history.history[prefix + 'p_1_m_1_real_output_0_' + metric_name][i])/2)
 
-def check_validation_histories_match(reference_history, pipeline_history):
-  check_histories_match(reference_history, pipeline_history, prefix = "val_")
+    # check metrics match 
+    reference_metric_value = reference_history.history[prefix + metric_name][i]
+    pipeline_metric_value = 0
+    for m in range(num_micro_batches):
+      pipeline_metric_value += \
+        pipeline_history.history[prefix + 'p_1_m_' + str(m) + '_real_output_0_' + metric_name][i]
+    pipeline_metric_value = pipeline_metric_value / num_micro_batches
+    assert np.allclose(reference_metric_value, pipeline_metric_value)
 
-def check_predictions_match(reference_results, pipeline_results):
-  assert np.allclose(reference_results[0], pipeline_results[0])
-  assert np.allclose(reference_results[1], (pipeline_results[-2] + pipeline_results[-3])/2)
+def check_validation_histories_match(reference_history, pipeline_history, num_micro_batches):
+  check_histories_match(reference_history, pipeline_history, num_micro_batches, prefix = "val_")
+
+def check_predictions_match(reference_results, pipeline_results, num_micro_batches):
+  reference_loss = reference_results[0]
+  pipeline_loss = pipeline_results[0]
+  assert np.allclose(reference_loss, pipeline_loss)
+
+  reference_accuracy = reference_results[1]
+  pipeline_accuracy = np.sum(pipeline_results[-num_micro_batches:]) / num_micro_batches
+  assert np.allclose(reference_accuracy, pipeline_accuracy)
