@@ -190,8 +190,7 @@ class TestPipelineSimpleModel:
                                 "p_1_m_1_real_output_0" : 1./num_micro_batches,
                                 "p_1_seq_output" : 0.}
       partition_metrics = {"p_1_m_0_real_output_0" : keras.metrics.SparseCategoricalAccuracy(),
-                           "p_1_m_1_real_output_0" : keras.metrics.SparseCategoricalAccuracy(),
-                           "p_1_seq_output" : tnt_metrics.ZeroMetric()}
+                           "p_1_m_1_real_output_0" : keras.metrics.SparseCategoricalAccuracy()}
 
     microbatched_model.compile(optimizer = sgd,
                                loss = partition_losses,
@@ -256,8 +255,7 @@ class TestPipelineSimpleModel:
                                 "p_1_m_1_real_output_0" : 1./num_micro_batches,
                                 "p_1_seq_output" : 0.}
       partition_metrics = {"p_1_m_0_real_output_0" : keras.metrics.SparseCategoricalAccuracy(),
-                           "p_1_m_1_real_output_0" : keras.metrics.SparseCategoricalAccuracy(),
-                           "p_1_seq_output" : tnt_metrics.ZeroMetric()}
+                           "p_1_m_1_real_output_0" : keras.metrics.SparseCategoricalAccuracy()}
 
     microbatched_model.compile(optimizer = sgd,
                                loss = partition_losses,
