@@ -170,14 +170,21 @@ class MicrobatchedModelBuilder(model_builder.ModelBuilder):
     microbatched_objectives = dict()
     output_infos = self.partition_info.get_infos(endpoint_type)
 
-    for index, out_info in enumerate(output_infos):
+    for local_endpoint_id, out_info in enumerate(output_infos):
       for mbatch_id in range(self.number_micro_batches):
         output_name = dataset_utils.create_name_micro_batched_layer(self.partition_info.pid,
                                                                     element_type = endpoint_type,
-                                                                    layer_id = index,
+                                                                    layer_id = local_endpoint_id,
                                                                     micro_batch_id = mbatch_id)
         if endpoint_type == pinfo.EndpointType.out:
-          microbatched_objectives[output_name] = copy.deepcopy(losses_or_metrics[out_info.endpoint_id])
+          global_endpoint_id = out_info.endpoint_id
+          if objective_type == ObjectiveType.loss:
+            microbatched_objectives[output_name] = copy.deepcopy(losses_or_metrics[global_endpoint_id])
+          elif objective_type == ObjectiveType.metric:
+            # create metric with clean state
+            object_type_of_metric = type(losses_or_metrics[global_endpoint_id])
+            metric_config = losses_or_metrics[global_endpoint_id].get_config()
+            microbatched_objectives[output_name] = object_type_of_metric.from_config(metric_config)
         elif endpoint_type == pinfo.EndpointType.out_edge:
           if objective_type == ObjectiveType.loss:
             microbatched_objectives[output_name] = tnt_losses.ZeroLoss()
