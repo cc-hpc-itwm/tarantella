@@ -1,6 +1,3 @@
-from models import mnist_models as mnist
-import utilities as util
-
 import tarantella as tnt
 import tarantella.keras.layers as tnt_layers
 import tarantella.keras.losses as tnt_losses
@@ -136,6 +133,8 @@ def get_partitioned_model(shared_model):
 
 @pytest.fixture(autouse=True)
 def setup_tf_threading_before_tests():
+  # at least as many parallel ops as connection IDs are needed to ensure the (blocking) send
+  # operation on the last micro-batches can make progress
   if tf.config.threading.get_inter_op_parallelism_threads() < number_connections:
     tf.config.threading.set_inter_op_parallelism_threads(number_connections)
   yield
@@ -147,11 +146,7 @@ class TestPipelineSimpleModel:
   @pytest.mark.parametrize("num_batches", [10])
   @pytest.mark.parametrize("number_epochs", [1])
   def test_train(self, batch_size, num_batches, number_epochs):
-    # at least as many parallel ops as connection IDs are needed to ensure the (blocking) send
-    # operation on the last micro-batches can make progress
-    assert tf.config.threading.get_inter_op_parallelism_threads() >= number_connections
     assert tnt.get_size() == number_partitions
-    train_size = num_batches * batch_size
     micro_batch_size = batch_size // num_micro_batches
 
     ### CREATE MODEL
@@ -163,14 +158,7 @@ class TestPipelineSimpleModel:
     microbatched_model = get_partitioned_model(shared_model)
 
     ### LOAD DATASETS
-    (x_train, y_train), _, _ = mnist.load_mnist_dataset(train_size, 0, 0)
-    train_dataset_reference = util.create_dataset_from_arrays(x_train, y_train, batch_size=batch_size) \
-                              .shuffle(len(x_train), shuffle_seed)
-
-    partition_train_dataset = get_microbatched_dataset(x_train, y_train,
-                                                       micro_batch_size, num_micro_batches,
-                                                       core_model) \
-                              .shuffle(len(x_train), shuffle_seed)
+    ds = load_datasets(batch_size, num_batches, 0, num_micro_batches, core_model)
 
     ### MODEL COMPILE/TRAIN (on each rank individually)
     # single rank model
@@ -181,7 +169,7 @@ class TestPipelineSimpleModel:
       reference_model.compile(optimizer = sgd,
                               loss = keras.losses.SparseCategoricalCrossentropy(),
                               metrics = [keras.metrics.SparseCategoricalAccuracy()])
-      reference_history = reference_model.fit(train_dataset_reference,
+      reference_history = reference_model.fit(ds["reference_train_dataset"],
                                               epochs = number_epochs,
                                               verbose = 0)
 
@@ -209,7 +197,7 @@ class TestPipelineSimpleModel:
                                loss = partition_losses,
                                loss_weights = partition_loss_weights,
                                metrics = partition_metrics)
-    pipeline_history = microbatched_model.fit(partition_train_dataset,
+    pipeline_history = microbatched_model.fit(ds["partition_train_dataset"],
                                               epochs = number_epochs,
                                               verbose = 0)
     if rank == master_rank:
@@ -222,8 +210,6 @@ class TestPipelineSimpleModel:
   @pytest.mark.parametrize("number_epochs", [2])
   def test_train_and_evaluate(self, batch_size, num_batches, num_test_batches, number_epochs):
     assert tnt.get_size() == number_partitions
-    train_size = num_batches * batch_size
-    test_size = num_test_batches * batch_size
     micro_batch_size = batch_size // num_micro_batches
 
     ### CREATE MODEL
@@ -235,20 +221,7 @@ class TestPipelineSimpleModel:
     microbatched_model = get_partitioned_model(shared_model)
 
     ### LOAD DATASETS
-    (x_train, y_train), (x_val, y_val), (x_test, y_test) = mnist.load_mnist_dataset(
-                                                                  train_size, test_size, test_size)
-    train_dataset_reference = util.create_dataset_from_arrays(x_train, y_train, batch_size=batch_size) \
-                              .shuffle(len(x_train), shuffle_seed)
-    val_dataset_reference = util.create_dataset_from_arrays(x_val, y_val, batch_size=batch_size)
-    test_dataset_reference = util.create_dataset_from_arrays(x_test, y_test, batch_size=batch_size)
-
-    partition_train_dataset = get_microbatched_dataset(x_train, y_train,
-                                                       micro_batch_size, num_micro_batches, core_model) \
-                              .shuffle(len(x_train), shuffle_seed)
-    partition_val_dataset = get_microbatched_dataset(x_val, y_val,
-                                                     micro_batch_size, num_micro_batches, core_model)
-    partition_test_dataset = get_microbatched_dataset(x_test, y_test,
-                                                      micro_batch_size, num_micro_batches, core_model)
+    ds = load_datasets(batch_size, num_batches, num_test_batches, num_micro_batches, core_model)
 
     ### MODEL COMPILE/TRAIN (on each rank individually)
     # single rank model
@@ -259,11 +232,11 @@ class TestPipelineSimpleModel:
       reference_model.compile(optimizer = sgd,
                               loss = keras.losses.SparseCategoricalCrossentropy(),
                               metrics = [keras.metrics.SparseCategoricalAccuracy()])
-      reference_history = reference_model.fit(train_dataset_reference,
-                                              validation_data = val_dataset_reference,
+      reference_history = reference_model.fit(ds["reference_train_dataset"],
+                                              validation_data = ds["reference_val_dataset"],
                                               epochs = number_epochs,
                                               verbose = 0)
-      reference_result = reference_model.evaluate(test_dataset_reference,
+      reference_result = reference_model.evaluate(ds["reference_test_dataset"],
                                                   verbose = 0)
 
     # pipelined model
@@ -290,11 +263,11 @@ class TestPipelineSimpleModel:
                                loss = partition_losses,
                                loss_weights = partition_loss_weights,
                                metrics = partition_metrics)
-    pipeline_history = microbatched_model.fit(partition_train_dataset,
-                           validation_data = partition_val_dataset,
+    pipeline_history = microbatched_model.fit(ds["partition_train_dataset"],
+                           validation_data = ds["partition_val_dataset"],
                            epochs = number_epochs,
                            verbose = 0)
-    pipeline_result = microbatched_model.evaluate(partition_test_dataset,
+    pipeline_result = microbatched_model.evaluate(ds["partition_test_dataset"],
                                                   verbose = 0)
     if rank == master_rank:
       check_histories_match(reference_history, pipeline_history)

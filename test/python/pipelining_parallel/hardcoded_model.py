@@ -1,3 +1,6 @@
+import models.mnist_models as mnist
+import utilities as util
+
 import tarantella as tnt
 import tarantella.keras.layers as tnt_layers
 import tarantella.keras.losses as tnt_losses
@@ -114,6 +117,34 @@ def get_microbatched_dataset(samples, labels, micro_batch_size, num_micro_batche
                                                  partition_info = partition_info,
                                                  num_micro_batches = num_micro_batches,
                                                  micro_batch_size = micro_batch_size)
+
+def load_datasets(batch_size, num_batches, num_test_batches, num_micro_batches, core_model):
+  train_size = num_batches * batch_size
+  test_size = num_test_batches * batch_size
+  micro_batch_size = batch_size // num_micro_batches
+
+  (x_train, y_train), (x_val, y_val), (x_test, y_test) = mnist.load_mnist_dataset(
+                                                                train_size, test_size, test_size)
+  reference_train_dataset = util.create_dataset_from_arrays(x_train, y_train, batch_size=batch_size) \
+                            .shuffle(len(x_train), shuffle_seed)
+  reference_val_dataset = util.create_dataset_from_arrays(x_val, y_val, batch_size=batch_size)
+  reference_test_dataset = util.create_dataset_from_arrays(x_test, y_test, batch_size=batch_size)
+
+  partition_train_dataset = get_microbatched_dataset(x_train, y_train,
+                                                     micro_batch_size, num_micro_batches,
+                                                     core_model) \
+                            .shuffle(len(x_train), shuffle_seed)
+  partition_val_dataset = get_microbatched_dataset(x_val, y_val,
+                                                   micro_batch_size, num_micro_batches, core_model)
+  partition_test_dataset = get_microbatched_dataset(x_test, y_test,
+                                                    micro_batch_size, num_micro_batches, core_model)
+
+  return { "reference_train_dataset" : reference_train_dataset,
+           "reference_val_dataset"   : reference_val_dataset,
+           "reference_test_dataset"  : reference_test_dataset,
+           "partition_train_dataset" : partition_train_dataset,
+           "partition_val_dataset"   : partition_val_dataset,
+           "partition_test_dataset"  : partition_test_dataset }
 
 def check_histories_match(reference_history, pipeline_history, prefix = ""):
   loss_name = prefix + 'loss'
