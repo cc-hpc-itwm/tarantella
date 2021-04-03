@@ -180,7 +180,7 @@ PYBIND11_MODULE(GPICommLib, m)
   py::class_<tarantella::PipelineCommunicator>(m, "PipelineCommunicator")
     .def(py::init(
         [](std::unordered_map<tarantella::PipelineCommunicator::ConnectionID,
-                              std::pair<std::pair<gaspi::group::GlobalRank, gaspi::group::GlobalRank>, std::size_t>> edges,
+                              std::pair<gaspi::group::GlobalRank, std::size_t>> edges,
            std::size_t num_micro_batches)
         {
           return std::make_unique<tarantella::PipelineCommunicator>(edges, num_micro_batches);

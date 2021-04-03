@@ -20,12 +20,15 @@ def is_master_rank():
 from tarantella import tnt_initializer
 tnt_initializer.init()
 
-from tarantella import models
-from tarantella.model import Model
+from tarantella.keras import models
+from tarantella.keras.model import Model
+
+from tarantella.collectives.Barrier import Barrier
+from tarantella.collectives.TensorAllreducer import TensorAllreducer
+from tarantella.collectives.TensorBroadcaster import TensorBroadcaster
+
+from tarantella.strategy.SynchCommunicator import SynchCommunicator
+from tarantella.strategy.PipelineCommunicator import PipelineCommunicator
+
 import tarantella.optimizers as optimizers
 import tarantella.optimizers.synchronous_distributed_optimizer as distributed_optimizers
-from tarantella.parallel.Barrier import Barrier
-from tarantella.parallel.PipelineCommunicator import PipelineCommunicator
-from tarantella.parallel.TensorAllreducer import TensorAllreducer
-from tarantella.parallel.TensorBroadcaster import TensorBroadcaster
-from tarantella.parallel.SynchCommunicator import SynchCommunicator

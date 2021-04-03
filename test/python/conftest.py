@@ -18,8 +18,12 @@ def pytest_runtest_setup(item):
     supported_versions = [mark.args[0] for mark in item.iter_markers(name="tfversion")]
     if supported_versions:
       supportedv = None
-      for v in supported_versions:
-        if tf.__version__.startswith(v):
-          supportedv = v
+
+      for versions in supported_versions:
+        if not isinstance(versions, list):
+          versions = [versions]
+        for v in versions:
+          if tf.__version__.startswith(v):
+            supportedv = v
       if not supportedv:
         pytest.skip("Test does not support TF{}".format(tf.__version__))
