@@ -49,3 +49,10 @@ tarantella_generate_python_gpi_test(NAME TensorBroadcaster
                                     LOCALRANKS_LIST "${localranks_list}"
                                     TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/tensor_broadcaster_test.py
                                     TIMEOUT 3600)
+
+set(localranks_list 1 2)
+tarantella_generate_python_gpi_test(NAME CallbacksDataParallel
+                                    TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/data_parallel_training/callbacks_test.py
+                                    LOCALRANKS_LIST "${localranks_list}"
+                                    LABELS integration gpu
+                                    TIMEOUT 10000)

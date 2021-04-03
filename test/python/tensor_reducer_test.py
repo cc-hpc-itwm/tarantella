@@ -3,6 +3,8 @@ import tarantella as tnt
 import numpy as np
 import pytest
 
+import logging
+
 class TestTensorAllreducer:
   @pytest.mark.parametrize("array_length", [8, 35, 67])
   def test_single_array_identical_inputs(self, array_length):
@@ -62,6 +64,18 @@ class TestTensorAllreducer:
 
     result = all((arr == expected_output_array).all() for arr in output_list)
     assert isinstance(output_list, list) and result
+
+  @pytest.mark.parametrize("length", [5, 56, 89])
+  def test_dict_idential_inputs(self, length):
+    input_dict = dict.fromkeys(("key " + str(i) for i in range(length)), 1.0)
+    
+    expected_output_value = 1.0 * tnt.get_size()
+
+    allreducer = tnt.TensorAllreducer(input_dict)
+    output_dict = allreducer.allreduce(input_dict)
+
+    result = (v == expected_output_value for v in output_dict.values())
+    assert isinstance(output_dict, dict) and result
 
   def test_single_array_empty(self):
     input_array = np.empty(0, dtype=np.float32)

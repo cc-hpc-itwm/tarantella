@@ -51,55 +51,6 @@ class TntModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
     super().on_epoch_end(epoch, logs)
     self.model.optimizer = self.distributed_optimizer
 
-def __get_agg_metrics__(input):
-  keys, metric_values = np.empty((0)), np.empty((0))
-  if input is not None:
-    for k in input.keys():
-      keys = np.append(keys, k)
-      metric_values = np.append(metric_values, input[k])
-
-  allreducer = tnt.TensorAllreducer(metric_values)
-  agg_values = allreducer.allreduce(metric_values)
-
-  updated_metrics = dict()
-  for i in range(len(keys)):
-    updated_metrics[keys[i]] = agg_values[i] / tnt.get_size()
-
-  return updated_metrics
-
-class TntCSVLogger(tf.keras.callbacks.CSVLogger):
-  def __init__(self, keras_csvlogger):
-    super(TntCSVLogger, self).__init__(keras_csvlogger.filename)
-
-    # set member variables from keras csvlogger instance
-    self.sep = keras_csvlogger.sep
-    self.append = keras_csvlogger.append
-
-    self.logs = {}
-    self.allreducer = None
-
-  def on_train_begin(self, logs=None):
-    # only master rank should open a file
-    if tnt.is_master_rank():
-      super().on_train_begin(logs)
-
-  def on_epoch_end(self, epoch, logs=None):
-    if self.allreducer is None:
-      self.allreducer = tnt.TensorAllreducer(logs)
-    
-    # do an allreduce on all ranks and get averaged values over all ranks
-    self.logs = self.allreducer.allreduce(logs)
-    self.logs.update((k, v / tnt.get_size()) for k, v in self.logs.items())
-
-    # only master rank will write logs to created file
-    if tnt.is_master_rank():
-      super().on_epoch_end(epoch, self.logs)
-
-  def on_train_end(self, logs=None):
-    # only master rank has created a file and thus needs to be closed
-    if tnt.is_master_rank():
-      super().on_train_end(logs)
-
 class TntHistory(tf.keras.callbacks.History):
   def __init__(self, keras_history):
     super(TntHistory, self).__init__()
@@ -141,4 +92,4 @@ class TntEarlyStopping(tf.keras.callbacks.EarlyStopping):
     self.logs = self.allreducer.allreduce(logs)
     self.logs.update((k, v / tnt.get_size()) for k, v in self.logs.items())
 
-    super().get_monitor_value(self.logs)
+    return super().get_monitor_value(self.logs)

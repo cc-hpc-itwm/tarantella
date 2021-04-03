@@ -54,14 +54,14 @@ class Model(tf.keras.models.Model):
        'model' not in self.__dict__:
       return getattr(self.__dict__, name)
     return getattr(self.__dict__['model'], name)
-  
+
   def __setattr__(self, name, value):
     if name in model_implemented_methods or \
        'model' not in self.__dict__:
       self.__dict__[name] = value
     else:
       setattr(self.__dict__['model'], name, value)
-  
+
   def __delattr__(self, name):
     if name in model_implemented_methods or \
        'model' not in self.__dict__:
@@ -106,7 +106,8 @@ class Model(tf.keras.models.Model):
           tnt_distribute_dataset = True,
           tnt_distribute_validation_dataset = True,
           **kwargs):
-    self._setup_for_execution('fit', x, y, callbacks, kwargs)
+    self._setup_for_execution('fit', x, y, kwargs)
+    processed_callbacks = self._preprocess_callbacks(callbacks)
 
     if tnt_distribute_dataset:
       distributed_x = ds.DistributedDataset(dataset = x,
@@ -137,9 +138,9 @@ class Model(tf.keras.models.Model):
 
     return self.model.fit(x,
                           validation_data = validation_data,
-                          callbacks = callbacks,
+                          callbacks = processed_callbacks,
                           **kwargs)
-    
+
   def evaluate(self,
                x = None,
                y = None,
@@ -147,7 +148,8 @@ class Model(tf.keras.models.Model):
                tnt_micro_batch_size = None,
                tnt_distribute_dataset = True,
                **kwargs):
-    self._setup_for_execution('evaluate', x, y, callbacks, kwargs)
+    self._setup_for_execution('evaluate', x, y, kwargs)
+    processed_callbacks = self._preprocess_callbacks(callbacks)
 
     if tnt_distribute_dataset:
       test_dataset = ds.DistributedDataset(dataset = x,
@@ -160,7 +162,7 @@ class Model(tf.keras.models.Model):
     else:
       logger.info("Automatic dataset distribution is disabled.")
 
-    return self.model.evaluate(x, callbacks = callbacks, **kwargs)
+    return self.model.evaluate(x, callbacks = processed_callbacks, **kwargs)
 
   def predict(self,
               x = None,
@@ -168,7 +170,8 @@ class Model(tf.keras.models.Model):
               tnt_micro_batch_size = None,
               tnt_distribute_dataset = True,
               **kwargs):
-    self._setup_for_execution('predict', x, None, callbacks, kwargs)
+    self._setup_for_execution('predict', x, None, kwargs)
+    processed_callbacks = self._preprocess_callbacks(callbacks)
 
     if tnt_distribute_dataset:
       test_dataset = ds.DistributedDataset(dataset = x,
@@ -180,7 +183,7 @@ class Model(tf.keras.models.Model):
                is_training = False)
     else:
       logger.info("Automatic dataset distribution is disabled.")
-    return self.model.predict(x, callbacks = callbacks, **kwargs)
+    return self.model.predict(x, callbacks = processed_callbacks, **kwargs)
 
   def get_config(self):
     return self.model.get_config()
@@ -209,12 +212,12 @@ class Model(tf.keras.models.Model):
     # loaded weights from the same source will be identical on all ranks
     self.done_broadcast = True
     return self.model.load_weights(filepath = filepath, **kwargs)
-  
+
   def set_weights(self, weights):
     self.model.set_weights(weights)
     self._broadcast_weights()
     self.done_broadcast = True
-    
+
   def get_weights(self):
     if not self.model.built:
       if not self.input_shapes:
@@ -260,15 +263,13 @@ class Model(tf.keras.models.Model):
       if tarantella.is_master_rank():
         self.model.summary(*args, **kwargs)
 
-  def _setup_for_execution(self, exec_type, x, y, callbacks, args_dict):
+  def _setup_for_execution(self, exec_type, x, y, args_dict):
     self._assert_compile_has_been_called()
     self._set_verbose_all_ranks(exec_type, args_dict)
     self._validate_datasets(x, y)
     self._validate_batch_size_argument(exec_type, args_dict)
     self._set_input_shapes(x)
     self._broadcast_weights_if_necessary()
-    self._add_default_callbacks(callbacks)
-    self._preprocess_callbacks(callbacks)
 
   def _assert_compile_has_been_called(self):
     if self.compiled == False:
@@ -321,46 +322,52 @@ class Model(tf.keras.models.Model):
 
     self.done_broadcast = True
 
-  def _add_default_callbacks(self, callbacks):
-    if callbacks is not None:
-      callbacks.append(tf.keras.callbacks.History())
-    else:
-      callbacks = tf.keras.callbacks.History()
-
   def _preprocess_callbacks(self, callbacks):
-    if callbacks is not None:
-      remove_tensorboard_index = None
+    callbacks = callbacks if callbacks else []
 
-      for index, callback in enumerate(callbacks):
-        if isinstance(callback, tf.keras.callbacks.ModelCheckpoint):
-          tnt_callback = tnt_callbacks.TntModelCheckpoint(keras_model_checkpoint = callback,
-                                                          underlying_optimizer = self.orig_optimizer,
-                                                          distributed_optimizer = self.dist_optimizer)
-          callbacks[index] = tnt_callback
+    self._add_default_callbacks(callbacks)
+    self._to_tnt_callbacks(callbacks)
 
-        elif isinstance(callback, tf.keras.callbacks.LearningRateScheduler):
-          if not tarantella.global_tnt_config.output_on_all_devices:
-            if not tarantella.is_master_rank():
-              callback.verbose = 0
+    return callbacks
 
-        elif isinstance(callback, tf.keras.callbacks.TensorBoard):
-          if tarantella.global_tnt_config.tensorboard_on_all_devices:
-            callback.log_dir += '/rank_{}'.format(self.rank)
-          else:
-            if not tarantella.is_master_rank():
-              remove_tensorboard_index = index
+  def _add_default_callbacks(self, callbacks):
+    history_obj_exists = False
+    for callback in callbacks:
+      if isinstance(callback, tf.keras.callbacks.History):
+        history_obj_exists = True
 
-        elif isinstance(callback, tf.keras.callbacks.CSVLogger):
-          csv_callback = tnt_callbacks.TntCSVLogger(keras_csvlogger = callback)
-          callbacks[index] = csv_callback
+    if history_obj_exists is False:
+      callbacks.append(tf.keras.callbacks.History())
 
-        elif isinstance(callback, tf.keras.callbacks.History):
-          hist_callback = tnt_callbacks.TntHistory(keras_history = callback)
-          callbacks[index] = hist_callback
+  def _to_tnt_callbacks(self, callbacks):
+    remove_tensorboard_index = None
 
-        elif isinstance(callback, tf.keras.callbacks.EarlyStopping):
-          early_stopping_callback = tnt_callbacks.TntEarlyStopping(keras_early_stopping = callback)
-          callbacks[index] = early_stopping_callback
+    for index, callback in enumerate(callbacks):
+      if isinstance(callback, tf.keras.callbacks.ModelCheckpoint):
+        tnt_callback = tnt_callbacks.TntModelCheckpoint(keras_model_checkpoint = callback,
+                                                        underlying_optimizer = self.orig_optimizer,
+                                                        distributed_optimizer = self.dist_optimizer)
+        callbacks[index] = tnt_callback
 
-      if remove_tensorboard_index is not None:
-        del callbacks[remove_tensorboard_index]
+      elif isinstance(callback, tf.keras.callbacks.LearningRateScheduler):
+        if not tarantella.global_tnt_config.output_on_all_devices:
+          if not tarantella.is_master_rank():
+            callback.verbose = 0
+
+      elif isinstance(callback, tf.keras.callbacks.TensorBoard):
+        if tarantella.global_tnt_config.tensorboard_on_all_devices:
+          callback.log_dir += '/rank_{}'.format(self.rank)
+        else:
+          if not tarantella.is_master_rank():
+            remove_tensorboard_index = index
+
+      elif isinstance(callback, tf.keras.callbacks.History):
+        hist_callback = tnt_callbacks.TntHistory(keras_history = callback)
+        callbacks[index] = hist_callback
+      
+      elif isinstance(callback, tf.keras.callbacks.EarlyStopping):
+        early_stopping_callback = tnt_callbacks.TntEarlyStopping(keras_early_stopping = callback)
+        callbacks[index] = early_stopping_callback
+      
+    if remove_tensorboard_index is not None:
+      del callbacks[remove_tensorboard_index]
