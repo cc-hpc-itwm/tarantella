@@ -103,11 +103,22 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
       print("use dataset.window(),micro_batch_size is",self.micro_batch_size)
       dataset = dataset.skip(self.rank)
       dataset = dataset.window(size = self.micro_batch_size,shift = batch_size,stride = self.num_ranks,drop_remainder = False)
-      def create_seqeunce_ds(a,b):
-        return tf.data.Dataset.zip((a.batch(self.micro_batch_size, drop_remainder=False),b.batch(self.micro_batch_size, drop_remainder=False)))
-      dataset = dataset.flat_map(create_seqeunce_ds)
+      def create_seqeunce_ds(*param):
+        if len(param) == 1 and not isinstance(param[0],tuple):
+          return self.batching_info.apply(param[0], new_batch_size = self.micro_batch_size)
+        result = []
+        for pa in param:
+          if isinstance(pa,tuple):
+            temp = []
+            for p in pa:
+              temp.append(self.batching_info.apply(p, new_batch_size = self.micro_batch_size))
+            result.append(tuple(temp))
+          else:
+            result.append(self.batching_info.apply(pa, new_batch_size = self.micro_batch_size))
+        return tf.data.Dataset.zip(tuple(result))
+    
+      dataset = dataset.interleave(create_seqeunce_ds,cycle_length = 8,num_parallel_calls = 8)
     else:
-      print("here")
       dataset = dataset.shard(num_shards=self.num_ranks, index = self.rank)
       dataset = self.batching_info.apply(dataset, new_batch_size = self.micro_batch_size)
     

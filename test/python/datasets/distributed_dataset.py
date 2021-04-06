@@ -367,8 +367,6 @@ def validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank,co
       
     # extract the slice of the reference dataset that corresponds to `rank`
 #     print("expected_batch",expected_batch)
-#     expected_micro_batch = expected_batch[rank * micro_batch_size:
-#                                           ((rank+1) * micro_batch_size)]
     expected_micro_batch = expected_batch[rank::comm_size]
     
     assert np.array_equal(local_batch,expected_micro_batch)
@@ -457,7 +455,7 @@ def test_batch_normal_remainderv1(apply_transformations, dataset_generator,
     # rebuild reference dataset each time to prevent
     # shuffling effects for repeated iterations
     ref_dataset = apply_transformations(reference_dataset,
-                                        batch_size = micro_batch_size*comm_size,
+                                        batch_size = batch_size,
                                         drop_remainder=drop_remainder,
                                         comm_size = comm_size,
                                         pad = True)
@@ -497,7 +495,7 @@ def test_batch_not_multiple_num_ranksv1(apply_transformations, dataset_generator
     micro_batch_size = dist_dataset.get_microbatch_size(batch_size)
 
     ref_dataset = apply_transformations(reference_dataset,
-                                        batch_size = micro_batch_size*comm_size,
+                                        batch_size = batch_size,
                                         drop_remainder=drop_remainder,
                                         comm_size = comm_size,
                                         pad = True)
@@ -539,7 +537,7 @@ def test_batch_normal_remainderv2(apply_transformations, dataset_generator,
     # rebuild reference dataset each time to prevent
     # shuffling effects for repeated iterations
     ref_dataset = apply_transformations(reference_dataset,
-                                        batch_size = micro_batch_size*comm_size,
+                                        batch_size = batch_size,
                                         drop_remainder=True,
                                         comm_size = comm_size)
     validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank,comm_size = comm_size)
@@ -578,7 +576,7 @@ def test_batch_not_multiple_num_ranksv2(apply_transformations, dataset_generator
     micro_batch_size = dist_dataset.get_microbatch_size(batch_size)
 
     ref_dataset = apply_transformations(reference_dataset,
-                                        batch_size = micro_batch_size*comm_size,
+                                        batch_size = batch_size,
                                         drop_remainder=True,
                                         comm_size = comm_size)
     validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank,comm_size = comm_size)
