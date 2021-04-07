@@ -22,9 +22,9 @@ def setup_gpus(rank, ngpus = None):
     rank: int, rank of the current process
 
     ngpus: int value specifying the maximum number of GPUs per node that will
-    be used.
+    be used (`None` stands for using all GPUs available)
   """
-  if ngpus is None or ngpus <= 0:
+  if ngpus is not None and ngpus <= 0:
     # Disable all GPUs
     tf.config.experimental.set_visible_devices([], 'GPU')
     visible_gpus = tf.config.experimental.get_visible_devices('GPU')
@@ -34,6 +34,9 @@ def setup_gpus(rank, ngpus = None):
   else: # try to use `ngpus` per node
     phys_gpus = tf_config.get_available_gpus()
     if phys_gpus and len(phys_gpus) > 0:
+      if ngpus is None: # use as many GPUs as possible
+        ngpus = len(phys_gpus)
+
       target_gpu = rank % ngpus
       if len(phys_gpus) < ngpus:
         sys.exit("ERROR: rank {} cannot use GPU_id={} (only {} GPUs available)".format(
