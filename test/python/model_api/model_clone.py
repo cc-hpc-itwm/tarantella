@@ -12,7 +12,7 @@ def keras_model(request):
   yield request.param()
 
 class TestCloneModel:
-  def test_clone_model(self, tarantella_framework, keras_model):
+  def test_clone_model(self, keras_model):
     cloned_model = tnt.models.clone_model(keras_model)
     tnt_model = tnt.Model(keras_model)
     util.check_model_configuration_identical(tnt_model, cloned_model)

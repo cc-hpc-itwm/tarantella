@@ -3,13 +3,15 @@ include (add_test_wrappers)
 set(localranks_list 1)
 tarantella_generate_python_gpi_test(NAME ModelSaveLoadFile
                                     TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/model_save_load.py
-                                    LOCALRANKS_LIST "${localranks_list}")
+                                    LOCALRANKS_LIST "${localranks_list}"
+                                    TIMEOUT 300)
 
 set(localranks_list 2 3 4)
 tarantella_generate_python_gpi_test(NAME ModelSaveLoadFile
                                     TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/model_save_load.py
                                     LOCALRANKS_LIST "${localranks_list}"
-                                    LABELS gpu cluster)
+                                    LABELS gpu cluster
+                                    TIMEOUT 300)
 
 set(localranks_list 1 2)
 tarantella_generate_python_gpi_test(NAME ModelClone
@@ -20,4 +22,5 @@ tarantella_generate_python_gpi_test(NAME ModelClone
 set(localranks_list 1 2)
 tarantella_generate_python_gpi_test(NAME ModelSaveLoadConfiguration
                                     TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/model_save_load_configuration.py
-                                    LOCALRANKS_LIST "${localranks_list}")
+                                    LOCALRANKS_LIST "${localranks_list}"
+                                    TIMEOUT 60)

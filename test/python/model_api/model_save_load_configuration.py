@@ -15,19 +15,19 @@ def model(request):
   yield request.param()
 
 class TestsModelSaveLoadInMemory:
-  def test_model_get_config(self, tarantella_framework, model):
+  def test_model_get_config(self, model):
     tnt_model = tnt.Model(model)
     assert tnt_model.get_config() == model.get_config()
 
-  def test_model_to_json(self, tarantella_framework, model):
+  def test_model_to_json(self, model):
     tnt_model = tnt.Model(model)
     assert tnt_model.to_json() == model.to_json()
 
-  def test_model_to_yaml(self, tarantella_framework, model):
+  def test_model_to_yaml(self, model):
     tnt_model = tnt.Model(model)
     assert tnt_model.to_yaml() == model.to_yaml()
 
-  def test_model_from_config(self, tarantella_framework, model):
+  def test_model_from_config(self, model):
     tnt_model = tnt.Model(model)
     config = tnt_model.get_config()
 
@@ -35,7 +35,7 @@ class TestsModelSaveLoadInMemory:
     assert isinstance(model_from_config, tnt.Model)
     util.check_model_configuration_identical(model_from_config, model)
 
-  def test_model_from_json(self, tarantella_framework, model):
+  def test_model_from_json(self, model):
     tnt_model = tnt.Model(model)
     json = tnt_model.to_json()
 
@@ -43,7 +43,7 @@ class TestsModelSaveLoadInMemory:
     assert isinstance(json_model, tnt.Model)
     util.check_model_configuration_identical(json_model, model)
 
-  def test_model_from_yaml(self, tarantella_framework, model):
+  def test_model_from_yaml(self, model):
     tnt_model = tnt.Model(model)
     yaml = tnt_model.to_yaml()
 
