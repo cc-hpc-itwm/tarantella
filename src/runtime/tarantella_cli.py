@@ -65,7 +65,9 @@ def create_parser():
                     action='store_true',
                     default = False)
   parser.add_argument("-x",
-                    help="list of environment variables to be set on all ranks",
+                    help = "list of space-separated KEY=VALUE environment variables to be " + \
+                           "set on all ranks. " + \
+                           "Example: `-x DATASET=/scratch/data TF_CPP_MIN_LOG_LEVEL=1`",
                     dest = "setenv",
                     type = str,
                     nargs="+",
