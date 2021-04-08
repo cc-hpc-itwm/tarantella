@@ -52,6 +52,25 @@ class TestsTarantellaCLIEnvironmentVariables:
     for key, value in expected_exports.items():
       assert f"export {key}=\"{value}\"" in contents
 
+  @pytest.mark.parametrize("args_string",
+                           ['-x ENV1=100 path=/my/path another_path="another path" -- dummy.py'])
+  def test_cli_set_environment_variables_preserve_order(self, args_string):
+    parser = cli.create_parser()
+    args = parser.parse_args(shlex.split(args_string))
+    tarantella = cli.TarantellaCLI(platform_config.generate_nodes_list(), 1, 1, args)
+
+    executable_script = tarantella.generate_executable_script()
+    contents = executable_script.get_initial_contents().split('\n')
+
+    expected_exports_list = ['export ENV1="100"',
+                             'export path="/my/path"',
+                             'export another_path="another path"']
+    found_exports = []
+    for line in contents:
+      if line in expected_exports_list:
+        found_exports += [line]
+    assert found_exports == expected_exports_list
+
   @pytest.mark.parametrize("args_string", ['-x ENV0 100 -- dummy.py'])
   def test_cli_set_environment_variables_wrong_format(self, args_string):
     parser = cli.create_parser()
