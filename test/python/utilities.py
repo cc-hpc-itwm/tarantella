@@ -36,3 +36,11 @@ def compare_weights(weights1, weights2, tolerance):
   for (tensor1, tensor2) in wtocompare:
     assert np.allclose(tensor1, tensor2, atol=tolerance)
 
+def is_model_configuration_identical(model1, model2):
+  # comparing configurations directly fails because of comparing 
+  # input shapes defined with `None` placeholders
+  print (model1.get_config())
+  print(model2.get_config())
+  config1 = model1.get_config()['layers']
+  config2 = model2.get_config()['layers']
+  return config1 == config2
