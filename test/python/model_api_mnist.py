@@ -3,6 +3,7 @@ import training_runner as base_runner
 import utilities as util
 import tarantella as tnt
 
+import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -10,70 +11,129 @@ from tensorflow.keras import layers
 import pytest
 
 class TestsModelAPI:
-  @pytest.mark.parametrize("micro_batch_size", [64])
-  @pytest.mark.parametrize("nbatches", [230])
-  def test_model_api_methods(self, micro_batch_size, nbatches):
-    batch_size = micro_batch_size * tnt.get_size()
-    nsamples = nbatches * batch_size
-    (number_epochs, lr) = mnist.get_hyperparams(keras.optimizers.Adam)
-    (train_dataset, test_dataset) = util.load_dataset(mnist.load_mnist_dataset,
-                                                      train_size = nsamples,
-                                                      train_batch_size = batch_size,
-                                                      test_size = 10000,
-                                                      test_batch_size = batch_size)
-    model_runner = base_runner.generate_tnt_model_runner(mnist.lenet5_model_generator())
+  # Attributes
+  def test_distribute_strategy(self):
+    tnt_model = tnt.Model(mnist.lenet5_model_generator())
+    assert tnt_model.distribute_strategy == None
+
+  def test_dynamic(self):
+    tnt_model = tnt.Model(mnist.lenet5_model_generator())
+    assert tnt_model.dynamic == False
+
+  def test_input_spec(self):
+    tnt_model = tnt.Model(mnist.lenet5_model_generator())
+    assert tnt_model.input_spec == None
+
+  def test_layers(self):
+    tnt_model = tnt.Model(mnist.lenet5_model_generator())
+    assert len(tnt_model.layers) == 8
+    assert tnt_model.layers[1].name == 'conv1'
     
-    # Add loss and metric
-    model_runner.model.add_loss(lambda: tf.reduce_mean(model_runner.model.layers[-2].kernel))
-    model_runner.model.add_metric(model_runner.model.model.output, name='mean_output', aggregation='mean')
+  def test_losses(self):
+    tnt_model = tnt.Model(mnist.lenet5_model_generator())
+    assert tnt_model.losses == []
+    tnt_model.add_loss(tf.abs(tnt_model.output))
+    assert len(tnt_model.losses) == 1
 
-    model_runner.reset_weights()
-    model_runner.train_model(train_dataset, number_epochs)
-    results = model_runner.evaluate_model(test_dataset)
-    util.check_accuracy_greater(results[1], 0.5)
-    # Test model output shape
-    assert model_runner.model.compute_output_shape((None, 28, 28, 1))[1] == 10
+  def test_metrics(self):
+    tnt_model = tnt.Model(mnist.lenet5_model_generator())
+    assert tnt_model.metrics == []
 
-  @pytest.mark.parametrize("micro_batch_size", [64])
-  @pytest.mark.parametrize("nbatches", [230])
-  def test_model_api_attributes(self, micro_batch_size, nbatches):
-    batch_size = micro_batch_size * tnt.get_size()
-    nsamples = nbatches * batch_size
-    (number_epochs, _) = mnist.get_hyperparams(keras.optimizers.Adam)
-    (train_dataset, _) = util.load_dataset(mnist.load_mnist_dataset,
-                                                      train_size = nsamples,
-                                                      train_batch_size = batch_size,
-                                                      test_size = 0,
-                                                      test_batch_size = batch_size)
-    model_runner = base_runner.generate_tnt_model_runner(mnist.sequential_model_generator())
+  @pytest.mark.tfversion(['2.0', '2.1'])
+  def test_metrics_names(self):
+    tnt_model = tnt.Model(mnist.lenet5_model_generator())
+    assert tnt_model.metrics_names == ['loss']
 
-    model_runner.reset_weights()
-    model_runner.train_model(train_dataset, number_epochs)
+  @pytest.mark.tfversion(['2.2', '2.3'])
+  def test_metrics_names(self):
+    tnt_model = tnt.Model(mnist.lenet5_model_generator())
+    assert tnt_model.metrics_names == []
 
-    assert model_runner.model.layers[1] == model_runner.model.get_layer(index=1)
-    
-    assert len(model_runner.model.trainable_weights) == 6
-    assert len(model_runner.model.non_trainable_weights) == 0
-    assert len(model_runner.model.weights) == 6
-    assert model_runner.model.dynamic == False
-  
-  @pytest.mark.parametrize("micro_batch_size", [64])
-  @pytest.mark.parametrize("nbatches", [230])
-  def test_model_api_metrics(self, micro_batch_size, nbatches):
-    batch_size = micro_batch_size * tnt.get_size()
-    nsamples = nbatches * batch_size
-    (number_epochs, _) = mnist.get_hyperparams(keras.optimizers.Adam)
-    (train_dataset, _) = util.load_dataset(mnist.load_mnist_dataset,
-                                                      train_size = nsamples,
-                                                      train_batch_size = batch_size,
-                                                      test_size = 0,
-                                                      test_batch_size = batch_size)
-    model_runner = base_runner.generate_tnt_model_runner(mnist.sequential_model_generator())\
+  def test_non_trainable_weights(self):
+    tnt_model = tnt.Model(mnist.lenet5_model_generator())
+    assert tnt_model.non_trainable_weights == []
 
-    model_runner.reset_weights()
-    model_runner.train_model(train_dataset, number_epochs)
+  def test_output(self):
+    tnt_model = tnt.Model(mnist.lenet5_model_generator())
+    assert tnt_model.output.shape[0] == None
+    assert tnt_model.output.shape[1] == 10
 
-    model_runner.model.metrics[0].reset_states()
-    model_runner.model.reset_metrics()
-    assert model_runner.model.metrics[0].result().numpy() == 0.0
-    assert len(model_runner.model.metrics_names) == 2
+  def test_run_eagerly(self):
+    tnt_model = tnt.Model(mnist.lenet5_model_generator())
+    assert tnt_model.run_eagerly == False
+
+  def test_state_updates(self):
+    tnt_model = tnt.Model(mnist.lenet5_model_generator())
+    assert tnt_model.state_updates == []
+
+  def test_stateful(self):
+    tnt_model = tnt.Model(mnist.lenet5_model_generator())
+    assert tnt_model.stateful == False
+
+  def test_trainable_weights(self):
+    tnt_model = tnt.Model(mnist.lenet5_model_generator())
+    assert len(tnt_model.trainable_weights) == 8 # 2 convs, 2 dense + biases
+
+  def test_weights(self):
+    tnt_model = tnt.Model(mnist.lenet5_model_generator())
+    assert len(tnt_model.weights) == 8 # 2 convs, 2 dense + biases
+
+  # Functions
+  def test_add_loss(self):
+    tnt_model = tnt.Model(mnist.lenet5_model_generator())
+    assert tnt_model.losses == []
+    tnt_model.add_loss(tf.reduce_mean(tnt_model.output))
+    assert len(tnt_model.losses) == 1
+
+  @pytest.mark.tfversion(['2.0', '2.1'])
+  def test_add_metric(self):
+    tnt_model = tnt.Model(mnist.lenet5_model_generator())
+    assert tnt_model.metrics == ['loss']
+    tnt_model.add_metric(tnt_model.output, aggregation='mean', name='metric_name')
+    assert len(tnt_model.metrics) == 2
+    assert tnt_model.metrics_names == ['loss', 'metric_name']
+
+  @pytest.mark.tfversion(['2.2', '2.3'])
+  def test_add_metric(self):
+    tnt_model = tnt.Model(mnist.lenet5_model_generator())
+    assert tnt_model.metrics == []
+    tnt_model.add_metric(tnt_model.output, aggregation='mean', name='metric_name')
+    assert len(tnt_model.metrics) == 1
+    assert tnt_model.metrics_names == ['metric_name']
+
+  def test_compute_mask(self):
+    pass
+
+  def test_compute_output_shape(self):
+    tnt_model = tnt.Model(mnist.lenet5_model_generator())
+    output_shape = tnt_model.compute_output_shape((None, 28, 28, 1))
+    assert output_shape[0] == None
+    assert output_shape[1] == 10
+
+  def test_get_layer(self):
+    tnt_model = tnt.Model(mnist.lenet5_model_generator())
+    assert tnt_model.get_layer(index = 0) == tnt_model.layers[0]
+    assert tnt_model.get_layer(index = 0).name == 'input'
+    assert tnt_model.get_layer(index = 6) == tnt_model.layers[6]
+
+  def test_reset_metrics(self):
+    tnt_model = tnt.Model(mnist.lenet5_model_generator())
+    tnt_model.compile(optimizer=tf.keras.optimizers.Adam(), loss="mse", metrics=["mae"])
+
+    train_dataset, _ = util.load_dataset(mnist.load_mnist_dataset,
+                                         train_size = 60,
+                                         train_batch_size = 60,
+                                         test_size = 1,
+                                         test_batch_size = 1)
+    tnt_model.fit(train_dataset)
+    assert all(float(m.result()) != 0 for m in tnt_model.metrics)
+
+    tnt_model.reset_metrics()
+    assert all(float(m.result()) == 0 for m in tnt_model.metrics)
+
+  def test_reset_states(self):
+    tnt_model = tnt.Model(mnist.lenet5_model_generator())
+    try:
+        tnt_model.reset_states()
+    except Exception as exc:
+        assert False, f"`tnt_model.reset_states()` raised an exception {exc}"

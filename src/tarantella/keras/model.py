@@ -11,7 +11,7 @@ from tarantella import logger
 
 class Model(tf.keras.models.Model):
   def __init__(self, model):
-    super(Model, self).__init__()
+    super().__init__()
     self.rank = tarantella.get_rank()
     self.comm_size = tarantella.get_size()
 
@@ -38,6 +38,34 @@ class Model(tf.keras.models.Model):
                                'predict' : 0,
                               }
 
+  ##############
+  # Attributes #
+  ##############
+  @property
+  def distribute_strategy(self):
+    return None
+  
+  @property
+  def dynamic(self):
+    return self.model.dynamic
+  
+  @property
+  def input_spec(self):
+    return self.model.input_spec
+
+  @property
+  def layers(self):
+    if hasattr(self, 'model'):
+      return self.model.layers
+    # condition needed for super(Model, self).__init__() to pass without error, 
+    # as self.model does not exist at the time of init call
+    else:
+      return super().layers
+
+  @property
+  def losses(self):
+    return self.model.losses
+
   @property
   def metrics(self):
     return self.model.metrics
@@ -47,83 +75,51 @@ class Model(tf.keras.models.Model):
     return self.model.metrics_names
   
   @property
-  def distribute_strategy(self):
-    return None
+  def non_trainable_weights(self):
+    return self.model.non_trainable_weights
   
+  @property
+  def output(self):
+    return self.model.output
+
+  @output.setter
+  def output(self, value):
+    self.model.output = value
+
   @property
   def run_eagerly(self):
     return self.model.run_eagerly
-  
-  @property
-  def layers(self):
-    if hasattr(self, 'model'):
-      return self.model.layers
-    # condition needed for super(Model, self).__init__() to pass without error, 
-    # as self.model does not exist at the time of init call
-    else:
-      return super(Model, self).layers
-
-  @property
-  def dynamic(self):
-    return self.model.dynamic
-  
-  @property
-  def stateful(self):
-    return self.model.stateful
   
   @property
   def state_updates(self):
     return self.model.state_updates
   
   @property
-  def weights(self):
-    return self.model.weights
+  def stateful(self):
+    return self.model.stateful
   
   @property
   def trainable_weights(self):
     return self.model.trainable_weights
   
   @property
-  def non_trainable_weights(self):
-    return self.model.non_trainable_weights
+  def weights(self):
+    return self.model.weights
+
+  #############
+  # Functions #
+  #############
+  def add_loss(self, losses, *args, **kwargs):
+    self.model.add_loss(losses, *args, **kwargs)
   
-  @property
-  def input_spec(self):
-    return self.model.input_spec
-
-  @property
-  def losses(self):
-    return self.model.losses
-
-  def call(self, inputs):
-    return self.model.call(inputs)
-
+  def add_metric(self, value, *args, **kwargs):
+    self.model.add_metric(value, *args, **kwargs)
+  
   def build(self, input_shape):
     return self.model.build(input_shape)
 
-  def get_layer(self, name=None, index=None):
-    return self.model.get_layer(name, index)
-  
-  def reset_metrics(self):
-    self.model.reset_metrics()
-
-  def reset_states(self):
-    self.model.reset_states()
-  
-  def compute_mask(self, inputs, mask):
-    return self.model.compute_mask(inputs, mask)
-  
-  def compute_output_shape(self, input_shape):
-    return self.model.compute_output_shape(input_shape)
-
-  def add_loss(self, losses, inputs=None):
-    self.model.add_loss(losses, inputs)
-  
-  def add_metric(self, value, aggregation=None, name=None):
-    self.model.add_metric(value, aggregation, name)
-  
-  def connect_ancillary_layers(model, created_layers):
-    raise AttributeError('Not supported by tarantella model. Call connect_ancillary_layers on keras model before calling tnt.Model() instead.')
+  def call(self, inputs):
+    return self.model.call(inputs)
 
   def compile(self,
               optimizer='rmsprop',
@@ -152,6 +148,34 @@ class Model(tf.keras.models.Model):
                               sample_weight_mode = self.orig_sample_weight_mode,
                               weighted_metrics = self.orig_weighted_metrics,
                               **kwargs)
+
+  def compute_mask(self, inputs, mask):
+    return self.model.compute_mask(inputs, mask)
+  
+  def compute_output_shape(self, input_shape):
+    return self.model.compute_output_shape(input_shape)
+
+  def evaluate(self,
+               x = None,
+               y = None,
+               callbacks = None,
+               tnt_micro_batch_size = None,
+               tnt_distribute_dataset = True,
+               **kwargs):
+    self._setup_for_execution('evaluate', x, y, callbacks, kwargs)
+
+    if tnt_distribute_dataset:
+      test_dataset = ds.DistributedDataset(dataset = x,
+                                          num_ranks = self.comm_size,
+                                          rank = self.rank,
+                                          shuffle_seed = self.default_shuffle_seed)
+      x = test_dataset.distribute_dataset_across_ranks(
+              user_micro_batch_size = tnt_micro_batch_size,
+              is_training = False)
+    else:
+      logger.info("Automatic dataset distribution is disabled.")
+
+    return self.model.evaluate(x, callbacks = callbacks, **kwargs)
 
   def fit(self,
           x = None,
@@ -196,29 +220,32 @@ class Model(tf.keras.models.Model):
                           validation_data = validation_data,
                           callbacks = callbacks,
                           **kwargs)
-    
-  def evaluate(self,
-               x = None,
-               y = None,
-               callbacks = None,
-               tnt_micro_batch_size = None,
-               tnt_distribute_dataset = True,
-               **kwargs):
-    self._setup_for_execution('evaluate', x, y, callbacks, kwargs)
 
-    if tnt_distribute_dataset:
-      test_dataset = ds.DistributedDataset(dataset = x,
-                                          num_ranks = self.comm_size,
-                                          rank = self.rank,
-                                          shuffle_seed = self.default_shuffle_seed)
-      x = test_dataset.distribute_dataset_across_ranks(
-              user_micro_batch_size = tnt_micro_batch_size,
-              is_training = False)
-    else:
-      logger.info("Automatic dataset distribution is disabled.")
+  @classmethod
+  def from_config(cls, config):
+    keras_model = tf.keras.Model.from_config(config)
+    return cls(keras_model)
 
-    return self.model.evaluate(x, callbacks = callbacks, **kwargs)
+  def get_config(self):
+    return self.model.get_config()
 
+  def get_layer(self, name=None, index=None):
+    return self.model.get_layer(name, index)
+  
+  def get_weights(self):
+    if not self.model.built:
+      if not self.input_shapes:
+        raise RuntimeError("""Cannot get weights before initializition.
+        Please call "tnt.Model.build()" or "tnt.Model.fit()" first.
+        """)
+      self.model.build(self.input_shapes)
+    return self.model.get_weights()
+
+  def load_weights(self, filepath, **kwargs):
+    # loaded weights from the same source will be identical on all ranks
+    self.done_broadcast = True
+    return self.model.load_weights(filepath = filepath, **kwargs)
+  
   def predict(self,
               x = None,
               callbacks = None,
@@ -239,19 +266,20 @@ class Model(tf.keras.models.Model):
       logger.info("Automatic dataset distribution is disabled.")
     return self.model.predict(x, callbacks = callbacks, **kwargs)
 
-  def get_config(self):
-    return self.model.get_config()
+  def reset_metrics(self):
+    self.model.reset_metrics()
 
-  @classmethod
-  def from_config(cls, config):
-    keras_model = tf.keras.Model.from_config(config)
-    return cls(keras_model)
-
-  def to_json(self, **kwargs):
-    return self.model.to_json(**kwargs)
-
-  def to_yaml(self, **kwargs):
-    return self.model.to_yaml(**kwargs)
+  def reset_states(self):
+    self.model.reset_states()
+  
+  def save(self, filepath, tnt_save_all_devices = False, **kwargs):
+    if tnt_save_all_devices:
+      self._save(filepath, kwargs)
+    else:
+      if tarantella.is_master_rank():
+        self._save(filepath, kwargs)
+    # make sure, every rank can load the model after function exit
+    self.barrier.synchronize()
 
   def save_weights(self, filepath, tnt_save_all_devices = False, **kwargs):
     if tnt_save_all_devices:
@@ -262,34 +290,27 @@ class Model(tf.keras.models.Model):
     # make sure, every rank can load the model after function exit
     self.barrier.synchronize()
 
-  def load_weights(self, filepath, **kwargs):
-    # loaded weights from the same source will be identical on all ranks
-    self.done_broadcast = True
-    return self.model.load_weights(filepath = filepath, **kwargs)
-  
   def set_weights(self, weights):
     self.model.set_weights(weights)
     self._broadcast_weights()
     self.done_broadcast = True
     
-  def get_weights(self):
-    if not self.model.built:
-      if not self.input_shapes:
-        raise RuntimeError("""Cannot get weights before initializition.
-        Please call "tnt.Model.build()" or "tnt.Model.fit()" first.
-        """)
-      self.model.build(self.input_shapes)
-    return self.model.get_weights()
-
-  def save(self, filepath, tnt_save_all_devices = False, **kwargs):
-    if tnt_save_all_devices:
-      self._save(filepath, kwargs)
+  def summary(self, *args, **kwargs):
+    if tarantella.global_tnt_config.output_on_all_devices:
+      self.model.summary(*args, **kwargs)
     else:
       if tarantella.is_master_rank():
-        self._save(filepath, kwargs)
-    # make sure, every rank can load the model after function exit
-    self.barrier.synchronize()
+        self.model.summary(*args, **kwargs)
 
+  def to_json(self, **kwargs):
+    return self.model.to_json(**kwargs)
+
+  def to_yaml(self, **kwargs):
+    return self.model.to_yaml(**kwargs)
+  
+  ####################
+  # Helper functions #
+  ####################
   def _save(self, filepath, args_dict):
     # 1. Re-compile underlying `Keras.model` w/ underlying optimizer
     self.model.compile(optimizer = self.orig_optimizer,
@@ -309,13 +330,6 @@ class Model(tf.keras.models.Model):
                  loss_weights = self.orig_loss_weights,
                  sample_weight_mode = self.orig_sample_weight_mode,
                  weighted_metrics = self.orig_weighted_metrics)
-
-  def summary(self, *args, **kwargs):
-    if tarantella.global_tnt_config.output_on_all_devices:
-      self.model.summary(*args, **kwargs)
-    else:
-      if tarantella.is_master_rank():
-        self.model.summary(*args, **kwargs)
 
   def _setup_for_execution(self, exec_type, x, y, callbacks, args_dict):
     self._assert_compile_has_been_called()
@@ -403,6 +417,12 @@ class Model(tf.keras.models.Model):
       if remove_tensorboard_index is not None:
         del callbacks[remove_tensorboard_index]
 
+
+def connect_ancillary_layers(model, created_layers):
+  raise AttributeError('Not supported by tarantella model. '
+                       'Call `connect_ancillary_layers` on keras '
+                       ' model before calling `tnt.Model()` instead.')
+    
 
 class TntModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
   def __init__(self, keras_model_checkpoint, underlying_optimizer, distributed_optimizer):

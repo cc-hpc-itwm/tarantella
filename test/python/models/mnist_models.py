@@ -57,9 +57,9 @@ def fc_model_generator():
 
 def lenet5_model_generator():
   inputs = keras.Input(shape=(28,28,1,), name='input')
-  x = layers.Conv2D(20, 5, padding="same", activation='relu')(inputs)
+  x = layers.Conv2D(20, 5, padding="same", activation='relu', name="conv1")(inputs)
   x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2))(x)
-  x = layers.Conv2D(50, 5, padding="same", activation='relu')(x)
+  x = layers.Conv2D(50, 5, padding="same", activation='relu', name="conv2")(x)
   x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2))(x)
   x = layers.Flatten()(x)
   x = layers.Dense(500, activation='relu')(x)

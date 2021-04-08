@@ -44,7 +44,7 @@ set(localranks_list 1 2 3)
 tarantella_generate_python_gpi_test(NAME ModelAPIMNIST
                                     TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/model_api_mnist.py
                                     LOCALRANKS_LIST "${localranks_list}"
-                                    TIMEOUT 10000)
+                                    TIMEOUT 60)
 
 set(localranks_list 1 2 3 4)
 tarantella_generate_python_gpi_test(NAME TensorAllreducer
