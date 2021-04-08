@@ -20,139 +20,111 @@ import tempfile
 @pytest.fixture(scope="class", params=[mnist.lenet5_model_generator,
                                        mnist.sequential_model_generator])
 def model(request):
- yield request.param()
+  yield request.param()
+
+@pytest.fixture(scope="function", params=[True, False])
+def save_setup(request):
+  save_all_devices = request.param
+  # save model in a shared directory accessible to all ranks
+  save_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                          "test_save_model")
+  if save_all_devices:
+    save_dir = save_dir + str(tnt.get_rank())
+
+  yield {'save_dir'    : save_dir,
+         'all_devices' : save_all_devices}
+
+  # clean up
+  if save_all_devices or tnt.is_master_rank():
+    shutil.rmtree(save_dir, ignore_errors=True)
 
 class TestsModelLoadSave:
 
   model_configuration_checks = [pytest.param(util.check_model_configuration_identical,
-                                             marks=pytest.mark.tfversion('2.2')),
+                                             marks=[pytest.mark.tfversion('2.2'),
+                                                    pytest.mark.tfversion('2.3'),
+                                                    pytest.mark.tfversion('2.4'),]),
                                 pytest.param(util.check_model_configuration_identical_legacy,
                                              marks=[pytest.mark.tfversion('2.0'),
                                                     pytest.mark.tfversion('2.1')]),
                                 ]
   @pytest.mark.parametrize("check_configuration_identical", model_configuration_checks)
-  def test_save_before_compile(self, model, check_configuration_identical):
+  def test_save_before_compile(self, model, save_setup,
+                               check_configuration_identical):
     tnt_model = tnt.Model(model)
-
-    # save model in a shared directory accessible to all ranks
-    save_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                            "test_save_before_compile")
-    tnt_model.save(save_dir)
-    assert os.path.exists(save_dir)
+    tnt_model.save(save_setup['save_dir'])
 
     # make sure the original model has the same weights on all ranks
     tnt_model._broadcast_weights_if_necessary()
 
     # load file into a new Tarantella model
-    loaded_model = tnt.models.load_model(save_dir, compile=True)
-    assert isinstance(loaded_model, tnt.Model)
-
-    # check whether the weights of the two models match on each rank
-    check_configuration_identical(loaded_model, tnt_model)
+    reloaded_tnt_model = tnt.models.load_model(save_setup['save_dir'], compile=True)
+    assert isinstance(reloaded_tnt_model, tnt.Model)
+    check_configuration_identical(reloaded_tnt_model, tnt_model)
     
-    # clean up
-    if tnt.is_master_rank():
-      shutil.rmtree(save_dir, ignore_errors=True)
-
 
   @pytest.mark.parametrize("check_configuration_identical", model_configuration_checks)
-  @pytest.mark.parametrize("save_all_devices", [True, False])
-  def test_save_load_before_training(self, model, check_configuration_identical,
-                                     save_all_devices):
+  def test_save_load_before_training(self, model, save_setup,
+                                     check_configuration_identical):
     tnt_model = tnt.Model(model)
     tnt_model.compile(keras.optimizers.SGD(learning_rate = 0.01, momentum = 0.9),
                       loss = keras.losses.SparseCategoricalCrossentropy(),
                       metrics = [keras.metrics.SparseCategoricalAccuracy()])
-
-    # save model in a shared directory accessible to all ranks
-    save_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                             "test_save_load_before_training")
-    if save_all_devices:
-      save_dir = save_dir + str(tnt.get_rank())
-    
-    tnt_model.save(save_dir,tnt_save_all_devices = save_all_devices)
+    tnt_model.save(save_setup['save_dir'], tnt_save_all_devices = save_setup['all_devices'])
 
     # load into a new tnt.Model
-    loaded_model = tnt.models.load_model(save_dir, compile = True)
-    assert isinstance(loaded_model, tnt.Model)
-    check_configuration_identical(loaded_model, tnt_model)
-    util.compare_weights(loaded_model.get_weights(), tnt_model.get_weights(), 1e-6)
+    reloaded_tnt_model = tnt.models.load_model(save_setup['save_dir'], compile = True)
+    assert isinstance(reloaded_tnt_model, tnt.Model)
+    check_configuration_identical(reloaded_tnt_model, tnt_model)
+    util.compare_weights(reloaded_tnt_model.get_weights(), tnt_model.get_weights(), 1e-6)
     
-    # clean up
-    if save_all_devices or tnt.is_master_rank():
-      shutil.rmtree(save_dir, ignore_errors=True)
 
   @pytest.mark.parametrize("load_compiled_model", [True, False])
-  @pytest.mark.parametrize("save_all_devices", [True, False])
   @pytest.mark.parametrize("micro_batch_size", [32])
   @pytest.mark.parametrize("nbatches", [10])
-  @pytest.mark.parametrize("optimizer", [keras.optimizers.SGD,
-                                         keras.optimizers.Adam,
-                                         keras.optimizers.RMSprop])
   @pytest.mark.parametrize("check_configuration_identical", model_configuration_checks)
-  def test_save_load_train_models(self, model, load_compiled_model, micro_batch_size,
-                                  nbatches, optimizer, check_configuration_identical,
-                                  save_all_devices):
+  def test_load_model_with_compile_flag(self, model, save_setup,
+                                        load_compiled_model, micro_batch_size,
+                                        nbatches, check_configuration_identical):
     batch_size = micro_batch_size * tnt.get_size()
     nsamples = nbatches * batch_size
     (train_dataset, _) = util.load_dataset(mnist.load_mnist_dataset,
                                            train_size = nsamples,
                                            train_batch_size = batch_size,
-                                           test_size = 0,
-                                           test_batch_size = batch_size)
-    
+                                           shuffle = False)
     # train model
     tnt_model = tnt.Model(model)
-    tnt_model.compile(optimizer(),
+    tnt_model.compile(keras.optimizers.SGD(),
                       loss = keras.losses.SparseCategoricalCrossentropy(),
                       metrics = [keras.metrics.SparseCategoricalAccuracy()])
-    
-    # save model in a shared directory accessible to all ranks
-    save_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                            "test_save_load_after_training")
-    if save_all_devices:
-      save_dir = save_dir + str(tnt.get_rank())
-    tnt_model.save(save_dir,tnt_save_all_devices = save_all_devices)
+    tnt_model.save(save_setup['save_dir'])
 
     # load into a new tnt.Model
-    loaded_model = tnt.models.load_model(save_dir, compile = load_compiled_model)
-    assert isinstance(loaded_model, tnt.Model)
-    check_configuration_identical(loaded_model, tnt_model)
+    reloaded_tnt_model = tnt.models.load_model(save_setup['save_dir'],
+                                               compile = load_compiled_model)
+    assert isinstance(reloaded_tnt_model, tnt.Model)
+    check_configuration_identical(reloaded_tnt_model, tnt_model)
+    util.compare_weights(reloaded_tnt_model.get_weights(), tnt_model.get_weights(), 1e-6)
 
-    # compile model
-    if not load_compiled_model:
-      loaded_model.compile(optimizer(),
-                           loss = keras.losses.SparseCategoricalCrossentropy(),
-                           metrics = [keras.metrics.SparseCategoricalAccuracy()])
+    if not load_compiled_model: # load uncompiled model
+      with pytest.raises(RuntimeError):
+        reloaded_tnt_model.fit(train_dataset, epochs = 2, verbose = 0)
 
-    # train original model
-    tnt_model.fit(train_dataset, epochs = 2, verbose = 0)
-
-    # train loaded model
-    loaded_model.fit(train_dataset, epochs = 2, verbose = 0)
-
-    util.compare_weights(loaded_model.get_weights(), tnt_model.get_weights(), 1e-5)
-
-    # clean up
-    if save_all_devices or tnt.is_master_rank():
-      shutil.rmtree(save_dir, ignore_errors=True)
+    else: # load compiled model
+      reloaded_tnt_model.fit(train_dataset, epochs = 2, verbose = 0)
 
 
-  @pytest.mark.parametrize("save_all_devices", [True, False])
   @pytest.mark.parametrize("micro_batch_size", [32])
   @pytest.mark.parametrize("nbatches", [10])
   @pytest.mark.parametrize("tf_format", [True, False])
-  def test_save_weights_after_training(self, model,
-                                  micro_batch_size, nbatches,save_all_devices,
-                                  tf_format):
+  def test_save_weights_after_training(self, model, save_setup,
+                                       micro_batch_size, nbatches, tf_format):
     batch_size = micro_batch_size * tnt.get_size()
     nsamples = nbatches * batch_size
     (train_dataset, _) = util.load_dataset(mnist.load_mnist_dataset,
                                            train_size = nsamples,
                                            train_batch_size = batch_size,
-                                           test_size = 0,
-                                           test_batch_size = batch_size)
-
+                                           shuffle = False)
     # train model
     tnt_model = tnt.Model(model)
     tnt_model.compile(keras.optimizers.SGD(learning_rate = 0.01, momentum = 0.9),
@@ -160,18 +132,12 @@ class TestsModelLoadSave:
                       metrics = [keras.metrics.SparseCategoricalAccuracy()])
     tnt_model.fit(train_dataset, epochs = 1, verbose = 0)
 
-    # save model in a shared directory accessible to all ranks
-    save_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                            "test_save_weights_after_training")
-    if save_all_devices:
-      save_dir = save_dir + str(tnt.get_rank())
-    if save_all_devices or tnt.is_master_rank():
-      os.mkdir(save_dir)
-    save_path = os.path.join(save_dir,"weight")
+    os.mkdir(save_setup['save_dir'])
+    save_path = os.path.join(save_setup['save_dir'], "weight")
     if not tf_format:
       save_path = save_path + ".h5"
 
-    tnt_model.save_weights(save_path, tnt_save_all_devices = save_all_devices)
+    tnt_model.save_weights(save_path, tnt_save_all_devices = save_setup['all_devices'])
 
     # create new model with same architecture and optimizer
     model_from_config = tnt.models.model_from_config(tnt_model.get_config())
@@ -182,18 +148,10 @@ class TestsModelLoadSave:
     model_from_config.load_weights(save_path)
     util.compare_weights(tnt_model.get_weights(), model_from_config.get_weights(), 1e-6)
 
+    # using the TF format saves the state together with the weights
+    # such that training can continue on the loaded model
     if tf_format:
       tnt_model.fit(train_dataset, epochs = 1, verbose = 0)
       model_from_config.fit(train_dataset, epochs = 1, verbose = 0)
 
       util.compare_weights(tnt_model.get_weights(), model_from_config.get_weights(), 1e-6)
-
-    if save_all_devices or tnt.is_master_rank():
-      shutil.rmtree(save_dir, ignore_errors=True)
-    
-    
-    
-    
-    
-    
-    
