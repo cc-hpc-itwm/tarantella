@@ -35,7 +35,6 @@ def create_parser():
                     dest = "npernode",
                     type = int,
                     default = None)
-
   parser.add_argument("--no-gpu", "--no-gpus",
                     help="disallow GPU usage",
                     dest = "use_gpus",
@@ -72,10 +71,15 @@ def create_parser():
                     type = str,
                     nargs="+",
                     default=[])
+  parser.add_argument("--pin-to-socket",
+                    help="pin each rank to a socket based on rank id using `numactl`",
+                    dest = "pin_to_socket",
+                    action='store_true',
+                    default=False)
   parser.add_argument("--version",
                     action='version',
                     version=generate_version_message())
-  parser.add_argument('script', nargs='+',metavar='-- SCRIPT')
+  parser.add_argument('script', nargs='+', metavar='-- SCRIPT')
   return parser
 
 def parse_args():
@@ -129,6 +133,26 @@ def generate_run_error_message(e, hostfile_path = None,
   error_string += "[TNT_CLI] Execution failed with status {}".format(e.returncode)
   return error_string
 
+def get_numa_nodes_count():
+  out = subprocess.run(['numactl', '--hardware'], stdout=subprocess.PIPE)
+  out = out.stdout.decode("utf-8")
+  out = out.split('\n')[0].split()[1]
+  return int(out) if out.isdigit() else 0
+
+def get_numa_prefix(npernode):
+  node_count = get_numa_nodes_count()
+  if node_count == 0 or npernode == 0 or node_count < npernode:
+    raise ValueError(f"[TNT_CLI] Cannot pin {npernode} ranks to {node_count} NUMA nodes. " + \
+                     f"`-n`, `--n-per-node`, or `--devices-per-node` value should be less" + \
+                     f" than or equal to {node_count} (available NUMA nodes).")
+  else:
+    if node_count != npernode:
+      logger.warn(f"Pinning {npernode} ranks to NUMA nodes on each host " + \
+                  f"(available NUMA nodes: {node_count}).")
+    command = f"socket=$(( $GASPI_RANK % {npernode} ))\n"
+    command += f"numactl --cpunodebind=$socket --membind=$socket"
+  return command
+
 class TarantellaCLI:
   def __init__(self, hostlist, num_gpus_per_node, num_cpus_per_node, args):
     self.args = args
@@ -136,21 +160,32 @@ class TarantellaCLI:
     self.command_list = args.script
     self.num_gpus_per_node = num_gpus_per_node
     # compute number of ranks per node to create the hostfile
-    npernode = num_gpus_per_node
+    self.npernode = num_gpus_per_node
     device_type = "GPUs"
-    if npernode == 0:
-      npernode = num_cpus_per_node
+    if self.npernode == 0:
+      self.npernode = num_cpus_per_node
       device_type = "CPU processes"
 
-    self.nranks = len(hostlist) * npernode
-    self.hostfile = file_man.HostFile(hostlist, npernode)
+    self.nranks = len(hostlist) * self.npernode
+    self.hostfile = file_man.HostFile(hostlist, self.npernode)
     self.executable_script = self.generate_executable_script()
 
     logger.info("Starting Tarantella on {} devices ({} nodes x {} {})".format(self.nranks,
-                len(hostlist), npernode, device_type))
+                len(hostlist), self.npernode, device_type))
+
+  def generate_interpreter(self):
+    interpreter = "python"
+
+    if self.args.pin_to_socket:
+      path_to_numa = shutil.which("numactl")
+      if path_to_numa is None:
+        raise FileNotFoundError("[TNT_CLI] Cannot execute `numactl` as required by the `--pin-to-socket` flag; "+\
+                                "make sure that `numactl` is installed and has been added to the current `PATH`.")
+      interpreter = f"{get_numa_prefix(self.npernode)} {interpreter}"
+
+    return interpreter
 
   def generate_executable_script(self):
-    # create execution script
     header = "#!/bin/bash\n"
     header += "cd {}".format(os.path.abspath(os.getcwd()))
 
@@ -161,7 +196,7 @@ class TarantellaCLI:
                   env_config.gen_exports_from_dict(env_config.get_tnt_gpus(self.num_gpus_per_node)) + \
                   env_config.gen_exports_from_dict(env_config.get_environment_vars_from_args(self.args))
 
-    command = "python {}".format(' '.join(self.command_list))
+    command = f"{self.generate_interpreter()} {' '.join(self.command_list)}"
     return file_man.GPIScriptFile(header, environment, command, dir = os.getcwd())
 
   def run(self, dry_run = False):
