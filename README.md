@@ -181,7 +181,7 @@ A detailed description of all the command line options of `tarantella` can be fo
 
 The simplest way to train a model distributedly with Tarantella is to pass the Python script
 to the ``tarantella`` command. Make sure to add the path to the GPI-2 libraries in
-`LD_LIBRARY_PATH` befre executing ``tarantella``:
+`LD_LIBRARY_PATH` before executing ``tarantella``:
 
 ```bash
   export LD_LIBRARY_PATH=${GPI2_INSTALLATION_PATH}/lib64:${LD_LIBRARY_PATH}
@@ -215,6 +215,13 @@ With this ``hostfile`` we can run ``tarantella`` on multiple nodes, using 2 GPUs
 ```bash
    tarantella --n-per-node=2 --hostfile hostfile -- model.py
 ```
+
+You can also export additional environment variables before executing your `model.py` script
+by using the ``-x`` option.
+```bash
+   tarantella --n-per-node=2 --hostfile hostfile -x PATH_TO_DATASET=/scratch/data -- model.py
+```
+
 
 ### Run Tarantella models through `gaspi_run` directly
 

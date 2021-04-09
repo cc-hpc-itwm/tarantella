@@ -51,3 +51,8 @@ tarantella_generate_python_gpi_test(NAME TensorBroadcaster
                                     TIMEOUT 100)
 
 add_subdirectory(pipelining_parallel)
+
+tarantella_generate_python_gpi_test(NAME CLIEnvironmentVariables
+                                    LOCALRANKS_LIST "1"
+                                    TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/tnt_cli/user_env_vars_test.py
+                                    TIMEOUT 20)

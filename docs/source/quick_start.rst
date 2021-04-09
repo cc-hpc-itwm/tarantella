@@ -188,7 +188,10 @@ is exported on all ranks before executing the code. An example is shown below:
 
 .. code-block:: bash
 
-   tarantella --hostfile hostfile -x TF_CPP_MIN_LOG_LEVEL=1 -- model.py
+   tarantella --hostfile hostfile -x DATASET=/scratch/data TF_CPP_MIN_LOG_LEVEL=1 -- model.py
+
+Both ``DATASET`` and ``TF_CPP_MIN_LOG_LEVEL`` will be exported as environment variables 
+before executing ``model.py``, in the same order they were specified to the command line.
 
 Lastly, you can overwrite the *Tensor Fusion* threshold ``tarantella`` uses 
 with ``--fusion-threshold FUSION_THRESHOLD_KB``
