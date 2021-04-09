@@ -55,7 +55,7 @@ class TestsDataParallelCallbacks:
     for key in tnt_history.history.keys():
       assert all(np.isclose(tnt_history.history[key], reference_history.history[key], atol=3e-1))
 
-    assert len(history.history['val_loss']) == number_epochs
+    assert len(tnt_history.history['val_loss']) == number_epochs
 
   @pytest.mark.parametrize("number_epochs", [10])
   def test_early_stopping_callback(self, model_runners, number_epochs):
