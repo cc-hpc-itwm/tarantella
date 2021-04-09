@@ -54,7 +54,6 @@ class TntModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
 class TntHistory(tf.keras.callbacks.History):
   def __init__(self, keras_history):
     super(TntHistory, self).__init__()
-    self.logs = {}
     self.allreducer = None
 
   def on_epoch_end(self, epoch, logs=None):
@@ -62,18 +61,17 @@ class TntHistory(tf.keras.callbacks.History):
       self.allreducer = tnt.TensorAllreducer(logs)
     
     # do an allreduce on all ranks and get averaged values over all ranks
-    self.logs = self.allreducer.allreduce(logs)
-    self.logs.update((k, v / tnt.get_size()) for k, v in self.logs.items())
+    logs = self.allreducer.allreduce(logs)
+    logs.update((k, v / tnt.get_size()) for k, v in logs.items())
 
-    super().on_epoch_end(epoch, self.logs)
+    super().on_epoch_end(epoch, logs)
 
 class TntEarlyStopping(tf.keras.callbacks.EarlyStopping):
   def __init__(self, keras_early_stopping):
     super(TntEarlyStopping, self).__init__()
-    self.logs = {}
     self.allreducer = None
 
-    # set member variables from keras csvlogger instance
+    # set member variables from keras earlystopping instance
     self.monitor = keras_early_stopping.monitor
     self.patience = keras_early_stopping.patience
     self.baseline = keras_early_stopping.baseline
@@ -81,7 +79,7 @@ class TntEarlyStopping(tf.keras.callbacks.EarlyStopping):
     self.restore_best_weights = keras_early_stopping.restore_best_weights
     self.monitor_op = keras_early_stopping.monitor_op
 
-    # only master rank should save and thus print messages
+    # only master rank should print messages
     self.verbose = keras_early_stopping.verbose if tnt.is_master_rank() else 0
 
   def get_monitor_value(self, logs):
@@ -89,7 +87,7 @@ class TntEarlyStopping(tf.keras.callbacks.EarlyStopping):
       self.allreducer = tnt.TensorAllreducer(logs)
     
     # do an allreduce on all ranks and get averaged values over all ranks
-    self.logs = self.allreducer.allreduce(logs)
-    self.logs.update((k, v / tnt.get_size()) for k, v in self.logs.items())
+    logs = self.allreducer.allreduce(logs)
+    logs.update((k, v / tnt.get_size()) for k, v in logs.items())
 
-    return super().get_monitor_value(self.logs)
+    return super().get_monitor_value(logs)

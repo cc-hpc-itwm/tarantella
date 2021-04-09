@@ -6,12 +6,17 @@ import tarantella as tnt
 import tensorflow as tf
 from tensorflow import keras
 
+import numpy as np
+
 import pytest
+import logging
 
 @pytest.fixture(scope="class", params=[mnist.sequential_model_generator,
                                       ])
-def model_runner(request):
-  yield base_runner.generate_tnt_model_runner(request.param())
+def model_runners(request):
+  tnt_model_runner = base_runner.generate_tnt_model_runner(request.param())
+  reference_model_runner = base_runner.TrainingRunner(request.param())
+  yield tnt_model_runner, reference_model_runner
 
 def train_val_dataset_generator():
   micro_batch_size = 64
@@ -24,31 +29,40 @@ def train_val_dataset_generator():
   (train_dataset, val_dataset) = util.load_dataset(mnist.load_mnist_dataset,
                                                    train_size = nsamples,
                                                    train_batch_size = batch_size,
-                                                   test_size = 1000,
+                                                   test_size = 100,
                                                    test_batch_size = batch_size)
   yield from (train_dataset, val_dataset)
 
 class TestsDataParallelCallbacks:
-  def test_model_initialization(self, model_runner):
-    assert model_runner.model
-
-  def test_history_default_callback(self, model_runner):
-    number_epochs = 2
+  @pytest.mark.parametrize("number_epochs", [2])
+  def test_history_default_callback(self, model_runners, number_epochs):
     (train_dataset, val_dataset) = train_val_dataset_generator()
+    (ref_train_dataset, ref_val_dataset) = train_val_dataset_generator()
 
-    history = model_runner.model.fit(train_dataset,
-                                     epochs=number_epochs,
-                                     verbose=0,
-                                     shuffle=False,
-                                     validation_data=val_dataset)
+    tnt_model_runner, reference_model_runner = model_runners
+
+    tnt_history = tnt_model_runner.model.fit(train_dataset,
+                                             epochs=number_epochs,
+                                             verbose=0,
+                                             shuffle=False,
+                                             validation_data=val_dataset)
+    reference_history = reference_model_runner.model.fit(ref_train_dataset,
+                                                         epochs=number_epochs,
+                                                         verbose=0,
+                                                         shuffle=False,
+                                                         validation_data=ref_val_dataset)                                        
+
+    for key in tnt_history.history.keys():
+      assert all(np.isclose(tnt_history.history[key], reference_history.history[key], atol=3e-1))
 
     assert len(history.history['val_loss']) == number_epochs
 
-  def test_early_stopping_callback(self, model_runner):
-    number_epochs = 10
+  @pytest.mark.parametrize("number_epochs", [10])
+  def test_early_stopping_callback(self, model_runners, number_epochs):
     (train_dataset, val_dataset) = train_val_dataset_generator()
 
-    history = model_runner.model.fit(train_dataset,
+    tnt_model_runner, _ = model_runners
+    history = tnt_model_runner.model.fit(train_dataset,
                                      epochs=number_epochs,
                                      verbose=0,
                                      shuffle=False,
