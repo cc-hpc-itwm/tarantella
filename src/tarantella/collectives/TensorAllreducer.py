@@ -2,6 +2,7 @@ import GPICommLib
 
 from . import utils
 
+import logging
 import numpy as np
 
 class TensorAllreducer:
@@ -19,7 +20,7 @@ class TensorAllreducer:
       self.allreducer = GPICommLib.TensorAllreducer(tensor_infos)
       self.shapes = [input.shape]
 
-    elif isinstance(input, (float)):
+    elif isinstance(input, (np.float, np.double)):
       tensor_infos = [utils.get_tensor_info(len(tensor_infos), np.asarray(input))]
       self.allreducer = GPICommLib.TensorAllreducer(tensor_infos)
 
@@ -29,6 +30,7 @@ class TensorAllreducer:
         self.allreducer[key] = TensorAllreducer(input[key])
 
     else:
+      logging.getLogger().info(type(input))
       raise TypeError("""[Tarantella][TensorAllreducer] Input should be
                       either a list or an array object and non-empty.""")
 
@@ -44,7 +46,7 @@ class TensorAllreducer:
       outputs = outputs.reshape(self.shapes[0])
       return outputs
 
-    elif isinstance(input, (float)):
+    elif isinstance(input, (np.float, np.double)):
       return self.allreducer.allreduce([np.asarray(input)])[0][0]
 
     elif utils.__is_nonEmptyDict__(input):
