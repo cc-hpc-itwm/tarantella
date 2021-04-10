@@ -20,7 +20,7 @@ class TensorAllreducer:
       self.allreducer = GPICommLib.TensorAllreducer(tensor_infos)
       self.shapes = [input.shape]
 
-    elif isinstance(input, (np.float, np.double)):
+    elif utils.__is_floatOrDouble__(input):
       tensor_infos = [utils.get_tensor_info(len(tensor_infos), np.asarray(input))]
       self.allreducer = GPICommLib.TensorAllreducer(tensor_infos)
 
@@ -46,7 +46,7 @@ class TensorAllreducer:
       outputs = outputs.reshape(self.shapes[0])
       return outputs
 
-    elif isinstance(input, (np.float, np.double)):
+    elif utils.__is_floatOrDouble__(input):
       return self.allreducer.allreduce([np.asarray(input)])[0][0]
 
     elif utils.__is_nonEmptyDict__(input):

@@ -9,6 +9,9 @@ def __is_nonEmptyList__(input):
 def __is_nonEmptyArray__(input):
   return isinstance(input, np.ndarray) and input.size != 0
 
+def __is_floatOrDouble__(input):
+  return isinstance(input, (np.float32, np.float))
+
 def __is_nonEmptyDict__(input):
   return isinstance(input, dict) and len(input) != 0
 
