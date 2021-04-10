@@ -15,7 +15,7 @@ class TNTConfig(enum.Enum):
 class TarantellaConfigurationDefaults:
   @classmethod
   def config(self):
-    default_config = { TNTConfig.TNT_GPUS_PER_NODE : None,
+    default_config = { TNTConfig.TNT_GPUS_PER_NODE : None,  # use all devices on the node (one per rank)
                        TNTConfig.TNT_FUSION_THRESHOLD : 32 * 1024,
                        TNTConfig.TNT_OUTPUT_ON_ALL_DEVICES : 'False',
                        TNTConfig.TNT_LOG_ON_ALL_DEVICES : 'False',

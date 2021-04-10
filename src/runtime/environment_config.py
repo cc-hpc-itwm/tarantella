@@ -21,10 +21,10 @@ def get_environment_vars_from_args(args):
   for env in args.setenv:
     try:
       env_name, env_value = env.split("=")
-      envs[env_name] = env_value
+      envs[env_name] = f"\"{env_value}\""
     except:
-      raise ValueError(
-      "[TNT_CLI] Specify environment variables as a space-separated KEY=VALUE list")
+      raise ValueError("[LogicError] Specify environment variables as a space-separated KEY=VALUE list. "+\
+                       "VALUE strings containing spaces must be enclosed in quotes.")
   return envs
 
 def update_environment_paths(libraries_path):

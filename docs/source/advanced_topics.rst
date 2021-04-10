@@ -124,6 +124,27 @@ To change the default value, you can pass a threshold value in kB to ``tarantell
    tarantella --hostfile hostfile --fusion-threshold=<FUSION_THRESHOLD_KB> -- model.py
 
 
+
+Performance aspects
+^^^^^^^^^^^^^^^^^^^
+
+To increase execution performance on CPUs, it is often desirable to bind processes
+to physical cores or groups of cores in order to improve data locality and reduce
+context switching.
+
+Tarantella provides a command-line flag to enable rank pinning to physical sockets.
+It uses the `numactl <https://github.com/numactl/numactl>`_ utility to detect existing 
+NUMA domains and pin each Tarantella process deployed on a host to a separate socket.
+
+The example below illustrates the usage of the ``--pin-to-socket`` flag to start two
+Tarantella ranks on each host listed in ``hostfile``, each of them pinned to a different
+socket.
+
+.. code-block:: bash
+
+   tarantella --hostfile hostfile --npernode 2 --pin-to-socket -- model.py
+
+
 .. _reproducibility-label:
 
 Reproducibility
