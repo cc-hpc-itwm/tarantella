@@ -21,15 +21,22 @@ class TrainingRunner:
     self.initial_weights = model.get_weights()
 
   def compile_model(self, optimizer):
+
+    kwargs = {}
+    if tf.__version__.startswith('2.0') or \
+       tf.__version__.startswith('2.1'):
+      kwargs['experimental_run_tf_function'] = False
+
     self.model.compile(optimizer=optimizer,
                        loss=self.loss,
-                       metrics=[self.metric])
+                       metrics=[self.metric],
+                       **kwargs)  # required for `keras` models
 
   def train_model(self, train_dataset, number_epochs):
-    self.model.fit(train_dataset,
-                   epochs = number_epochs,
-                   verbose = 0,
-                   shuffle = False)
+    return self.model.fit(train_dataset,
+                          epochs = number_epochs,
+                          verbose = 0,
+                          shuffle = False)  # required for `keras` models
 
   def get_weights(self):
     return self.model.get_weights()
