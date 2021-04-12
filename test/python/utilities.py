@@ -24,6 +24,9 @@ def current_date():
   date = datetime.datetime.now()
   return int(date.strftime("%Y%m%d"))
 
+def set_tf_random_seed(seed = current_date()):
+  tf.random.set_seed(seed)
+
 def check_accuracy_greater(accuracy, acc_value):
   logging.getLogger().info("Test accuracy: {}".format(accuracy))
   assert accuracy > acc_value
