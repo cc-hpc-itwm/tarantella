@@ -24,12 +24,6 @@ class Model(tf.keras.models.Model):
     self.barrier = tarantella.Barrier()
 
     self.orig_optimizer = None
-    self.orig_loss = None
-    self.orig_metrics = None
-    self.orig_loss_weights = None
-    self.orig_sample_weight_mode = None
-    self.orig_weighted_metrics = None
-
     self.dist_optimizer = None
     self.default_shuffle_seed = 42
 
@@ -135,19 +129,15 @@ class Model(tf.keras.models.Model):
 
     # Store original parameters to save the model later
     self.orig_optimizer = optimizer
-    self.orig_loss = loss
-    self.orig_metrics = metrics
-    self.orig_loss_weights = loss_weights
-    self.orig_sample_weight_mode = sample_weight_mode
-    self.orig_weighted_metrics = weighted_metrics
+    self.orig_optimizer_serialized = tf.keras.optimizers.serialize(optimizer)
 
     self.dist_optimizer = tarantella.distributed_optimizers.SynchDistributedOptimizer(self.orig_optimizer)
     return self.model.compile(optimizer = self.dist_optimizer,
-                              loss = self.orig_loss,
-                              metrics = self.orig_metrics,
-                              loss_weights = self.orig_loss_weights,
-                              sample_weight_mode = self.orig_sample_weight_mode,
-                              weighted_metrics = self.orig_weighted_metrics,
+                              loss = loss,
+                              metrics = metrics,
+                              loss_weights = loss_weights,
+                              sample_weight_mode = sample_weight_mode,
+                              weighted_metrics = weighted_metrics,
                               **kwargs)
 
   def compute_mask(self, inputs, mask):
@@ -226,7 +216,17 @@ class Model(tf.keras.models.Model):
 
   @classmethod
   def from_config(cls, config):
-    keras_model = tf.keras.Model.from_config(config)
+    try:
+      keras_model = tf.keras.Model.from_config(config)
+      logger.info("Loaded model from `keras.Model`.")
+    except:
+      try:
+        keras_model = tf.keras.Sequential.from_config(config)
+        logger.info("Loaded model from `keras.Sequential`.")
+      except:
+        raise RuntimeError("""[tnt.model.from_config] Cannot load 
+              model; provided configuration is neither a `keras.Model`
+              nor a `keras.Sequential` model.""")
     return cls(keras_model)
 
   def get_config(self):
@@ -316,24 +316,17 @@ class Model(tf.keras.models.Model):
   # Helper functions #
   ####################
   def _save(self, filepath, args_dict):
-    # 1. Re-compile underlying `Keras.model` w/ underlying optimizer
-    self.model.compile(optimizer = self.orig_optimizer,
-                       loss = self.orig_loss,
-                       metrics = self.orig_metrics,
-                       loss_weights = self.orig_loss_weights,
-                       sample_weight_mode = self.orig_sample_weight_mode,
-                       weighted_metrics = self.orig_weighted_metrics)
-
-    # 2. Save the model as `Keras.Model` with standard Keras optimizer
-    self.model.save(filepath = filepath, **args_dict)
-
-    # 3. Re-compile the Tarantella Model
-    self.compile(optimizer = self.orig_optimizer,
-                 loss = self.orig_loss,
-                 metrics = self.orig_metrics,
-                 loss_weights = self.orig_loss_weights,
-                 sample_weight_mode = self.orig_sample_weight_mode,
-                 weighted_metrics = self.orig_weighted_metrics)
+    if self.compiled == False:
+      self.model.optimizer = None
+      self.model.save(filepath = filepath, **args_dict)
+    else:
+      # 1. Set the optimizer of the underlying `keras.Model` using the original optimizer
+      deserialize_optimizer = tf.keras.optimizers.deserialize(self.orig_optimizer_serialized)
+      self.model.optimizer = self._get_optimizer(deserialize_optimizer)
+      # 2. Save the model as `keras.Model` with standard Keras optimizer
+      self.model.save(filepath = filepath, **args_dict)
+      # 3. Reset the underlying optimizer to the distributed optimzier
+      self.model.optimizer = self._get_optimizer(self.dist_optimizer)
 
   def _setup_for_execution(self, exec_type, x, y, args_dict):
     self._assert_compile_has_been_called()
