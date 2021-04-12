@@ -251,7 +251,9 @@ class Model(tf.keras.models.Model):
   def load_weights(self, filepath, **kwargs):
     # loaded weights from the same source will be identical on all ranks
     self.done_broadcast = True
-    return self.model.load_weights(filepath = filepath, **kwargs)
+    result = self.model.load_weights(filepath = filepath, **kwargs)
+    self.barrier.synchronize()
+    return result
   
   def predict(self,
               x = None,
