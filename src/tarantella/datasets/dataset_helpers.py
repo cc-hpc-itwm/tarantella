@@ -8,6 +8,7 @@ from tensorflow.python.ops import gen_dataset_ops
 
 from tarantella import logger
 import tarantella.datasets.ops as tnt_ops
+import numpy as np
 
 def _get_transformation_info_batch(dataset):
   kwargs = {"batch_size": dataset._batch_size,
@@ -145,35 +146,6 @@ def _get_transformation_info_withoptions(dataset):
   kwargs = {"options": dataset._options}
   return (ds._OptionsDataset, kwargs)
 
-def pad_dataset(dataset,batch_size,comm_size,num_samples):
-  real_batch_size = int(batch_size//comm_size) * comm_size
-  #num_samples = 23 new_batch_size = 3*3 = 9
-  #num_padded = 9-(23 - 2 * 9) = 4
-  #take last 2*9 - 5 element as rest_dataset, rest_dataset has 14 elements
-  #first batch rest_dataset with batch_size 9,rest_dataset would contain 2 part. First with 9 element, second with 5    elements
-  #Then padded batch with batch_size 2 without passing padded shape,
-  #All dimensions of all components are padded to the maximum size in the batch.
-  #Now the size of rest_dataset is 1*2*9,with 2 unbatch,the size of rest_dataset is 18 with padded 0
-  #concat two dataset, now the size of dataset is 9 + 18 = 27,which is multiple of new_batch_size.
-  #batch the dataset with micro_batchsize 3,the shape of dataset is 9*3,then shard with 3 nodes,each node has dataset with shape 3*3
-  if num_samples % real_batch_size != 0:
-    num_padded = num_samples - int(num_samples // real_batch_size)*real_batch_size
-    num_padded = real_batch_size - num_padded
-    rest_dataset = dataset.take(2*real_batch_size - num_padded)
-    logger.info("Dataset is padded with {} elements.".format(
-                num_padded))
-    rest_dataset = rest_dataset.batch(real_batch_size,drop_remainder=False)
-
-    #If padded_shape is unset, all dimensions of all components are padded to the maximum size in the batch.
-    rest_dataset = rest_dataset.padded_batch(2)
-    rest_dataset = rest_dataset.unbatch()
-    rest_dataset = rest_dataset.unbatch()
-
-    ##take previous and concat togther with rest_dataset
-    rest_dataset = rest_dataset.skip(2*real_batch_size - num_padded)
-    dataset = rest_dataset.concatenate(dataset)
-  return dataset
-
 _transformations = {ds.BatchDataset : _get_transformation_info_batch,
                     ds.CacheDataset : _get_transformation_info_cache,
                     ds.ConcatenateDataset: _get_transformation_info_concatenate,
@@ -290,3 +262,24 @@ def get_num_samples(dataset):
   logger.debug("Dataset size is %d" % (dataset_size))
   return dataset_size
 
+#scaling factor schedule callback
+class ScalingFactorScheduler(tf.keras.callbacks.Callback):
+  def __init__(self, normal_factor,special_factor = None,special_iteration = None):
+    super(ScalingFactorScheduler, self).__init__()
+    #factor for diff micro batch size
+    self.normal_factor = np.float32(normal_factor)
+    #factor for pad with 0
+    self.special_factor = np.float32(special_factor)
+    #the iteration with pad 0
+    self.special_iteration = special_iteration
+    
+  def on_train_start(self, logs=None):
+    self.model.optimizer.scaling_factor = self.normal_factor
+
+  def on_train_batch_begin(self, batch, logs=None):
+    #use normal_factor for usual
+    self.model.optimizer.scaling_factor = self.normal_factor
+    #if current batch is the iteration, apply special_factor
+    if self.special_factor is not None and batch == self.special_iteration:
+      self.model.optimizer.scaling_factor = self.special_factor
+    

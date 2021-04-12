@@ -190,6 +190,11 @@ class Model(tf.keras.models.Model):
       x = distributed_x.distribute_dataset_across_ranks(
             user_micro_batch_size = tnt_micro_batch_size,
             is_training = True)
+      ##generate callback for scaling factor
+      dataset_callback = distributed_x.generate_callback_if_have()
+      if dataset_callback != None:
+        callbacks.append(dataset_callback)
+     
     else:
       logger.info("Automatic dataset distribution is disabled."
                   "Make sure the dataset is sharded manually across ranks.")
