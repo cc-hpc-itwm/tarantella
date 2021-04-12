@@ -1,60 +1,56 @@
 import GPICommLib
+from tarantella.collectives import utils
 
-from . import utils
-
-import logging
+import tensorflow as tf
 import numpy as np
 
 class TensorAllreducer:
-  def __init__(self, input):
-    self.shapes = list()
-    tensor_infos = []
-
-    if utils.__is_nonEmptyList__(input):
-      tensor_infos = [utils.get_tensor_info(tid, tensor) for tid, tensor in enumerate(input)]
-      self.allreducer = GPICommLib.TensorAllreducer(tensor_infos)
-      self.shapes = [array.shape for array in input]
-
-    elif utils.__is_nonEmptyArray__(input):
-      tensor_infos = [utils.get_tensor_info(len(tensor_infos), input)]
-      self.allreducer = GPICommLib.TensorAllreducer(tensor_infos)
-      self.shapes = [input.shape]
-
-    elif utils.__is_floatOrDouble__(input):
-      tensor_infos = [utils.get_tensor_info(len(tensor_infos), np.asarray(input))]
-      self.allreducer = GPICommLib.TensorAllreducer(tensor_infos)
-
-    elif utils.__is_nonEmptyDict__(input):
+  def __init__(self, inputs):
+    if utils.__is_nonEmptyDict__(inputs):
       self.allreducer = dict()
-      for key in sorted(input.keys()):
-        self.allreducer[key] = TensorAllreducer(input[key])
+      for key in inputs.keys():
+        self.allreducer[key] = TensorAllreducer(inputs[key])
+      return
 
+    default_tensor_id = 0
+    if utils.__is_floatOrDouble__(inputs):
+      self.shapes = [tf.shape(inputs)]
+      tensor_infos = [utils.get_tensor_info(default_tensor_id, np.asarray(inputs))]
+    elif utils.__is_nonEmptyArray__(inputs):
+      self.shapes = [inputs.shape]
+      tensor_infos = [utils.get_tensor_info(default_tensor_id, inputs)]
+    elif utils.__is_nonEmptyList__(inputs):
+      self.shapes = [tensor.shape for tensor in inputs]
+      tensor_infos = [utils.get_tensor_info(tid, tensor) for tid, tensor in enumerate(inputs)]
     else:
-      logging.getLogger().info(type(input))
-      raise TypeError("""[Tarantella][TensorAllreducer] Input should be
-                      either a list or an array object and non-empty.""")
+      self.raise_input_error()
 
-  def allreduce(self, input):
-    if utils.__is_nonEmptyList__(input):
-      outputs = self.allreducer.allreduce(input)
-      for i in range(len(outputs)):
-        outputs[i] = outputs[i].reshape(self.shapes[i])
-      return outputs
+    self.allreducer = GPICommLib.TensorAllreducer(tensor_infos)
 
-    elif utils.__is_nonEmptyArray__(input):
-      outputs = self.allreducer.allreduce([input])[0]
-      outputs = outputs.reshape(self.shapes[0])
-      return outputs
 
-    elif utils.__is_floatOrDouble__(input):
-      return self.allreducer.allreduce([np.asarray(input)])[0][0]
-
-    elif utils.__is_nonEmptyDict__(input):
+  def allreduce(self, inputs):
+    if utils.__is_nonEmptyDict__(inputs):
       output_dict = dict()
-      for key in sorted(input.keys()):
-        output_dict[key] = self.allreducer[key].allreduce(input[key])
+      for key in inputs.keys():
+        output_dict[key] = self.allreducer[key].allreduce(inputs[key])
       return output_dict
 
+    if utils.__is_floatOrDouble__(inputs):
+      return self.allreducer.allreduce([np.asarray(inputs)])[0][0]
+    elif utils.__is_nonEmptyArray__(inputs):
+      outputs = self.allreducer.allreduce([inputs])[0]
+      outputs = outputs.reshape(self.shapes[0])
+      return outputs
+    elif utils.__is_nonEmptyList__(inputs):
+      outputs = self.allreducer.allreduce(inputs)
+      for i, _ in enumerate(outputs):
+        outputs[i] = outputs[i].reshape(self.shapes[i])
+      return outputs
     else:
-      raise TypeError("""[Tarantella][TensorAllreducer] Input should be
-                      either a list or an array object and non-empty.""")
+      self.raise_input_error()
+
+
+  def raise_input_error(self):
+    raise TypeError('[Tarantella][TensorAllreducer] '
+                    '`inputs` should be either a dict, list, '
+                    'an `np.ndarray` object, or a float/double.')
