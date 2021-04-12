@@ -17,7 +17,7 @@ import tempfile
 # Subclassed models are a special case of keras.Model, which is not impacted by
 # tarantella saving/loading, as it is handled by `tf.keras`
 # (https://www.tensorflow.org/guide/keras/save_and_serialize#whole-model_saving_loading)
-@pytest.fixture(scope="class", params=[mnist.lenet5_model_generator,
+@pytest.fixture(scope="class", params=[#mnist.lenet5_model_generator,
                                        mnist.sequential_model_generator])
 def model(request):
   yield request.param()
@@ -52,13 +52,13 @@ class TestsModelLoadSave:
   def test_save_before_compile(self, model, save_setup,
                                check_configuration_identical):
     tnt_model = tnt.Model(model)
-    tnt_model.save(save_setup['save_dir'])
+    tnt_model.save(save_setup['save_dir'], tnt_save_all_devices = save_setup['all_devices'])
 
     # make sure the original model has the same weights on all ranks
     tnt_model._broadcast_weights_if_necessary()
 
     # load file into a new Tarantella model
-    reloaded_tnt_model = tnt.models.load_model(save_setup['save_dir'], compile=True)
+    reloaded_tnt_model = tnt.models.load_model(save_setup['save_dir'])
     assert isinstance(reloaded_tnt_model, tnt.Model)
     check_configuration_identical(reloaded_tnt_model, tnt_model)
     
@@ -74,44 +74,39 @@ class TestsModelLoadSave:
 
     # load into a new tnt.Model
     reloaded_tnt_model = tnt.models.load_model(save_setup['save_dir'], compile = True)
-    assert isinstance(reloaded_tnt_model, tnt.Model)
     check_configuration_identical(reloaded_tnt_model, tnt_model)
     util.compare_weights(reloaded_tnt_model.get_weights(), tnt_model.get_weights(), 1e-6)
-    
+
 
   @pytest.mark.parametrize("load_compiled_model", [True, False])
   @pytest.mark.parametrize("micro_batch_size", [32])
   @pytest.mark.parametrize("nbatches", [10])
-  @pytest.mark.parametrize("check_configuration_identical", model_configuration_checks)
   def test_load_model_with_compile_flag(self, model, save_setup,
-                                        load_compiled_model, micro_batch_size,
-                                        nbatches, check_configuration_identical):
+                                        load_compiled_model, micro_batch_size, nbatches):
     batch_size = micro_batch_size * tnt.get_size()
     nsamples = nbatches * batch_size
     (train_dataset, _) = util.load_dataset(mnist.load_mnist_dataset,
                                            train_size = nsamples,
                                            train_batch_size = batch_size,
                                            shuffle = False)
-    # train model
     tnt_model = tnt.Model(model)
     tnt_model.compile(keras.optimizers.SGD(),
                       loss = keras.losses.SparseCategoricalCrossentropy(),
                       metrics = [keras.metrics.SparseCategoricalAccuracy()])
-    tnt_model.save(save_setup['save_dir'])
+    tnt_model.save(save_setup['save_dir'], tnt_save_all_devices = save_setup['all_devices'])
 
     # load into a new tnt.Model
     reloaded_tnt_model = tnt.models.load_model(save_setup['save_dir'],
                                                compile = load_compiled_model)
-    assert isinstance(reloaded_tnt_model, tnt.Model)
-    check_configuration_identical(reloaded_tnt_model, tnt_model)
-    util.compare_weights(reloaded_tnt_model.get_weights(), tnt_model.get_weights(), 1e-6)
 
-    if not load_compiled_model: # load uncompiled model
+    if not load_compiled_model:
+      # if the model is not compiled, training should not succeed
       with pytest.raises(RuntimeError):
-        reloaded_tnt_model.fit(train_dataset, epochs = 2, verbose = 0)
+        reloaded_tnt_model.fit(train_dataset, epochs = 1, verbose = 0)
 
     else: # load compiled model
-      reloaded_tnt_model.fit(train_dataset, epochs = 2, verbose = 0)
+      # should be able to train the model if it was previously compiled
+      reloaded_tnt_model.fit(train_dataset, epochs = 1, verbose = 0)
 
 
   @pytest.mark.parametrize("micro_batch_size", [32])
@@ -132,7 +127,7 @@ class TestsModelLoadSave:
                       metrics = [keras.metrics.SparseCategoricalAccuracy()])
     tnt_model.fit(train_dataset, epochs = 1, verbose = 0)
 
-    os.mkdir(save_setup['save_dir'])
+    os.makedirs(save_setup['save_dir'], exist_ok = True)
     save_path = os.path.join(save_setup['save_dir'], "weight")
     if not tf_format:
       save_path = save_path + ".h5"
