@@ -186,6 +186,26 @@ def gen_dataset_transformations(dataset):
     dataset = dataset._input_dataset
   return (dataset, list(reversed(stack)))
       
+def pad_dataset(dataset,batch_size,comm_size,num_samples):
+  real_batch_size = int(batch_size//comm_size) * comm_size
+  if num_samples % real_batch_size != 0:
+    num_padded = num_samples - int(num_samples // real_batch_size)*real_batch_size
+    num_padded = real_batch_size - num_padded
+
+    rest_dataset = dataset.take(2*real_batch_size - num_padded)
+    logger.info("Dataset is padded with {} elements.".format(
+            num_padded))
+    rest_dataset = rest_dataset.batch(real_batch_size,drop_remainder=False)
+
+    #If padded_shape is unset, all dimensions of all components are padded to the maximum size in the batch.
+    rest_dataset = rest_dataset.padded_batch(2)
+    rest_dataset = rest_dataset.unbatch()
+    rest_dataset = rest_dataset.unbatch()
+
+    ##take previous and concat togther with rest_dataset
+    rest_dataset = rest_dataset.skip(2*real_batch_size - num_padded)
+    dataset = rest_dataset.concatenate(dataset)
+  return dataset
 
 class BatchingOpInfo:
   def __init__(self, is_batched, last_batching_index = None,
