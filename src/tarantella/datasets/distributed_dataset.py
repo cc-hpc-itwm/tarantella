@@ -82,7 +82,7 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
       logger.debug("Shuffling with shuffle seed {}.".format(ds_kwargs['seed']))
     return dataset.shuffle(**ds_kwargs)
 
-  def pad_dataset(dataset,batch_size,comm_size,num_samples):
+  def pad_dataset(self,dataset,batch_size,comm_size,num_samples):
     real_batch_size = int(batch_size//comm_size) * comm_size
     #num_samples = 23 new_batch_size = 3*3 = 9
     #num_padded = 9-(23 - 2 * 9) = 4
