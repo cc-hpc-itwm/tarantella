@@ -17,7 +17,7 @@ import tempfile
 # Subclassed models are a special case of keras.Model, which is not impacted by
 # tarantella saving/loading, as it is handled by `tf.keras`
 # (https://www.tensorflow.org/guide/keras/save_and_serialize#whole-model_saving_loading)
-@pytest.fixture(scope="class", params=[#mnist.lenet5_model_generator,
+@pytest.fixture(scope="class", params=[mnist.fc_model_generator,
                                        mnist.sequential_model_generator])
 def model(request):
   yield request.param()
@@ -38,8 +38,18 @@ def save_setup(request):
   if save_all_devices or tnt.is_master_rank():
     shutil.rmtree(save_dir, ignore_errors=True)
 
-class TestsModelLoadSave:
 
+def get_compile_params():
+  return {'optimizer'  : keras.optimizers.SGD(learning_rate = 0.01, momentum = 0.9),
+          'loss'       : keras.losses.SparseCategoricalCrossentropy(),
+          'metrics'    :[keras.metrics.SparseCategoricalAccuracy()]}
+
+def get_tnt_model_compiled(model):
+  tnt_model = tnt.Model(model)
+  tnt_model.compile(**get_compile_params())
+  return tnt_model
+
+class TestsModelLoadSave:
   model_configuration_checks = [pytest.param(util.check_model_configuration_identical,
                                              marks=[pytest.mark.tfversion('2.2'),
                                                     pytest.mark.tfversion('2.3'),
@@ -66,10 +76,7 @@ class TestsModelLoadSave:
   @pytest.mark.parametrize("check_configuration_identical", model_configuration_checks)
   def test_save_load_before_training(self, model, save_setup,
                                      check_configuration_identical):
-    tnt_model = tnt.Model(model)
-    tnt_model.compile(keras.optimizers.SGD(learning_rate = 0.01, momentum = 0.9),
-                      loss = keras.losses.SparseCategoricalCrossentropy(),
-                      metrics = [keras.metrics.SparseCategoricalAccuracy()])
+    tnt_model = get_tnt_model_compiled(model)
     tnt_model.save(save_setup['save_dir'], tnt_save_all_devices = save_setup['all_devices'])
 
     # load into a new tnt.Model
@@ -79,22 +86,13 @@ class TestsModelLoadSave:
 
 
   @pytest.mark.parametrize("load_compiled_model", [True, False])
-  @pytest.mark.parametrize("micro_batch_size", [32])
-  @pytest.mark.parametrize("nbatches", [10])
-  def test_load_model_with_compile_flag(self, model, save_setup,
-                                        load_compiled_model, micro_batch_size, nbatches):
-    batch_size = micro_batch_size * tnt.get_size()
-    nsamples = nbatches * batch_size
-    (train_dataset, _) = util.load_dataset(mnist.load_mnist_dataset,
-                                           train_size = nsamples,
-                                           train_batch_size = batch_size,
-                                           shuffle = False)
-    tnt_model = tnt.Model(model)
-    tnt_model.compile(keras.optimizers.SGD(),
-                      loss = keras.losses.SparseCategoricalCrossentropy(),
-                      metrics = [keras.metrics.SparseCategoricalAccuracy()])
-    tnt_model.save(save_setup['save_dir'], tnt_save_all_devices = save_setup['all_devices'])
+  def test_load_model_with_compile_flag(self, model, save_setup, load_compiled_model):
+    tnt_model = get_tnt_model_compiled(model)
+    train_dataset, _ = util.train_test_mnist_datasets(nbatches = 1, micro_batch_size = 32)
 
+    # save model
+    tnt_model.save(save_setup['save_dir'],
+                   tnt_save_all_devices = save_setup['all_devices'])
     # load into a new tnt.Model
     reloaded_tnt_model = tnt.models.load_model(save_setup['save_dir'],
                                                compile = load_compiled_model)
@@ -103,28 +101,19 @@ class TestsModelLoadSave:
       # if the model is not compiled, training should not succeed
       with pytest.raises(RuntimeError):
         reloaded_tnt_model.fit(train_dataset, epochs = 1, verbose = 0)
-
     else: # load compiled model
       # should be able to train the model if it was previously compiled
       reloaded_tnt_model.fit(train_dataset, epochs = 1, verbose = 0)
 
 
-  @pytest.mark.parametrize("micro_batch_size", [32])
-  @pytest.mark.parametrize("nbatches", [10])
   @pytest.mark.parametrize("tf_format", [True, False])
-  def test_save_weights_after_training(self, model, save_setup,
-                                       micro_batch_size, nbatches, tf_format):
-    batch_size = micro_batch_size * tnt.get_size()
-    nsamples = nbatches * batch_size
-    (train_dataset, _) = util.load_dataset(mnist.load_mnist_dataset,
-                                           train_size = nsamples,
-                                           train_batch_size = batch_size,
-                                           shuffle = False)
-    # train model
-    tnt_model = tnt.Model(model)
-    tnt_model.compile(keras.optimizers.SGD(learning_rate = 0.01, momentum = 0.9),
-                      loss = keras.losses.SparseCategoricalCrossentropy(),
-                      metrics = [keras.metrics.SparseCategoricalAccuracy()])
+  def test_save_weights_after_training(self, model, save_setup, tf_format):
+    # create un-shuffling dataset to be able to continue training identically
+    # both on the `tnt.Model` and then on the `keras.Model`
+    train_dataset, _ = util.train_test_mnist_datasets(nbatches = 10, micro_batch_size = 32,
+                                                      shuffle = False)
+    # create and train model
+    tnt_model = get_tnt_model_compiled(model)
     tnt_model.fit(train_dataset, epochs = 1, verbose = 0)
 
     os.makedirs(save_setup['save_dir'], exist_ok = True)
@@ -136,9 +125,7 @@ class TestsModelLoadSave:
 
     # create new model with same architecture and optimizer
     model_from_config = tnt.models.model_from_config(tnt_model.get_config())
-    model_from_config.compile(keras.optimizers.SGD(learning_rate = 0.01, momentum = 0.9),
-                              loss = keras.losses.SparseCategoricalCrossentropy(),
-                              metrics = [keras.metrics.SparseCategoricalAccuracy()])
+    model_from_config.compile(**get_compile_params())
 
     model_from_config.load_weights(save_path)
     util.compare_weights(tnt_model.get_weights(), model_from_config.get_weights(), 1e-6)

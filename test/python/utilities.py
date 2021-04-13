@@ -1,3 +1,6 @@
+import tarantella as tnt
+import models.mnist_models as mnist
+
 import datetime
 import tensorflow as tf
 import numpy as np
@@ -22,6 +25,16 @@ def load_dataset(dataset_loader,
     train_dataset = train_dataset.shuffle(len(x_train), shuffle_seed,
                                           reshuffle_each_iteration = True)
   return (train_dataset, test_dataset)
+
+def train_test_mnist_datasets(nbatches = 1, test_nbatches = 0,
+                              micro_batch_size = 64, shuffle = True):
+  batch_size = micro_batch_size * tnt.get_size()
+  nsamples = nbatches * batch_size
+  test_nsamples = test_nbatches * batch_size
+  return load_dataset(mnist.load_mnist_dataset,
+                      train_size = nsamples, train_batch_size = batch_size,
+                      test_size = test_nsamples, test_batch_size = batch_size,
+                      shuffle = shuffle)
 
 def current_date():
   date = datetime.datetime.now()
