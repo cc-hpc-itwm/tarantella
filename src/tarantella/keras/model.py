@@ -5,7 +5,7 @@ from tensorflow.python.keras.engine import training_utils
 import tarantella
 import tarantella.optimizers.synchronous_distributed_optimizer as distributed_optimizers
 import tarantella.datasets.distributed_dataset as ds
-import tarantella.callbacks as tnt_callbacks
+import tarantella.keras.callbacks as tnt_callbacks
 from tarantella import logger
 
 
