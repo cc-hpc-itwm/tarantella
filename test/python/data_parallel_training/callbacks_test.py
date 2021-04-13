@@ -11,7 +11,8 @@ import numpy as np
 import pytest
 import logging
 
-@pytest.fixture(scope="class", params=[mnist.sequential_model_generator,
+@pytest.fixture(scope="class", params=[mnist.fc_model_generator,
+                                       mnist.subclassed_model_generator,
                                       ])
 def model_runners(request):
   tnt_model_runner = base_runner.generate_tnt_model_runner(request.param())
@@ -31,46 +32,42 @@ def train_val_dataset_generator():
                            test_batch_size = batch_size)
 
 class TestsDataParallelCallbacks:
-  @pytest.mark.parametrize("number_epochs", [1])
-  def test_history_callback(self, model_runners, number_epochs):
+  def train_tnt_and_ref_models_with_callbacks(self, callbacks, model_runners, number_epochs):
     (train_dataset, val_dataset) = train_val_dataset_generator()
     (ref_train_dataset, ref_val_dataset) = train_val_dataset_generator()
-
+  
     tnt_model_runner, reference_model_runner = model_runners
 
+    param_dict = { 'epochs' : number_epochs,
+                   'verbose' : 0,
+                   'shuffle' : False,
+                   'callbacks' : callbacks }
     tnt_history = tnt_model_runner.model.fit(train_dataset,
-                                             epochs=number_epochs,
-                                             verbose=0,
-                                             shuffle=False,
                                              validation_data=val_dataset,
-                                             callbacks=[])
-    reference_history = reference_model_runner.model.fit(ref_train_dataset,
-                                                         epochs=number_epochs,
-                                                         verbose=0,
-                                                         shuffle=False,
+                                             **param_dict)
+    ref_history = reference_model_runner.model.fit(ref_train_dataset,
                                                          validation_data=ref_val_dataset,
-                                                         callbacks=[])
-
+                                                        **param_dict)
+    return (tnt_history, ref_history)
+  
+  @pytest.mark.parametrize("number_epochs", [1])
+  def test_history_callback(self, model_runners, number_epochs):
     # history callback is added by default
-    assert tnt_history
+    callbacks = []
+    tnt_history, reference_history = self.train_tnt_and_ref_models_with_callbacks(
+                                       callbacks, model_runners, number_epochs)
 
     for key in reference_history.history.keys():
       assert all(np.isclose(tnt_history.history[key], reference_history.history[key], atol=1e-6))
 
   @pytest.mark.parametrize("number_epochs", [10])
   def test_early_stopping_callback(self, model_runners, number_epochs):
-    (train_dataset, val_dataset) = train_val_dataset_generator()
+    monitor_metric = 'val_loss'
+    callbacks = [tf.keras.callbacks.EarlyStopping(monitor=monitor_metric,
+                                                  min_delta=0.1,
+                                                  patience=1)]
+    tnt_history, reference_history = self.train_tnt_and_ref_models_with_callbacks(
+                                       callbacks, model_runners, number_epochs)
 
-    tnt_model_runner, _ = model_runners
-    history = tnt_model_runner.model.fit(train_dataset,
-                                     epochs=number_epochs,
-                                     verbose=0,
-                                     shuffle=False,
-                                     validation_data=val_dataset,
-                                     callbacks=[tf.keras.callbacks.EarlyStopping(monitor='val_loss',
-                                                                                 min_delta=0.1,
-                                                                                 patience=1,
-                                                                                 verbose=1)],
-                                     )
-
-    assert len(history.history['val_loss']) < number_epochs
+    # Expect both models to run same number of epochs
+    assert len(tnt_history.history[monitor_metric]) == len(reference_history.history[monitor_metric])
