@@ -130,18 +130,16 @@ class Model(tf.keras.models.Model):
     # Store original parameters to save the model later
     self.orig_optimizer = optimizer
     self.orig_optimizer_serialized = tf.keras.optimizers.serialize(optimizer)
+    self.dist_optimizer = tarantella.distributed_optimizers.SynchDistributedOptimizer(
+                                                            self.orig_optimizer)
 
-    if 'experimental_run_tf_function' in kwargs:
-      logger.info("Setting `experimental_run_tf_function` to False.")
-
-    self.dist_optimizer = tarantella.distributed_optimizers.SynchDistributedOptimizer(self.orig_optimizer)
+    kwargs = self._preprocess_compile_kwargs(kwargs)
     return self.model.compile(optimizer = self.dist_optimizer,
                               loss = loss,
                               metrics = metrics,
                               loss_weights = loss_weights,
                               sample_weight_mode = sample_weight_mode,
                               weighted_metrics = weighted_metrics,
-                              experimental_run_tf_function = False,
                               **kwargs)
 
   def compute_mask(self, inputs, mask):
@@ -452,6 +450,12 @@ class Model(tf.keras.models.Model):
       
     if remove_tensorboard_index is not None:
       del callbacks[remove_tensorboard_index]
+
+  def _preprocess_compile_kwargs(self, kwargs):
+    if hasattr(self.model, '_experimental_run_tf_function'):  #TF version < 2.2
+      logger.info("Setting `experimental_run_tf_function` to False.")
+      kwargs['experimental_run_tf_function'] = False
+    return kwargs
 
 def connect_ancillary_layers(model, created_layers):
   raise AttributeError('Not supported by tarantella model. '
