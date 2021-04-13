@@ -22,7 +22,7 @@ def model(request):
   yield request.param()
 
 
-@pytest.fixture(scope="function", params=[True, False])
+@pytest.fixture(scope="function", params=[False])
 def save_setup(request):
   save_all_devices = request.param
   # save model in a shared directory accessible to all ranks
@@ -37,6 +37,16 @@ def save_setup(request):
   # clean up
   if save_all_devices or tnt.is_master_rank():
     shutil.rmtree(save_dir, ignore_errors=True)
+
+
+def get_compile_params():
+  return {'loss'       : keras.losses.SparseCategoricalCrossentropy(),
+          'metrics'    :[keras.metrics.SparseCategoricalAccuracy()]}
+
+def get_tnt_model_compiled(model, optimizer):
+  tnt_model = tnt.Model(model)
+  tnt_model.compile(optimizer = optimizer, **get_compile_params())
+  return tnt_model
 
 class TestsModelLoadSaveState:
 
@@ -64,14 +74,16 @@ class TestsModelLoadSaveState:
       model.compile(optimizer=optimizer(), loss="mean_squared_error")
       return model
 
+    tf.random.set_seed(42)
     model = get_model()
 
     # Train the model.
-    test_input = np.random.random((128, 32))
-    test_target = np.random.random((128, 1))
+    test_input = np.ones((128, 32))
+    test_target = np.ones((128, 1))
     model.fit(test_input, test_target)
     model.save(save_setup['save_dir'])
 
+    tf.random.set_seed(42)
     reconstructed_model = keras.models.load_model(save_setup['save_dir'])
 
     # Let's check:
@@ -79,29 +91,21 @@ class TestsModelLoadSaveState:
                                reconstructed_model.predict(test_input))
     util.compare_weights(reconstructed_model.get_weights(), model.get_weights(), 1e-6)
 
-    # The reconstructed model is already compiled and has retained the optimizer
-    # state, so training can resume:
-    reconstructed_model.fit(test_input, test_target)
-
-    model.fit(test_input, test_target)
+    tf.random.set_seed(42)
+    reconstructed_model.fit(test_input, test_target, epochs = 3, shuffle = False)
+    tf.random.set_seed(42)
+    model.fit(test_input, test_target, epochs = 3, shuffle = False)
     util.compare_weights(model.get_weights(), reconstructed_model.get_weights(), 1e-6)
 
 
   @pytest.mark.xfail
-  @pytest.mark.parametrize("micro_batch_size", [32])
-  @pytest.mark.parametrize("nbatches", [10])
   @pytest.mark.parametrize("optimizer", [keras.optimizers.SGD,
                                          keras.optimizers.Adam,
                                          keras.optimizers.RMSprop])
   @pytest.mark.parametrize("check_configuration_identical", model_configuration_checks)
-  def test_keras_models(self, model, save_setup, micro_batch_size, nbatches,
-                        optimizer, check_configuration_identical):
-    batch_size = micro_batch_size * tnt.get_size()
-    nsamples = nbatches * batch_size
-    (train_dataset, _) = util.load_dataset(mnist.load_mnist_dataset,
-                                           train_size = nsamples,
-                                           train_batch_size = batch_size,
-                                           shuffle = False)
+  def test_keras_models(self, model, save_setup, optimizer, check_configuration_identical):
+    train_dataset, _ = util.train_test_mnist_datasets(nbatches = 10, micro_batch_size = 32,
+                                                      shuffle = False)
     # train model
     keras_model = model
     keras_model.compile(optimizer(),
@@ -114,34 +118,25 @@ class TestsModelLoadSaveState:
     check_configuration_identical(reloaded_model, keras_model)
 
     # continue training on the original model
-    keras_model.fit(train_dataset, epochs = 2, verbose = 0)
+    keras_model.fit(train_dataset, epochs = 2, shuffle = False, verbose = 0)
 
     # continue training on the loaded model
-    reloaded_model.fit(train_dataset, epochs = 2, verbose = 0)
+    reloaded_model.fit(train_dataset, epochs = 2, shuffle = False, verbose = 0)
 
     util.compare_weights(reloaded_model.get_weights(), keras.get_weights(), 1e-6)
 
 
   @pytest.mark.xfail
-  @pytest.mark.parametrize("micro_batch_size", [32])
-  @pytest.mark.parametrize("nbatches", [10])
-  @pytest.mark.parametrize("optimizer", [keras.optimizers.SGD,
-                                         keras.optimizers.Adam,
-                                         keras.optimizers.RMSprop])
+  @pytest.mark.parametrize("optimizer_type", [keras.optimizers.SGD,
+                                              keras.optimizers.Adam,
+                                              keras.optimizers.RMSprop])
   @pytest.mark.parametrize("check_configuration_identical", model_configuration_checks)
-  def test_save_load_train_models(self, model, save_setup, micro_batch_size, nbatches,
-                                  optimizer, check_configuration_identical):
-    batch_size = micro_batch_size * tnt.get_size()
-    nsamples = nbatches * batch_size
-    (train_dataset, _) = util.load_dataset(mnist.load_mnist_dataset,
-                                           train_size = nsamples,
-                                           train_batch_size = batch_size,
-                                           shuffle = False)
-    # train model
-    tnt_model = tnt.Model(model)
-    tnt_model.compile(optimizer(),
-                      loss = keras.losses.SparseCategoricalCrossentropy(),
-                      metrics = [keras.metrics.SparseCategoricalAccuracy()])
+  def test_save_load_train_models(self, model, save_setup, optimizer_type,
+                                  check_configuration_identical):
+    train_dataset, _ = util.train_test_mnist_datasets(nbatches = 10, micro_batch_size = 32,
+                                                      shuffle = False)
+    # create and train model
+    tnt_model = get_tnt_model_compiled(model, optimizer_type())
     tnt_model.fit(train_dataset, epochs = 2, verbose = 0)
     tnt_model.save(save_setup['save_dir'], tnt_save_all_devices = save_setup['all_devices'])
 
