@@ -127,11 +127,8 @@ class Model(tf.keras.models.Model):
     self.done_broadcast = False
     self.compiled = True
 
-    # Store original parameters to save the model later
-    self.orig_optimizer = optimizer
-    self.orig_optimizer_serialized = tf.keras.optimizers.serialize(optimizer)
     self.dist_optimizer = tarantella.distributed_optimizers.SynchDistributedOptimizer(
-                                                            self.orig_optimizer)
+                                                            optimizer)
 
     kwargs = self._preprocess_compile_kwargs(kwargs)
     return self.model.compile(optimizer = self.dist_optimizer,
@@ -281,22 +278,12 @@ class Model(tf.keras.models.Model):
     self.model.reset_states()
   
   def save(self, filepath, tnt_save_all_devices = False, **kwargs):
-    if tnt_save_all_devices:
-      self._save(filepath, kwargs)
-    else:
-      if tarantella.is_master_rank():
-        self._save(filepath, kwargs)
-    # make sure, every rank can load the model after function exit
-    self.barrier.synchronize()
+    self._save_to_file(tnt_save_all_devices, save_function = self._save_tnt_model,
+                       filepath = filepath, **kwargs)
 
   def save_weights(self, filepath, tnt_save_all_devices = False, **kwargs):
-    if tnt_save_all_devices:
-      self.model.save_weights(filepath, **kwargs)
-    else:
-      if tarantella.is_master_rank():
-        self.model.save_weights(filepath, **kwargs)
-    # make sure, every rank can load the model after function exit
-    self.barrier.synchronize()
+    self._save_to_file(tnt_save_all_devices, save_function = self.model.save_weights,
+                       filepath = filepath, **kwargs)
 
   def set_weights(self, weights):
     self.model.set_weights(weights)
@@ -319,22 +306,27 @@ class Model(tf.keras.models.Model):
   ####################
   # Helper functions #
   ####################
-  def _save(self, filepath, args_dict):
+  def _save_to_file(self, tnt_save_all_devices, save_function,
+                    filepath, **kwargs):
+    if tnt_save_all_devices:
+      save_function(filepath, kwargs)
+    else:
+      if tarantella.is_master_rank():
+        save_function(filepath, kwargs)
+    # make sure that every rank can load the model after function exit
+    self.barrier.synchronize()
+
+  def _save_tnt_model(self, filepath, args_dict):
     if self.compiled == False:
-      #clean the optimizer if not compiled.
-      self.model.optimizer = None
       self.model.save(filepath = filepath, **args_dict)
     else:
-      # 1. Set the optimizer of the underlying `keras.Model` using the original optimizer
-      deserialized_optimizer = tf.keras.optimizers.deserialize(self.orig_optimizer_serialized)
-      self._set_internal_optimizer(deserialized_optimizer)
-      # 2. Save the model as `keras.Model` with standard Keras optimizer
+      self._set_internal_optimizer(self.dist_optimizer.underlying_optimizer)
       self.model.save(filepath = filepath, **args_dict)
-      # 3. Reset the underlying optimizer to the distributed optimzier
       self._set_internal_optimizer(self.dist_optimizer)
 
   def _set_internal_optimizer(self, optimizer):
     if hasattr(self, '_get_optimizer'):
+      # wrap optimizer in an internal `keras` data structure
       self.model.optimizer = self._get_optimizer(optimizer)
     elif hasattr(self, '_set_optimizer'):
       #for Sequential model with TF 2.0/2.1
