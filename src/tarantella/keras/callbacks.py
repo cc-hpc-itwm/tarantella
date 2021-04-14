@@ -3,9 +3,21 @@ import numpy as np
 
 import tarantella as tnt
 
-class TntModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
-  def __init__(self, keras_model_checkpoint, underlying_optimizer, distributed_optimizer):
-    super(TntModelCheckpoint, self).__init__(keras_model_checkpoint.filepath)
+class LogsAverager():
+  def __init__(self, num_ranks = tnt.get_size()):
+    self.num_ranks = num_ranks
+    self.allreducer = None
+
+  def average_logs(self, logs):
+    if self.allreducer is None:
+      self.allreducer = tnt.TensorAllreducer(logs)
+    sum_logs = self.allreducer.allreduce(logs)
+    average_logs = { k : v / self.num_ranks for k, v in sum_logs.items() }
+    return average_logs
+
+class ModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
+  def __init__(self, keras_callback, underlying_optimizer, distributed_optimizer):
+    super().__init__(keras_model_checkpoint.filepath)
     self.underlying_optimizer = underlying_optimizer
     self.distributed_optimizer = distributed_optimizer
 
@@ -51,43 +63,33 @@ class TntModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
     super().on_epoch_end(epoch, logs)
     self.model.optimizer = self.distributed_optimizer
 
-class TntHistory(tf.keras.callbacks.History):
-  def __init__(self, keras_history):
-    super(TntHistory, self).__init__()
-    self.allreducer = None
 
-  def on_epoch_end(self, epoch, logs=None):
-    if self.allreducer is None:
-      self.allreducer = tnt.TensorAllreducer(logs)
-    
-    # do an allreduce on all ranks and get averaged values over all ranks
-    logs = self.allreducer.allreduce(logs)
-    logs.update((k, v / tnt.get_size()) for k, v in logs.items())
 
-    super().on_epoch_end(epoch, logs)
+class History(tf.keras.callbacks.History, LogsAverager):
+  def __init__(self, keras_callback):
+    tf.keras.callbacks.History.__init__(self)
+    LogsAverager.__init__(self)
 
-class TntEarlyStopping(tf.keras.callbacks.EarlyStopping):
-  def __init__(self, keras_early_stopping):
-    super(TntEarlyStopping, self).__init__()
-    self.allreducer = None
+  def on_epoch_end(self, epoch, logs = None):
+    averaged_logs = self.average_logs(logs)
+    super().on_epoch_end(epoch, averaged_logs)
+
+class EarlyStopping(tf.keras.callbacks.EarlyStopping, LogsAverager):
+  def __init__(self, keras_callback):
+    tf.keras.callbacks.EarlyStopping.__init__(self)
+    LogsAverager.__init__(self)
 
     # set member variables from keras earlystopping instance
-    self.monitor = keras_early_stopping.monitor
-    self.patience = keras_early_stopping.patience
-    self.baseline = keras_early_stopping.baseline
-    self.min_delta = keras_early_stopping.min_delta
-    self.restore_best_weights = keras_early_stopping.restore_best_weights
-    self.monitor_op = keras_early_stopping.monitor_op
+    self.monitor = keras_callback.monitor
+    self.patience = keras_callback.patience
+    self.baseline = keras_callback.baseline
+    self.min_delta = keras_callback.min_delta
+    self.restore_best_weights = keras_callback.restore_best_weights
+    self.monitor_op = keras_callback.monitor_op
 
     # only master rank should print messages
-    self.verbose = keras_early_stopping.verbose if tnt.is_master_rank() else 0
+    self.verbose = keras_callback.verbose if tnt.is_master_rank() else 0
 
   def get_monitor_value(self, logs):
-    if self.allreducer is None:
-      self.allreducer = tnt.TensorAllreducer(logs)
-    
-    # do an allreduce on all ranks and get averaged values over all ranks
-    logs = self.allreducer.allreduce(logs)
-    logs.update((k, v / tnt.get_size()) for k, v in logs.items())
-
-    return super().get_monitor_value(logs)
+    averaged_logs = self.average_logs(logs)
+    return super().get_monitor_value(averaged_logs)

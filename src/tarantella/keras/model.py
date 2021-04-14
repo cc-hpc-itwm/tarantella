@@ -1,6 +1,7 @@
 import tensorflow as tf
 from tensorflow.python.data.ops import iterator_ops
 from tensorflow.python.keras.engine import training_utils
+import tensorflow.keras.callbacks as tf_callbacks
 
 import tarantella
 import tarantella.optimizers.synchronous_distributed_optimizer as distributed_optimizers
@@ -404,40 +405,40 @@ class Model(tf.keras.models.Model):
   def _add_default_callbacks(self, callbacks):
     history_obj_exists = False
     for callback in callbacks:
-      if isinstance(callback, tf.keras.callbacks.History):
+      if isinstance(callback, tf_callbacks.History):
         history_obj_exists = True
 
     if history_obj_exists is False:
-      callbacks.append(tf.keras.callbacks.History())
+      callbacks.append(tf_callbacks.History())
 
   def _to_tnt_callbacks(self, callbacks):
     remove_tensorboard_index = None
 
     for index, callback in enumerate(callbacks):
-      if isinstance(callback, tf.keras.callbacks.ModelCheckpoint):
-        tnt_callback = tnt_callbacks.TntModelCheckpoint(keras_model_checkpoint = callback,
-                                                        underlying_optimizer = self.orig_optimizer,
-                                                        distributed_optimizer = self.dist_optimizer)
+      if isinstance(callback, tf_callbacks.ModelCheckpoint):
+        tnt_callback = tnt_callbacks.ModelCheckpoint(keras_callback = callback,
+                                                     underlying_optimizer = self.orig_optimizer,
+                                                     distributed_optimizer = self.dist_optimizer)
         callbacks[index] = tnt_callback
 
-      elif isinstance(callback, tf.keras.callbacks.LearningRateScheduler):
+      elif isinstance(callback, tf_callbacks.LearningRateScheduler):
         if not tarantella.global_tnt_config.output_on_all_devices:
           if not tarantella.is_master_rank():
             callback.verbose = 0
 
-      elif isinstance(callback, tf.keras.callbacks.TensorBoard):
+      elif isinstance(callback, tf_callbacks.TensorBoard):
         if tarantella.global_tnt_config.tensorboard_on_all_devices:
           callback.log_dir += '/rank_{}'.format(self.rank)
         else:
           if not tarantella.is_master_rank():
             remove_tensorboard_index = index
 
-      elif isinstance(callback, tf.keras.callbacks.History):
-        hist_callback = tnt_callbacks.TntHistory(keras_history = callback)
+      elif isinstance(callback, tf_callbacks.History):
+        hist_callback = tnt_callbacks.History(keras_callback = callback)
         callbacks[index] = hist_callback
       
-      elif isinstance(callback, tf.keras.callbacks.EarlyStopping):
-        early_stopping_callback = tnt_callbacks.TntEarlyStopping(keras_early_stopping = callback)
+      elif isinstance(callback, tf_callbacks.EarlyStopping):
+        early_stopping_callback = tnt_callbacks.EarlyStopping(keras_callback = callback)
         callbacks[index] = early_stopping_callback
       
     if remove_tensorboard_index is not None:
