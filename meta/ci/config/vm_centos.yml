@@ -40,7 +40,8 @@
   stage: unit_tests_cpp
   script:
     - cd ${TNT_BUILD_DIR}
-    - ctest --output-on-failure -LE "disabled|integration|gpu|Python"
+      # exclude the `SynchCommunicator_4ranks` test as the test takes too long to complete
+    - ctest --output-on-failure -LE "disabled|integration|gpu|Python" -E "SynchCommunicator_4ranks"
   only:
     - master
 
