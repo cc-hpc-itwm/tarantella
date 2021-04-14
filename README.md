@@ -31,6 +31,7 @@ Compile and install the GPI-2 library (supported version: `v1.4.0`) with positio
 
 ```bash
 git clone https://github.com/cc-hpc-itwm/GPI-2.git
+cd GPI-2
 git fetch --tags
 git checkout -b v1.4.0 v1.4.0
 
@@ -51,7 +52,7 @@ cd GaspiCxx
 mkdir build && cd build
 
 export GASPICXX_INSTALLATION_PATH=/your/gaspicxx/installation/path
-./cmake -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=${GASPICXX_INSTALLATION_PATH} ../
+cmake -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=${GASPICXX_INSTALLATION_PATH} ../
 make install
 ```
 
@@ -521,3 +522,8 @@ Type "help", "copyright", "credits" or "license" for more information.
 On Beehive/LTS, the TensorFlow install path should be under `/p/hpc/soft/tarantella/tf2.*`,
 where the conda environment is installed.
 
+
+#### MacOSX support
+
+Tarantella cannot be installed on MacOS hosts because GPI-2 is designed for Linux systems.
+GPI-2 is build on top of `epoll`, which is a Linux kernel API.
