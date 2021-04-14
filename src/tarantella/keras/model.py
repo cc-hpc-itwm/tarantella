@@ -422,9 +422,8 @@ class Model(tf.keras.models.Model):
         callbacks[index] = tnt_callback
 
       elif isinstance(callback, tf_callbacks.LearningRateScheduler):
-        if not tarantella.global_tnt_config.output_on_all_devices:
-          if not tarantella.is_master_rank():
-            callback.verbose = 0
+        tnt_callback = tnt_callbacks.LearningRateScheduler(keras_callback = callback)
+        callbacks[index] = tnt_callback
 
       elif isinstance(callback, tf_callbacks.TensorBoard):
         if tarantella.global_tnt_config.tensorboard_on_all_devices:

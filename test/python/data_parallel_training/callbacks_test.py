@@ -50,6 +50,23 @@ class TestsDataParallelCallbacks:
                                                         **param_dict)
     return (tnt_history, ref_history)
   
+  @pytest.mark.parametrize("number_epochs", [5])
+  def test_learning_rate_scheduler_callback(self, model_runners, number_epochs):
+    callbacks = [tf.keras.callbacks.LearningRateScheduler(schedule=(lambda epoch, lr: 0.1 * lr),
+                                                          verbose=1)]
+    tnt_history, reference_history = self.train_tnt_and_ref_models_with_callbacks(
+                                       callbacks, model_runners, number_epochs)
+
+    for key in reference_history.history.keys():
+      assert all(np.isclose(tnt_history.history[key], reference_history.history[key], atol=1e-6))
+
+  @pytest.mark.parametrize("number_epochs", [1])
+  def test_tensorboard_callback(self, model_runners, number_epochs):
+    callbacks = [tf.keras.callbacks.TensorBoard()]
+    self.train_tnt_and_ref_models_with_callbacks(callbacks, model_runners, number_epochs)
+    # FIXME: assert correct file exists
+    assert True
+
   @pytest.mark.parametrize("number_epochs", [1])
   def test_history_callback(self, model_runners, number_epochs):
     # history callback is added by default

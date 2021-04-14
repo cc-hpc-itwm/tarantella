@@ -63,6 +63,13 @@ class ModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
     super().on_epoch_end(epoch, logs)
     self.model.optimizer = self.distributed_optimizer
 
+class LearningRateScheduler(tf.keras.callbacks.LearningRateScheduler):
+  def __init__(self, keras_callback):
+    super().__init__(schedule=keras_callback.schedule, verbose=keras_callback.verbose)
+
+    if not tnt.global_tnt_config.output_on_all_devices:
+      if not tnt.is_master_rank():
+        self.verbose = 0
 
 
 class History(tf.keras.callbacks.History, LogsAverager):
