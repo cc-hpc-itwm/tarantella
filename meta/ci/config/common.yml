@@ -6,6 +6,7 @@
     paths:
       - ${TNT_BUILD_DIR}
   script:
+    - set -x
     - echo TNT_BUILD_TYPE=${TNT_BUILD_TYPE}
     - echo TNT_USE_IB=${TNT_USE_IB}
     - echo TNT_BARRIER_TIMEOUT=${TNT_BARRIER_TIMEOUT}
