@@ -69,19 +69,18 @@ class History(tf.keras.callbacks.History, LogsAverager):
 
 class EarlyStopping(tf.keras.callbacks.EarlyStopping, LogsAverager):
   def __init__(self, keras_callback):
-    tf.keras.callbacks.EarlyStopping.__init__(self)
+    self._construct_from_keras_object(keras_callback)
     LogsAverager.__init__(self)
-
-    # set member variables from keras earlystopping instance
-    self.monitor = keras_callback.monitor
-    self.patience = keras_callback.patience
-    self.baseline = keras_callback.baseline
-    self.min_delta = keras_callback.min_delta
-    self.restore_best_weights = keras_callback.restore_best_weights
-    self.monitor_op = keras_callback.monitor_op
 
     # only master rank should print messages
     self.verbose = keras_callback.verbose if tnt.is_master_rank() else 0
+
+  def _construct_from_keras_object(self, keras_callback):
+    implemented_methods = ['get_monitor_value']
+    super().__init__()
+    for k, v in keras_callback.__dict__.items():
+      if k not in implemented_methods:
+        setattr(self, k, copy.deepcopy(v))
 
   def get_monitor_value(self, logs):
     averaged_logs = self.average_logs(logs)
