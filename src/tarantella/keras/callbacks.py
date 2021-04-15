@@ -67,6 +67,11 @@ class History(tf.keras.callbacks.History, LogsAverager):
     averaged_logs = self.average_logs(logs)
     super().on_epoch_end(epoch, averaged_logs)
 
+    if tf.__version__ in ['2.0.0', '2.1.0']:
+      # set the history object, returned by `tnt.Model.fit`,
+      # to this callback
+      self.model.history = self
+
 class EarlyStopping(tf.keras.callbacks.EarlyStopping, LogsAverager):
   def __init__(self, keras_callback):
     self._construct_from_keras_object(keras_callback)
