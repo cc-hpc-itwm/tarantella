@@ -395,7 +395,7 @@ class Model(tf.keras.models.Model):
     self.done_broadcast = True
 
   def _preprocess_callbacks(self, callbacks):
-    callbacks = callbacks if callbacks else []
+    callbacks = callbacks or []
 
     self._add_default_callbacks(callbacks)
     self._to_tnt_callbacks(callbacks)
