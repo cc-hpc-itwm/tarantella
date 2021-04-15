@@ -1,3 +1,4 @@
+import copy
 import tensorflow as tf
 import numpy as np
 
@@ -17,35 +18,20 @@ class LogsAverager():
 
 class ModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
   def __init__(self, keras_callback, underlying_optimizer, distributed_optimizer):
-    super().__init__(keras_model_checkpoint.filepath)
+    self._construct_from_keras_object(keras_callback)
     self.underlying_optimizer = underlying_optimizer
     self.distributed_optimizer = distributed_optimizer
-
-    # set member variables from ModelCheckpoint instance
-    self.validation_data = keras_model_checkpoint.validation_data
-    self.model = keras_model_checkpoint.model
-    self._chief_worker_only = keras_model_checkpoint._chief_worker_only
-    self._supports_tf_logs = True
-    self.monitor = keras_model_checkpoint.monitor
-    self.filepath = keras_model_checkpoint.filepath
-    self.save_best_only = keras_model_checkpoint.save_best_only
-    self.save_weights_only = keras_model_checkpoint.save_weights_only
-    self.save_freq = keras_model_checkpoint.save_freq
-    self.epochs_since_last_save = keras_model_checkpoint.epochs_since_last_save
-
-    if hasattr(keras_model_checkpoint, '_batches_seen_since_last_saving'):  #TF>=2.2
-      self._batches_seen_since_last_saving = keras_model_checkpoint._batches_seen_since_last_saving
-    if hasattr(keras_model_checkpoint, '_samples_seen_since_last_saving'):  # TF2.0-2.1
-      self._samples_seen_since_last_saving = keras_model_checkpoint._samples_seen_since_last_saving
-
-    self._last_batch_seen = 0
-    self.load_weights_on_restart = keras_model_checkpoint.load_weights_on_restart
-    self.period = keras_model_checkpoint.period
-    self.monitor_op = keras_model_checkpoint.monitor_op
-    self.best = keras_model_checkpoint.best
-
     # only master rank should save and thus print messages
-    self.verbose = keras_model_checkpoint.verbose if tnt.is_master_rank() else 0
+    self.verbose = keras_callback.verbose if tnt.is_master_rank() else 0
+
+  def _construct_from_keras_object(self, keras_callback):
+    implemented_methods = ['on_epoch_end',
+                           'on_train_begin',
+                           'on_train_batch_end' ]
+    super().__init__(keras_callback.filepath)
+    for k, v in keras_callback.__dict__.items():
+      if k not in implemented_methods:
+        setattr(self, k, copy.deepcopy(v))
 
   def on_train_begin(self, logs=None):
     # As of TF 2.3, this only uses `self.model.load_weights`

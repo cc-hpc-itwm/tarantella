@@ -68,6 +68,13 @@ class TestsDataParallelCallbacks:
     assert True
 
   @pytest.mark.parametrize("number_epochs", [1])
+  def test_model_checkpoint_callback(self, model_runners, number_epochs):
+    callbacks = [tf.keras.callbacks.ModelCheckpoint(filepath='logs')]
+    self.train_tnt_and_ref_models_with_callbacks(callbacks, model_runners, number_epochs)
+    # FIXME: assert correct file exists
+    assert True
+
+  @pytest.mark.parametrize("number_epochs", [1])
   def test_history_callback(self, model_runners, number_epochs):
     # history callback is added by default
     callbacks = []
