@@ -214,18 +214,14 @@ class Model(tf.keras.models.Model):
                           **kwargs)
 
   @classmethod
-  def from_config(cls, config):
+  def from_config(cls, config, **kwargs):
     try:
-      keras_model = tf.keras.Model.from_config(config)
+      keras_model = tf.keras.Model.from_config(config, **kwargs)
       logger.info("Loaded model from `keras.Model`.")
     except:
-      try:
-        keras_model = tf.keras.Sequential.from_config(config)
-        logger.info("Loaded model from `keras.Sequential`.")
-      except:
-        raise RuntimeError("""[tnt.Model.from_config] Cannot load
-              model; provided configuration is neither a `keras.Model`
-              nor a `keras.Sequential` model.""")
+      raise RuntimeError("""[tnt.Model.from_config] Cannot load
+            model; provided configuration is neither a `keras.Model`
+            nor a `tnt.Model`.""")
     return cls(keras_model)
 
   def get_config(self):

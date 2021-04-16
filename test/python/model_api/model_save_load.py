@@ -124,9 +124,12 @@ class TestsModelLoadSave:
     tnt_model.save_weights(save_path, tnt_save_all_devices = save_setup['all_devices'])
 
     # create new model with same architecture and optimizer
-    model_from_config = tnt.models.model_from_config(tnt_model.get_config())
-    model_from_config.compile(**get_compile_params())
+    if isinstance(model, tf.keras.Sequential):
+      model_from_config = tnt.Sequential.from_config(tnt_model.get_config())
+    elif isinstance(model, tf.keras.Model):
+      model_from_config = tnt.models.model_from_config(tnt_model.get_config())
 
+    model_from_config.compile(**get_compile_params())
     model_from_config.load_weights(save_path)
     util.compare_weights(tnt_model.get_weights(), model_from_config.get_weights(), 1e-6)
 

@@ -8,9 +8,7 @@ import yaml
 # saving/loading architecture only applies to keras models or Sequential
 # (https://www.tensorflow.org/guide/keras/save_and_serialize#saving_the_architecture)
 @pytest.fixture(scope="class", params=[mnist.lenet5_model_generator,
-                                       mnist.alexnet_model_generator,
-                                       mnist.sequential_model_generator
-                                       ])
+                                       mnist.alexnet_model_generator])
 def model(request):
   yield request.param()
 
@@ -50,3 +48,17 @@ class TestsModelSaveLoadInMemory:
     yaml_model = tnt.models.model_from_yaml(yaml)
     assert isinstance(yaml_model, tnt.Model)
     util.check_model_configuration_identical(yaml_model, model)
+
+
+@pytest.fixture(scope="class", params=[mnist.sequential_model_generator])
+def sequential(request):
+  yield request.param()
+
+class TestsSequentialSaveLoadInMemory(TestsModelSaveLoadInMemory):
+  def test_model_from_config(self, sequential):
+    tnt_model = tnt.Model(sequential)
+    config = tnt_model.get_config()
+
+    model_from_config = tnt.Sequential.from_config(config)
+    assert isinstance(model_from_config, tnt.Model)
+    util.check_model_configuration_identical(model_from_config, sequential)
