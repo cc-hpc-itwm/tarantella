@@ -56,3 +56,4 @@ tarantella_generate_python_gpi_test(NAME CallbacksDataParallel
 add_subdirectory(collectives)
 add_subdirectory(pipelining_parallel)
 add_subdirectory(tnt_cli)
+add_subdirectory(model_api)

@@ -7,6 +7,7 @@ import tarantella
 import tarantella.optimizers.synchronous_distributed_optimizer as distributed_optimizers
 import tarantella.datasets.distributed_dataset as ds
 import tarantella.keras.callbacks as tnt_callbacks
+import tarantella.keras.utilities as utilities
 from tarantella import logger
 
 
@@ -22,13 +23,6 @@ class Model(tf.keras.models.Model):
     self.compiled = False
     self.broadcaster = None
     self.barrier = tarantella.Barrier()
-
-    self.orig_optimizer = None
-    self.orig_loss = None
-    self.orig_metrics = None
-    self.orig_loss_weights = None
-    self.orig_sample_weight_mode = None
-    self.orig_weighted_metrics = None
 
     self.dist_optimizer = None
     self.default_shuffle_seed = 42
@@ -133,21 +127,16 @@ class Model(tf.keras.models.Model):
     self.done_broadcast = False
     self.compiled = True
 
-    # Store original parameters to save the model later
-    self.orig_optimizer = optimizer
-    self.orig_loss = loss
-    self.orig_metrics = metrics
-    self.orig_loss_weights = loss_weights
-    self.orig_sample_weight_mode = sample_weight_mode
-    self.orig_weighted_metrics = weighted_metrics
+    self.dist_optimizer = tarantella.distributed_optimizers.SynchDistributedOptimizer(
+                                                            optimizer)
 
-    self.dist_optimizer = tarantella.distributed_optimizers.SynchDistributedOptimizer(self.orig_optimizer)
+    kwargs = self._preprocess_compile_kwargs(kwargs)
     return self.model.compile(optimizer = self.dist_optimizer,
-                              loss = self.orig_loss,
-                              metrics = self.orig_metrics,
-                              loss_weights = self.orig_loss_weights,
-                              sample_weight_mode = self.orig_sample_weight_mode,
-                              weighted_metrics = self.orig_weighted_metrics,
+                              loss = loss,
+                              metrics = metrics,
+                              loss_weights = loss_weights,
+                              sample_weight_mode = sample_weight_mode,
+                              weighted_metrics = weighted_metrics,
                               **kwargs)
 
   def compute_mask(self, inputs, mask):
@@ -225,8 +214,14 @@ class Model(tf.keras.models.Model):
                           **kwargs)
 
   @classmethod
-  def from_config(cls, config):
-    keras_model = tf.keras.Model.from_config(config)
+  def from_config(cls, config, **kwargs):
+    try:
+      keras_model = tf.keras.Model.from_config(config, **kwargs)
+      logger.info("Loaded model from `keras.Model`.")
+    except:
+      raise RuntimeError("""[tnt.Model.from_config] Cannot load
+            model; provided configuration is neither a `keras.Model`
+            nor a `tnt.Model`.""")
     return cls(keras_model)
 
   def get_config(self):
@@ -247,7 +242,9 @@ class Model(tf.keras.models.Model):
   def load_weights(self, filepath, **kwargs):
     # loaded weights from the same source will be identical on all ranks
     self.done_broadcast = True
-    return self.model.load_weights(filepath = filepath, **kwargs)
+    result = self.model.load_weights(filepath = filepath, **kwargs)
+    self.barrier.synchronize()
+    return result
   
   def predict(self,
               x = None,
@@ -277,22 +274,12 @@ class Model(tf.keras.models.Model):
     self.model.reset_states()
   
   def save(self, filepath, tnt_save_all_devices = False, **kwargs):
-    if tnt_save_all_devices:
-      self._save(filepath, kwargs)
-    else:
-      if tarantella.is_master_rank():
-        self._save(filepath, kwargs)
-    # make sure, every rank can load the model after function exit
-    self.barrier.synchronize()
+    self._save_to_file(tnt_save_all_devices, save_function = self._save_tnt_model,
+                       filepath = filepath, **kwargs)
 
   def save_weights(self, filepath, tnt_save_all_devices = False, **kwargs):
-    if tnt_save_all_devices:
-      self.model.save_weights(filepath, **kwargs)
-    else:
-      if tarantella.is_master_rank():
-        self.model.save_weights(filepath, **kwargs)
-    # make sure, every rank can load the model after function exit
-    self.barrier.synchronize()
+    self._save_to_file(tnt_save_all_devices, save_function = self.model.save_weights,
+                       filepath = filepath, **kwargs)
 
   def set_weights(self, weights):
     self.model.set_weights(weights)
@@ -315,25 +302,26 @@ class Model(tf.keras.models.Model):
   ####################
   # Helper functions #
   ####################
-  def _save(self, filepath, args_dict):
-    # 1. Re-compile underlying `Keras.model` w/ underlying optimizer
-    self.model.compile(optimizer = self.orig_optimizer,
-                       loss = self.orig_loss,
-                       metrics = self.orig_metrics,
-                       loss_weights = self.orig_loss_weights,
-                       sample_weight_mode = self.orig_sample_weight_mode,
-                       weighted_metrics = self.orig_weighted_metrics)
+  def _save_to_file(self, tnt_save_all_devices, save_function,
+                    filepath, **kwargs):
+    if tnt_save_all_devices:
+      save_function(filepath, kwargs)
+    else:
+      if tarantella.is_master_rank():
+        save_function(filepath, kwargs)
+    # make sure that every rank can load the model after function exit
+    self.barrier.synchronize()
 
-    # 2. Save the model as `Keras.Model` with standard Keras optimizer
-    self.model.save(filepath = filepath, **args_dict)
+  def _save_tnt_model(self, filepath, args_dict):
+    if self.compiled == False:
+      self.model.save(filepath = filepath, **args_dict)
+    else:
+      self._set_internal_optimizer(self.dist_optimizer.underlying_optimizer)
+      self.model.save(filepath = filepath, **args_dict)
+      self._set_internal_optimizer(self.dist_optimizer)
 
-    # 3. Re-compile the Tarantella Model
-    self.compile(optimizer = self.orig_optimizer,
-                 loss = self.orig_loss,
-                 metrics = self.orig_metrics,
-                 loss_weights = self.orig_loss_weights,
-                 sample_weight_mode = self.orig_sample_weight_mode,
-                 weighted_metrics = self.orig_weighted_metrics)
+  def _set_internal_optimizer(self, optimizer):
+    utilities._set_model_optimizer(self.model, optimizer)
 
   def _setup_for_execution(self, exec_type, x, y, args_dict):
     self._assert_compile_has_been_called()
@@ -417,7 +405,6 @@ class Model(tf.keras.models.Model):
     for index, callback in enumerate(callbacks):
       if isinstance(callback, tf_callbacks.ModelCheckpoint):
         tnt_callback = tnt_callbacks.ModelCheckpoint(keras_callback = callback,
-                                                     underlying_optimizer = self.orig_optimizer,
                                                      distributed_optimizer = self.dist_optimizer)
         callbacks[index] = tnt_callback
 
@@ -442,6 +429,12 @@ class Model(tf.keras.models.Model):
       
     if remove_tensorboard_index is not None:
       del callbacks[remove_tensorboard_index]
+
+  def _preprocess_compile_kwargs(self, kwargs):
+    if hasattr(self.model, '_experimental_run_tf_function'):  #TF version < 2.2
+      kwargs['experimental_run_tf_function'] = False
+      logger.info("Set `experimental_run_tf_function` to False.")
+    return kwargs
 
 def connect_ancillary_layers(model, created_layers):
   raise AttributeError('Not supported by tarantella model. '

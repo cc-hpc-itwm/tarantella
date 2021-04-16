@@ -522,8 +522,13 @@ Type "help", "copyright", "credits" or "license" for more information.
 On Beehive/LTS, the TensorFlow install path should be under `/p/hpc/soft/tarantella/tf2.*`,
 where the conda environment is installed.
 
+#### Runtime error: Cannot load Keras model from YAML
+* Newer versions of `PyYAML` do not work with TensorFlow model loading for TF2.0-2.2.
+* **Solution**: Downgrade the version of `PyYAML` to 3.13 or below
+```
+pip install PyYAML==3.13
+```
 
 #### MacOSX support
-
 Tarantella cannot be installed on MacOS hosts because GPI-2 is designed for Linux systems.
 GPI-2 is build on top of `epoll`, which is a Linux kernel API.

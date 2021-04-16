@@ -226,7 +226,7 @@ Saving the entire model including the architecture, weights and optimizer can be
 Alternatively, you could use ``tnt.models.save_model('path/to/location')``, which works
 on both ``keras.Model`` s and ``tnt.Model`` s.
 
-You can than load your model back using
+You can then load your model back using
 
 .. code-block:: python
 
@@ -235,19 +235,10 @@ You can than load your model back using
 
 which will return an instance of ``tnt.Model``.
 
-.. caution::
+If the saved model was previously compiled, ``load_model`` will also return a compiled model.
+Alternatively, you can deliberately load the model in an uncompiled state by passing 
+the ``compile=False`` flag to ``load_model``.
 
-   At the moment, you will need to re-compile your model after loading.
-
-This is again done with
-
-.. code-block:: python
-
-   model.compile(optimizer = keras.optimizers.SGD(learning_rate=args.learning_rate),
-                 loss = keras.losses.SparseCategoricalCrossentropy(),
-                 metrics = [keras.metrics.SparseCategoricalAccuracy()])
-
-or similar.
 
 Architecture saving and loading
 -------------------------------

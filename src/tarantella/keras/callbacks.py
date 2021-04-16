@@ -3,6 +3,7 @@ import tensorflow as tf
 import numpy as np
 
 import tarantella as tnt
+import tarantella.keras.utilities as utilities
 
 class LogsAverager():
   def __init__(self, num_ranks = tnt.get_size()):
@@ -17,9 +18,8 @@ class LogsAverager():
     return average_logs
 
 class ModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
-  def __init__(self, keras_callback, underlying_optimizer, distributed_optimizer):
+  def __init__(self, keras_callback, distributed_optimizer):
     self._construct_from_keras_object(keras_callback)
-    self.underlying_optimizer = underlying_optimizer
     self.distributed_optimizer = distributed_optimizer
     # only master rank should save and thus print messages
     self.verbose = keras_callback.verbose if tnt.is_master_rank() else 0
@@ -39,15 +39,15 @@ class ModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
 
   def on_train_batch_end(self, batch, logs=None):
     # set the optimizer to the underlying to save a plain keras model
-    self.model.optimizer = self.underlying_optimizer
+    utilities._set_model_optimizer(self.model, self.distributed_optimizer.underlying_optimizer)
     super().on_train_batch_end(batch, logs)
-    self.model.optimizer = self.distributed_optimizer
+    utilities._set_model_optimizer(self.model, self.distributed_optimizer)
 
   def on_epoch_end(self, epoch, logs=None):
     # set the optimizer to the underlying to save a plain keras model
-    self.model.optimizer = self.underlying_optimizer
+    utilities._set_model_optimizer(self.model, self.distributed_optimizer.underlying_optimizer)
     super().on_epoch_end(epoch, logs)
-    self.model.optimizer = self.distributed_optimizer
+    utilities._set_model_optimizer(self.model, self.distributed_optimizer)
 
 class LearningRateScheduler(tf.keras.callbacks.LearningRateScheduler):
   def __init__(self, keras_callback):

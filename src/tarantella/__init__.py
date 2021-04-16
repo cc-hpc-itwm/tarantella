@@ -22,6 +22,7 @@ tnt_initializer.init()
 
 from tarantella.keras import models
 from tarantella.keras.model import Model
+from tarantella.keras.sequential import Sequential
 
 from tarantella.collectives.Barrier import Barrier
 from tarantella.collectives.TensorAllreducer import TensorAllreducer
