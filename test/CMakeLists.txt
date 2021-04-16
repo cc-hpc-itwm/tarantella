@@ -1,13 +1,9 @@
 include (add_test_wrappers)
 
-set(SLEEP_TIME_AFTER_TEST 2)
-
+set(SLEEP_TIME_AFTER_TEST 1)
 set (include_dirs ${CMAKE_SOURCE_DIR}/src/gpi_comm_lib)
 
-set(CLEANUP_SCRIPT ${CMAKE_SOURCE_DIR}/cmake/cleanup.sh)
-set(CLEANUP_TEST_NAME gpi_cleanup)
-add_test (NAME ${CLEANUP_TEST_NAME} COMMAND sh ${CLEANUP_SCRIPT})
-set_tests_properties(${CLEANUP_TEST_NAME} PROPERTIES FIXTURES_CLEANUP ${CLEANUP_TEST_NAME})
+tarantella_generate_cleanup_test(NRANKS 4)
 
 set(localranks_list 1 2 4 5 8)
 tarantella_compile_and_generate_gpi_test(NAME DataParallel_SynchCommunicator
