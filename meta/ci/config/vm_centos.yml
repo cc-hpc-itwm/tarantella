@@ -8,12 +8,9 @@
     CONDA_ENVIRONMENT_DIR: ${RUNNER_HOME}/conda_env
     SCL_ENVIRONMENT: devtoolset-7
     BOOST_MODULE: boost/1.67.0-gcc-8.3.0-6rtzd
-    ONEDNN_MODULE: onednn
     TNT_GASPICXX_MODULE: gaspicxx/2021-03-19-gcc-8.3.0-7oy2u
     TNT_TEST_MACHINEFILE: ${CI_PROJECT_DIR}/meta/ci/vm_centos/machinefile_4ranks
-    TNT_BARRIER_TIMEOUT: 1000
   before_script:
-    - set -x
     - source ${BASE_ENVIRONMENT_SETUP}
     - module load cmake
     - module load miniconda3
@@ -21,7 +18,6 @@
     - if [ -d "${TNT_INSTALL_DIR}" ]; then rm -r "${TNT_INSTALL_DIR}"; fi
     - source scl_source enable ${SCL_ENVIRONMENT} || 1
     - module load ${BOOST_MODULE}
-    - module load ${ONEDNN_MODULE}
     - module load ${COMPILER_MODULE}
     - module load ${TNT_GPI2_MODULE}
     - module load ${TNT_GASPICXX_MODULE}

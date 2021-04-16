@@ -3,11 +3,7 @@
     - tnt_cluster
   extends:
     - .common_after_script
-  variables:
-    TNT_BARRIER_TIMEOUT: 10000
-
   before_script:
-    - set -x
     - source /opt/software/miniconda3-4.8.3/etc/profile.d/conda.sh
     - export MODULEPATH=/opt/modules/linux-ubuntu20.04-broadwell:${MODULEPATH}
     - module load ${COMPILER_MODULE}
