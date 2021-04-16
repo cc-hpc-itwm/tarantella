@@ -7,6 +7,7 @@ import tarantella
 import tarantella.optimizers.synchronous_distributed_optimizer as distributed_optimizers
 import tarantella.datasets.distributed_dataset as ds
 import tarantella.keras.callbacks as tnt_callbacks
+import tarantella.keras.utilities as utilities
 from tarantella import logger
 
 
@@ -320,15 +321,7 @@ class Model(tf.keras.models.Model):
       self._set_internal_optimizer(self.dist_optimizer)
 
   def _set_internal_optimizer(self, optimizer):
-    if hasattr(self, '_get_optimizer'):
-      # wrap optimizer in an internal `keras` data structure
-      self.model.optimizer = self.model._get_optimizer(optimizer)
-    elif hasattr(self, '_set_optimizer'):
-      #for Sequential model with TF 2.0/2.1
-      self.model._set_optimizer(optimizer)
-    else:
-      raise RuntimeError(
-      "[tnt.Model._set_internal_optimizer] Cannot set optimizer for the internal `keras.Model`")
+    utilities._set_model_optimizer(self.model, optimizer)
 
   def _setup_for_execution(self, exec_type, x, y, args_dict):
     self._assert_compile_has_been_called()
@@ -412,7 +405,6 @@ class Model(tf.keras.models.Model):
     for index, callback in enumerate(callbacks):
       if isinstance(callback, tf_callbacks.ModelCheckpoint):
         tnt_callback = tnt_callbacks.ModelCheckpoint(keras_callback = callback,
-                                                     underlying_optimizer = self.dist_optimizer.underlying_optimizer,
                                                      distributed_optimizer = self.dist_optimizer)
         callbacks[index] = tnt_callback
 
