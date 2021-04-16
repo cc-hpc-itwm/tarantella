@@ -440,8 +440,8 @@ class Model(tf.keras.models.Model):
 
   def _preprocess_compile_kwargs(self, kwargs):
     if hasattr(self.model, '_experimental_run_tf_function'):  #TF version < 2.2
-      logger.info("Setting `experimental_run_tf_function` to False.")
       kwargs['experimental_run_tf_function'] = False
+      logger.info("Set `experimental_run_tf_function` to False.")
     return kwargs
 
 def connect_ancillary_layers(model, created_layers):

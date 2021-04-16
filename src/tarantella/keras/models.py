@@ -26,8 +26,8 @@ def load_model(filepath, compile = True, **kwargs):
 
       # required for TF2.0/2.1
       if hasattr(tnt_model.model, '_experimental_run_tf_function'):
-        logger.info("Setting `experimental_run_tf_function` to False.")
         tnt_model.model._experimental_run_tf_function = False
+        logger.info("Set `experimental_run_tf_function` to False.")
     except:
       logger.info("The loaded model was not pre-compiled.")
   tnt_model.barrier.synchronize()
