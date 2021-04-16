@@ -1,3 +1,5 @@
+import utilities as util
+
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -46,6 +48,7 @@ def load_mnist_dataset(training_samples, validation_samples, test_samples):
   return (x_train, y_train), (x_val, y_val), (x_test, y_test)
 
 def fc_model_generator():
+  util.set_tf_random_seed()
   inputs = keras.Input(shape=(28,28,1,), name='input')
   x = layers.Flatten()(inputs)
   x = layers.Dense(200, activation='relu', name='FC1')(x)
@@ -56,6 +59,7 @@ def fc_model_generator():
   return model
 
 def lenet5_model_generator():
+  util.set_tf_random_seed()
   inputs = keras.Input(shape=(28,28,1,), name='input')
   x = layers.Conv2D(20, 5, padding="same", activation='relu', name="conv1")(inputs)
   x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2))(x)
@@ -69,6 +73,7 @@ def lenet5_model_generator():
   return model
 
 def sequential_model_generator():
+  util.set_tf_random_seed()
   model = keras.Sequential()
   model.add(keras.layers.Flatten(input_shape=(28,28,1,)))
   model.add(layers.Dense(200, activation='relu', name='FC1'))
@@ -79,6 +84,7 @@ def sequential_model_generator():
   return model
 
 def alexnet_model_generator():
+  util.set_tf_random_seed()
   inputs = keras.Input(shape=(28,28,1,), name='input')
   x = layers.Conv2D(32, 3, strides=(1, 1), padding='valid', activation='relu')(inputs)
   x = layers.MaxPooling2D(pool_size=(3, 3), strides=(1, 1), padding='valid')(x)
@@ -109,6 +115,7 @@ class SubclassedModel(tf.keras.Model):
     return self.classifier(x)
 
 def subclassed_model_generator():
+  util.set_tf_random_seed()
   model = SubclassedModel()
   model.build((None,28,28,1))
   return model

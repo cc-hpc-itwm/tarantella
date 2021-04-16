@@ -9,6 +9,12 @@ def __is_nonEmptyList__(input):
 def __is_nonEmptyArray__(input):
   return isinstance(input, np.ndarray) and input.size != 0
 
+def __is_floatOrDouble__(input):
+  return isinstance(input, (np.float, np.double, np.float32, np.float64))
+
+def __is_nonEmptyDict__(input):
+  return isinstance(input, dict) and len(input) != 0
+
 def get_tensor_info(tensor_id, tensor):
   return GPICommLib.TensorInfo(tensor_id,
                                int(np.prod(tensor.shape)),

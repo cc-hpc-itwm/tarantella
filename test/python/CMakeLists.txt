@@ -47,15 +47,12 @@ tarantella_generate_python_gpi_test(NAME ModelAPIMNIST
                                     TIMEOUT 60)
 
 set(localranks_list 1 2 3 4)
-tarantella_generate_python_gpi_test(NAME TensorAllreducer
+tarantella_generate_python_gpi_test(NAME CallbacksDataParallel
+                                    TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/data_parallel_training/callbacks_test.py
                                     LOCALRANKS_LIST "${localranks_list}"
-                                    TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/tensor_reducer_test.py
-                                    TIMEOUT 100)
-tarantella_generate_python_gpi_test(NAME TensorBroadcaster
-                                    LOCALRANKS_LIST "${localranks_list}"
-                                    TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/tensor_broadcaster_test.py
+                                    LABELS integration
                                     TIMEOUT 100)
 
+add_subdirectory(collectives)
 add_subdirectory(pipelining_parallel)
 add_subdirectory(tnt_cli)
-

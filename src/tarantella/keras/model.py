@@ -1,11 +1,12 @@
 import tensorflow as tf
 from tensorflow.python.data.ops import iterator_ops
 from tensorflow.python.keras.engine import training_utils
-from tensorflow.python.keras.callbacks import ModelCheckpoint
+import tensorflow.keras.callbacks as tf_callbacks
 
 import tarantella
 import tarantella.optimizers.synchronous_distributed_optimizer as distributed_optimizers
 import tarantella.datasets.distributed_dataset as ds
+import tarantella.keras.callbacks as tnt_callbacks
 from tarantella import logger
 
 
@@ -162,7 +163,8 @@ class Model(tf.keras.models.Model):
                tnt_micro_batch_size = None,
                tnt_distribute_dataset = True,
                **kwargs):
-    self._setup_for_execution('evaluate', x, y, callbacks, kwargs)
+    self._setup_for_execution('evaluate', x, y, kwargs)
+    processed_callbacks = self._preprocess_callbacks(callbacks)
 
     if tnt_distribute_dataset:
       test_dataset = ds.DistributedDataset(dataset = x,
@@ -175,7 +177,7 @@ class Model(tf.keras.models.Model):
     else:
       logger.info("Automatic dataset distribution is disabled.")
 
-    return self.model.evaluate(x, callbacks = callbacks, **kwargs)
+    return self.model.evaluate(x, callbacks = processed_callbacks, **kwargs)
 
   def fit(self,
           x = None,
@@ -187,7 +189,8 @@ class Model(tf.keras.models.Model):
           tnt_distribute_dataset = True,
           tnt_distribute_validation_dataset = True,
           **kwargs):
-    self._setup_for_execution('fit', x, y, callbacks, kwargs)
+    self._setup_for_execution('fit', x, y, kwargs)
+    processed_callbacks = self._preprocess_callbacks(callbacks)
 
     if tnt_distribute_dataset:
       distributed_x = ds.DistributedDataset(dataset = x,
@@ -218,7 +221,7 @@ class Model(tf.keras.models.Model):
 
     return self.model.fit(x,
                           validation_data = validation_data,
-                          callbacks = callbacks,
+                          callbacks = processed_callbacks,
                           **kwargs)
 
   @classmethod
@@ -252,7 +255,8 @@ class Model(tf.keras.models.Model):
               tnt_micro_batch_size = None,
               tnt_distribute_dataset = True,
               **kwargs):
-    self._setup_for_execution('predict', x, None, callbacks, kwargs)
+    self._setup_for_execution('predict', x, None, kwargs)
+    processed_callbacks = self._preprocess_callbacks(callbacks)
 
     if tnt_distribute_dataset:
       test_dataset = ds.DistributedDataset(dataset = x,
@@ -264,7 +268,7 @@ class Model(tf.keras.models.Model):
                is_training = False)
     else:
       logger.info("Automatic dataset distribution is disabled.")
-    return self.model.predict(x, callbacks = callbacks, **kwargs)
+    return self.model.predict(x, callbacks = processed_callbacks, **kwargs)
 
   def reset_metrics(self):
     self.model.reset_metrics()
@@ -331,14 +335,13 @@ class Model(tf.keras.models.Model):
                  sample_weight_mode = self.orig_sample_weight_mode,
                  weighted_metrics = self.orig_weighted_metrics)
 
-  def _setup_for_execution(self, exec_type, x, y, callbacks, args_dict):
+  def _setup_for_execution(self, exec_type, x, y, args_dict):
     self._assert_compile_has_been_called()
     self._set_verbose_all_ranks(exec_type, args_dict)
     self._validate_datasets(x, y)
     self._validate_batch_size_argument(exec_type, args_dict)
     self._set_input_shapes(x)
     self._broadcast_weights_if_necessary()
-    self._preprocess_callbacks(callbacks)
 
   def _assert_compile_has_been_called(self):
     if self.compiled == False:
@@ -392,82 +395,55 @@ class Model(tf.keras.models.Model):
     self.done_broadcast = True
 
   def _preprocess_callbacks(self, callbacks):
-    if callbacks is not None:
-      remove_tensorboard_index = None
+    callbacks = callbacks or []
 
-      for index, callback in enumerate(callbacks):
-        if isinstance(callback, tf.keras.callbacks.ModelCheckpoint):
-          tnt_callback = TntModelCheckpoint(keras_model_checkpoint = callback,
-                                            underlying_optimizer = self.orig_optimizer,
-                                            distributed_optimizer = self.dist_optimizer)
-          callbacks[index] = tnt_callback
+    self._add_default_callbacks(callbacks)
+    self._to_tnt_callbacks(callbacks)
 
-        elif isinstance(callback, tf.keras.callbacks.LearningRateScheduler):
-          if not tarantella.global_tnt_config.output_on_all_devices:
-            if not tarantella.is_master_rank():
-              callback.verbose = 0
+    return callbacks
 
-        elif isinstance(callback, tf.keras.callbacks.TensorBoard):
-          if tarantella.global_tnt_config.tensorboard_on_all_devices:
-            callback.log_dir += '/rank_{}'.format(self.rank)
-          else:
-            if not tarantella.is_master_rank():
-              remove_tensorboard_index = index
+  def _add_default_callbacks(self, callbacks):
+    history_obj_exists = False
+    for callback in callbacks:
+      if isinstance(callback, tf_callbacks.History):
+        history_obj_exists = True
 
-      if remove_tensorboard_index is not None:
-        del callbacks[remove_tensorboard_index]
+    if history_obj_exists is False:
+      callbacks.append(tf_callbacks.History())
 
+  def _to_tnt_callbacks(self, callbacks):
+    remove_tensorboard_index = None
+
+    for index, callback in enumerate(callbacks):
+      if isinstance(callback, tf_callbacks.ModelCheckpoint):
+        tnt_callback = tnt_callbacks.ModelCheckpoint(keras_callback = callback,
+                                                     underlying_optimizer = self.orig_optimizer,
+                                                     distributed_optimizer = self.dist_optimizer)
+        callbacks[index] = tnt_callback
+
+      elif isinstance(callback, tf_callbacks.LearningRateScheduler):
+        tnt_callback = tnt_callbacks.LearningRateScheduler(keras_callback = callback)
+        callbacks[index] = tnt_callback
+
+      elif isinstance(callback, tf_callbacks.TensorBoard):
+        if tarantella.global_tnt_config.tensorboard_on_all_devices:
+          callback.log_dir += '/rank_{}'.format(self.rank)
+        else:
+          if not tarantella.is_master_rank():
+            remove_tensorboard_index = index
+
+      elif isinstance(callback, tf_callbacks.History):
+        hist_callback = tnt_callbacks.History(keras_callback = callback)
+        callbacks[index] = hist_callback
+      
+      elif isinstance(callback, tf_callbacks.EarlyStopping):
+        early_stopping_callback = tnt_callbacks.EarlyStopping(keras_callback = callback)
+        callbacks[index] = early_stopping_callback
+      
+    if remove_tensorboard_index is not None:
+      del callbacks[remove_tensorboard_index]
 
 def connect_ancillary_layers(model, created_layers):
   raise AttributeError('Not supported by tarantella model. '
                        'Call `connect_ancillary_layers` on keras '
                        ' model before calling `tnt.Model()` instead.')
-    
-
-class TntModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
-  def __init__(self, keras_model_checkpoint, underlying_optimizer, distributed_optimizer):
-    super(TntModelCheckpoint, self).__init__(keras_model_checkpoint.filepath)
-    self.underlying_optimizer = underlying_optimizer
-    self.distributed_optimizer = distributed_optimizer
-
-    # set member variables from ModelCheckpoint instance
-    self.validation_data = keras_model_checkpoint.validation_data
-    self.model = keras_model_checkpoint.model
-    self._chief_worker_only = keras_model_checkpoint._chief_worker_only
-    self._supports_tf_logs = True
-    self.monitor = keras_model_checkpoint.monitor
-    self.filepath = keras_model_checkpoint.filepath
-    self.save_best_only = keras_model_checkpoint.save_best_only
-    self.save_weights_only = keras_model_checkpoint.save_weights_only
-    self.save_freq = keras_model_checkpoint.save_freq
-    self.epochs_since_last_save = keras_model_checkpoint.epochs_since_last_save
-
-    if hasattr(keras_model_checkpoint, '_batches_seen_since_last_saving'):  #TF>=2.2
-      self._batches_seen_since_last_saving = keras_model_checkpoint._batches_seen_since_last_saving
-    if hasattr(keras_model_checkpoint, '_samples_seen_since_last_saving'):  # TF2.0-2.1
-      self._samples_seen_since_last_saving = keras_model_checkpoint._samples_seen_since_last_saving
-
-    self._last_batch_seen = 0
-    self.load_weights_on_restart = keras_model_checkpoint.load_weights_on_restart
-    self.period = keras_model_checkpoint.period
-    self.monitor_op = keras_model_checkpoint.monitor_op
-    self.best = keras_model_checkpoint.best
-
-    # only master rank should save and thus print messages
-    self.verbose = keras_model_checkpoint.verbose if tarantella.is_master_rank() else 0
-
-  def on_train_begin(self, logs=None):
-    # As of TF 2.3, this only uses `self.model.load_weights`
-    super().on_train_begin(logs)
-
-  def on_train_batch_end(self, batch, logs=None):
-    # set the optimizer to the underlying to save a plain keras model
-    self.model.optimizer = self.underlying_optimizer
-    super().on_train_batch_end(batch, logs)
-    self.model.optimizer = self.distributed_optimizer
-
-  def on_epoch_end(self, epoch, logs=None):
-    # set the optimizer to the underlying to save a plain keras model
-    self.model.optimizer = self.underlying_optimizer
-    super().on_epoch_end(epoch, logs)
-    self.model.optimizer = self.distributed_optimizer

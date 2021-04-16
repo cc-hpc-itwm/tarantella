@@ -410,9 +410,17 @@ Callbacks
 At the moment, Tarantella fully supports 3 of the
 `Keras callbacks <https://www.tensorflow.org/api_docs/python/tf/keras/callbacks>`__:
 
+* ``tf.keras.callbacks.EarlyStopping``
+* ``tf.keras.callbacks.History``
 * ``tf.keras.callbacks.LearningRateScheduler``
 * ``tf.keras.callbacks.ModelCheckpoint``
 * ``tf.keras.callbacks.TensorBoard``
+
+The ``EarlyStopping`` callback can be used to stop training when a monitored metric has stopped improving.
+The monitored metric is calculated based on local information on all devices and then checked for improvement.
+
+The ``History`` callback can be used to record events into an object. This acculumates the events based
+on local information on all devices.
 
 The ``LearningRateScheduler`` takes a ``schedule`` which will change the learning rate
 on each of the devices used (for detailed explanation, cf.
