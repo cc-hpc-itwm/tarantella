@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.abspath('../../')) # project root directory
 # -- Project information -----------------------------------------------------
 
 project = 'Tarantella'
-copyright = '2020 Fraunhofer'
+copyright = '2021 Fraunhofer'
 author = 'Peter Labus, Alexandra Carpen-Amarie, Martin Kuehn'
 
 # The full version, including alpha/beta/rc tags
