@@ -407,7 +407,7 @@ However, when a random ``seed`` is provided by the user, Tarantella will use tha
 Callbacks
 ^^^^^^^^^
 
-At the moment, Tarantella fully supports 3 of the
+At the moment, Tarantella fully supports the following
 `Keras callbacks <https://www.tensorflow.org/api_docs/python/tf/keras/callbacks>`__:
 
 * ``tf.keras.callbacks.EarlyStopping``
@@ -417,10 +417,11 @@ At the moment, Tarantella fully supports 3 of the
 * ``tf.keras.callbacks.TensorBoard``
 
 The ``EarlyStopping`` callback can be used to stop training when a monitored metric has stopped improving.
-The monitored metric is calculated based on local information on all devices and then checked for improvement.
+The monitored metric is averaged over all devices, so that the callback behaves in the same way as it would
+in single-device execution.
 
-The ``History`` callback can be used to record events into an object. This acculumates the events based
-on local information on all devices.
+The ``History`` callback can be used to record events into an object.
+All metrics and losses recorded in ``History.history`` are averaged over all devices after each epoch.
 
 The ``LearningRateScheduler`` takes a ``schedule`` which will change the learning rate
 on each of the devices used (for detailed explanation, cf.
