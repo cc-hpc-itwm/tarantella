@@ -23,7 +23,6 @@ class Model(tf.keras.models.Model):
     self.broadcaster = None
     self.barrier = tarantella.Barrier()
 
-    self.orig_optimizer = None
     self.dist_optimizer = None
     self.default_shuffle_seed = 42
 
@@ -413,7 +412,7 @@ class Model(tf.keras.models.Model):
     for index, callback in enumerate(callbacks):
       if isinstance(callback, tf_callbacks.ModelCheckpoint):
         tnt_callback = tnt_callbacks.ModelCheckpoint(keras_callback = callback,
-                                                     underlying_optimizer = self.orig_optimizer,
+                                                     underlying_optimizer = self.dist_optimizer.underlying_optimizer,
                                                      distributed_optimizer = self.dist_optimizer)
         callbacks[index] = tnt_callback
 
