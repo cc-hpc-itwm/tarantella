@@ -26,15 +26,14 @@ function (tarantella_compile_and_generate_gpi_test)
 
   message(STATUS "Test: Generating gaspi_run tests for ${ARG_NAME} with ${ARG_LOCALRANKS_LIST} ranks")
   foreach(nlocalranks ${ARG_LOCALRANKS_LIST})
-    tarantella_add_gpi_test (NAME ${ARG_NAME}
-                NRANKS ${nlocalranks}
-                TARGET_FILE ${script_path}
-                TEST_FILE "${CMAKE_CURRENT_BINARY_DIR}/${target_name}"
-                RUNCOMMAND ${GPI2_GASPI_RUN}
-                CLEANUP ${CLEANUP_TEST_NAME}
-                TIMEOUT ${ARG_TIMEOUT}
-                SLEEP ${SLEEP_TIME_AFTER_TEST}
-                LABELS ${ARG_LABELS})
+    tarantella_add_gpi_test(NAME ${ARG_NAME}
+                            NRANKS ${nlocalranks}
+                            TEST_SCRIPT ${script_path}
+                            RUNCOMMAND ${GPI2_GASPI_RUN}
+                            CLEANUP ${CLEANUP_TEST_NAME}
+                            TIMEOUT ${ARG_TIMEOUT}
+                            SLEEP ${SLEEP_TIME_AFTER_TEST}
+                            LABELS ${ARG_LABELS})
   endforeach()
 endfunction()
 
@@ -93,15 +92,14 @@ function (tarantella_generate_python_gpi_test)
 
   message(STATUS "Test: Generating gaspi_run tests for ${ARG_NAME} with ${ARG_LOCALRANKS_LIST} ranks")
   foreach(nlocalranks ${ARG_LOCALRANKS_LIST})
-    tarantella_add_gpi_test (NAME ${ARG_NAME}
-                NRANKS ${nlocalranks}
-                TARGET_FILE ${script_path}
-                TEST_FILE "${ARG_TEST_FILE}"
-                RUNCOMMAND ${GPI2_GASPI_RUN}
-                TIMEOUT ${ARG_TIMEOUT}
-                CLEANUP ${CLEANUP_TEST_NAME}
-                SLEEP ${SLEEP_TIME_AFTER_TEST}
-                LABELS ${ARG_LABELS})
+    tarantella_add_gpi_test(NAME ${ARG_NAME}
+                            NRANKS ${nlocalranks}
+                            TEST_SCRIPT ${script_path}
+                            RUNCOMMAND ${GPI2_GASPI_RUN}
+                            TIMEOUT ${ARG_TIMEOUT}
+                            CLEANUP ${CLEANUP_TEST_NAME}
+                            SLEEP ${SLEEP_TIME_AFTER_TEST}
+                            LABELS ${ARG_LABELS})
   endforeach()
 endfunction()
 
@@ -135,11 +133,11 @@ function (tarantella_generate_python_test)
            COMMAND "${CMAKE_COMMAND}"
              -DRUNCOMMAND=bash
              -DRUNCOMMAND_ARGS=" "
-             -DTEST_EXECUTABLE="${script_path}"
+             -DTEST_SCRIPT="${script_path}"
+             -DTEST_ARGS=" "
              -DTEST_DIR="${CMAKE_BINARY_DIR}"
              -DSLEEP="1"
-             -P "${CMAKE_SOURCE_DIR}/cmake/run_test.cmake"
-          )
+             -P "${CMAKE_SOURCE_DIR}/cmake/run_test.cmake")
 
   # set labels if specified
   if (ARG_LABELS)
@@ -157,4 +155,31 @@ function (tarantella_generate_python_test)
   endif()
 
   message(STATUS "Test: Generating test ${ARG_NAME}")
+endfunction()
+
+
+function (tarantella_generate_cleanup_test)
+  set (one_value_options NRANKS)
+  set (required_options NRANKS)
+  _parse_arguments (ARG "${options}" "${one_value_options}"
+                        "${multi_value_options}" "${required_options}" ${ARGN})
+
+  set(CLEANUP_TEST_NAME gpi_cleanup)
+  set(CLEANUP_SCRIPT ${CMAKE_SOURCE_DIR}/cmake/cleanup.sh)
+
+  # wrap call to the test executable in a script that exports the current environment
+  # and can be executed with `gaspi_run`
+  set(script_name "run_cleanup_with_gpi.sh")
+  set(script_path ${CMAKE_CURRENT_BINARY_DIR}/${script_name})
+  tarantella_gen_test_script(NAME ${script_name}
+                             SCRIPT_DIR ${CMAKE_CURRENT_BINARY_DIR}
+                             TEST_FILE ${CLEANUP_SCRIPT})
+
+  tarantella_add_gpi_test(NAME ${CLEANUP_TEST_NAME}
+                          NRANKS ${ARG_NRANKS}
+                          TEST_SCRIPT ${script_path}
+                          RUNCOMMAND ${GPI2_GASPI_RUN}
+                          SLEEP 0)
+  set_tests_properties(${CLEANUP_TEST_NAME}_${ARG_NRANKS}ranks
+                       PROPERTIES FIXTURES_CLEANUP ${CLEANUP_TEST_NAME})
 endfunction()

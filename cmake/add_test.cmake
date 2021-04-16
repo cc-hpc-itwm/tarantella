@@ -117,10 +117,10 @@ function (tarantella_gen_test_script)
 endfunction()
 
 function (tarantella_add_gpi_test)
-  set(one_value_options NAME TARGET_FILE NRANKS RUNCOMMAND TEST_FILE
+  set(one_value_options NAME TEST_SCRIPT NRANKS RUNCOMMAND
                         MACHINEFILE CLEANUP TIMEOUT SLEEP)
   set(multi_value_options LABELS)
-  set(required_options NAME TARGET_FILE NRANKS RUNCOMMAND)
+  set(required_options NAME TEST_SCRIPT NRANKS RUNCOMMAND)
   _parse_arguments_with_unknown(ARG "${options}" "${one_value_options}"
                                     "${multi_value_options}" "${required_options}" ${ARGN})
   _default_if_unset(ARG_SLEEP 0)  
@@ -155,16 +155,16 @@ function (tarantella_add_gpi_test)
       TNT_CLUSTER_MAX_NUM_PROCS GREATER_EQUAL ARG_NRANKS)
     # create gaspi_run test
     add_test(NAME ${test_name}
-            WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-            COMMAND "${CMAKE_COMMAND}"
+             WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+             COMMAND "${CMAKE_COMMAND}"
               -DRUNCOMMAND=${ARG_RUNCOMMAND}
               -DRUNCOMMAND_ARGS="${runparams}"
-              -DTEST_EXECUTABLE="${ARG_TARGET_FILE}"
+              -DTEST_SCRIPT="${ARG_TEST_SCRIPT}"
+              -DTEST_ARGS=""
               -DTEST_DIR="${CMAKE_BINARY_DIR}"
               -DSLEEP="${ARG_SLEEP}"
               -DCLEANUP_SCRIPT="${CLEANUP_SCRIPT}"
-              -P "${CMAKE_SOURCE_DIR}/cmake/run_test.cmake"
-            ) 
+              -P "${CMAKE_SOURCE_DIR}/cmake/run_test.cmake")
 
     # set labels if specified
     if (ARG_LABELS)
