@@ -13,6 +13,7 @@
     TNT_TEST_MACHINEFILE: ${CI_PROJECT_DIR}/meta/ci/vm_centos/machinefile_4ranks
     TNT_BARRIER_TIMEOUT: 1000
   before_script:
+    - set -x
     - source ${BASE_ENVIRONMENT_SETUP}
     - module load cmake
     - module load miniconda3
@@ -75,6 +76,10 @@
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $NIGHTLY_PIPELINE && $NIGHTLY_PIPELINE == "true"'
 
+.vm_centos_tf2.3_job:
+  variables:
+    TF_ENV: tf2.3
+
 .vm_centos_tf2.2_job:
   variables:
     TF_ENV: tf2.2
@@ -82,7 +87,7 @@
 .vm_centos_gcc8.3.0_job:
   variables:
     COMPILER_MODULE: gcc/8.3.0-gcc-7.3.1-tsrcq
-    GPI2_MODULE_ETH: gpi-2/1.4.0-gcc-8.3.0-kzqza
+    GPI2_MODULE_ETH: gpi-2/1.5.0-gcc-8.3.0-dvipb
 
 .vm_centos_gcc7.4.0_job:
   variables:
@@ -90,6 +95,14 @@
     GPI2_MODULE_ETH: gpi-2/1.4.0-gcc-8.3.0-kzqza
 
 ####### Build jobs ############
+tf2.3-cpu-eth-gcc8.3.0-Release-build:
+  extends:
+    - .vm_centos_tf2.3_job
+    - .vm_centos_gcc8.3.0_job
+    - .release_job
+    - .eth_job
+    - .vm_centos_build
+
 tf2.2-cpu-eth-gcc8.3.0-Release-build:
   extends:
     - .vm_centos_tf2.2_job
@@ -107,6 +120,15 @@ tf2.2-cpu-eth-gcc7.4.0-Release-build:
     - .vm_centos_build
 
 ####### Unit tests [C++, do not need to test TF versions] ############
+gpi1.5.0-eth-gcc8.3.0-Release-cpp:
+  extends:
+    - .vm_centos_tf2.3_job
+    - .vm_centos_gcc8.3.0_job
+    - .eth_job
+    - .vm_centos_run_tests_cpp
+  needs:
+    - job: tf2.3-cpu-eth-gcc8.3.0-Release-build
+
 eth-gcc8.3.0-Release-cpp:
   extends:
     - .vm_centos_tf2.2_job
@@ -126,6 +148,14 @@ eth-gcc7.4.0-Release-test:
     - job: tf2.2-cpu-eth-gcc7.4.0-Release-build
 
 ####### Unit tests [Python] ############
+tf2.3-cpu-eth-gcc8.3.0-Release-py:
+  extends:
+    - .vm_centos_tf2.3_job
+    - .eth_job
+    - .vm_centos_run_tests_py
+  needs:
+    - job: tf2.3-cpu-eth-gcc8.3.0-Release-build
+
 tf2.2-cpu-eth-gcc8.3.0-Release-py:
   extends:
     - .vm_centos_tf2.2_job
@@ -135,6 +165,14 @@ tf2.2-cpu-eth-gcc8.3.0-Release-py:
     - job: tf2.2-cpu-eth-gcc8.3.0-Release-build
 
 ######## Integration tests ############
+tf2.3-cpu-eth-gcc8.3.0-Release-integration:
+  extends:
+    - .vm_centos_tf2.3_job
+    - .eth_job
+    - .vm_centos_integration_tests
+  needs:
+    - job: tf2.3-cpu-eth-gcc8.3.0-Release-build
+
 tf2.2-cpu-eth-gcc8.3.0-Release-integration:
   extends:
     - .vm_centos_tf2.2_job
@@ -144,6 +182,14 @@ tf2.2-cpu-eth-gcc8.3.0-Release-integration:
     - job: tf2.2-cpu-eth-gcc8.3.0-Release-build
 
 # Nightly integration tests
+tf2.3-cpu-eth-gcc8.3.0-Release-integration-nightly:
+  extends:
+    - .vm_centos_tf2.3_job
+    - .eth_job
+    - .vm_centos_integration_tests_nightly
+  needs:
+    - job: tf2.3-cpu-eth-gcc8.3.0-Release-build
+
 tf2.2-cpu-eth-gcc8.3.0-Release-integration-nightly:
   extends:
     - .vm_centos_tf2.2_job
