@@ -28,24 +28,24 @@ class TestsModelSaveLoadInMemory:
   def test_model_from_config(self, model):
     tnt_model = tnt.Model(model)
     config = tnt_model.get_config()
-
     model_from_config = tnt.models.model_from_config(config)
+
     assert isinstance(model_from_config, tnt.Model)
     util.check_model_configuration_identical(model_from_config, model)
 
   def test_model_from_json(self, model):
     tnt_model = tnt.Model(model)
     json = tnt_model.to_json()
-
     json_model = tnt.models.model_from_json(json)
+
     assert isinstance(json_model, tnt.Model)
     util.check_model_configuration_identical(json_model, model)
 
   def test_model_from_yaml(self, model):
     tnt_model = tnt.Model(model)
     yaml = tnt_model.to_yaml()
-
     yaml_model = tnt.models.model_from_yaml(yaml)
+
     assert isinstance(yaml_model, tnt.Model)
     util.check_model_configuration_identical(yaml_model, model)
 
@@ -58,7 +58,7 @@ class TestsSequentialSaveLoadInMemory(TestsModelSaveLoadInMemory):
   def test_model_from_config(self, sequential):
     tnt_model = tnt.Model(sequential)
     config = tnt_model.get_config()
-
     model_from_config = tnt.Sequential.from_config(config)
+
     assert isinstance(model_from_config, tnt.Model)
     util.check_model_configuration_identical(model_from_config, sequential)

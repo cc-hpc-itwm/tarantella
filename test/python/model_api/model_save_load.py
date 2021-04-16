@@ -63,12 +63,8 @@ class TestsModelLoadSave:
                                check_configuration_identical):
     tnt_model = tnt.Model(model)
     tnt_model.save(save_setup['save_dir'], tnt_save_all_devices = save_setup['all_devices'])
-
-    # make sure the original model has the same weights on all ranks
-    tnt_model._broadcast_weights_if_necessary()
-
-    # load file into a new Tarantella model
     reloaded_tnt_model = tnt.models.load_model(save_setup['save_dir'])
+
     assert isinstance(reloaded_tnt_model, tnt.Model)
     check_configuration_identical(reloaded_tnt_model, tnt_model)
     
@@ -78,9 +74,8 @@ class TestsModelLoadSave:
                                      check_configuration_identical):
     tnt_model = get_tnt_model_compiled(model)
     tnt_model.save(save_setup['save_dir'], tnt_save_all_devices = save_setup['all_devices'])
-
-    # load into a new tnt.Model
     reloaded_tnt_model = tnt.models.load_model(save_setup['save_dir'], compile = True)
+
     check_configuration_identical(reloaded_tnt_model, tnt_model)
     util.compare_weights(reloaded_tnt_model.get_weights(), tnt_model.get_weights(), 1e-6)
 
@@ -90,10 +85,8 @@ class TestsModelLoadSave:
     tnt_model = get_tnt_model_compiled(model)
     train_dataset, _ = util.train_test_mnist_datasets(nbatches = 1, micro_batch_size = 32)
 
-    # save model
     tnt_model.save(save_setup['save_dir'],
                    tnt_save_all_devices = save_setup['all_devices'])
-    # load into a new tnt.Model
     reloaded_tnt_model = tnt.models.load_model(save_setup['save_dir'],
                                                compile = load_compiled_model)
 
