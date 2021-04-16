@@ -322,7 +322,7 @@ class Model(tf.keras.models.Model):
   def _set_internal_optimizer(self, optimizer):
     if hasattr(self, '_get_optimizer'):
       # wrap optimizer in an internal `keras` data structure
-      self.model.optimizer = self._get_optimizer(optimizer)
+      self.model.optimizer = self.model._get_optimizer(optimizer)
     elif hasattr(self, '_set_optimizer'):
       #for Sequential model with TF 2.0/2.1
       self.model._set_optimizer(optimizer)
