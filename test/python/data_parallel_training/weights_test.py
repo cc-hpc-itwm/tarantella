@@ -3,46 +3,32 @@ import training_runner as base_runner
 import utilities as util
 import tarantella as tnt
 
-import tensorflow as tf
-from tensorflow import keras
-import numpy as np
-import random
-
-import logging
 import pytest
 
-# Run tests with multiple models as fixtures 
-# (reuse the same model for various test parameter combinations)
-@pytest.fixture(scope="class", params=[mnist.lenet5_model_generator,
-                                       mnist.sequential_model_generator,
-                                      ])
-def model_runner(request):
-  yield base_runner.generate_tnt_model_runner(request.param())
+# Run tests with multiple models as fixtures
+@pytest.fixture(scope="function", params=[mnist.lenet5_model_generator,
+                                          mnist.sequential_model_generator])
+def model_runners(request):
+  tnt_model_runner = base_runner.generate_tnt_model_runner(request.param())
+  reference_model_runner = base_runner.TrainingRunner(request.param())
+  yield tnt_model_runner, reference_model_runner
 
 class TestsDataParallelCompareWeights:
-  def test_model_initialization(self, model_runner):
-    assert model_runner.model
+  @pytest.mark.parametrize("micro_batch_size", [32])
+  @pytest.mark.parametrize("number_epochs", [2])
+  @pytest.mark.parametrize("nbatches", [10])
+  def test_compare_weights_across_ranks(self, model_runners, micro_batch_size,
+                                        number_epochs, nbatches):
+    (train_dataset, _) = util.train_test_mnist_datasets(nbatches = nbatches,
+                                                        micro_batch_size = micro_batch_size)
+    (ref_train_dataset, _) = util.train_test_mnist_datasets(nbatches = nbatches,
+                                                            micro_batch_size = micro_batch_size)
 
-  @pytest.mark.parametrize("micro_batch_size", [64])
-  @pytest.mark.parametrize("nbatches", [100])
-  @pytest.mark.parametrize("number_epochs", [7])
-  def test_compare_weights_across_ranks(self, model_runner, micro_batch_size,
-                                        nbatches, number_epochs):
-    comm_size = tnt.get_size()
-    batch_size = micro_batch_size * comm_size
-    nsamples = nbatches * batch_size
+    tnt_model_runner, reference_model_runner = model_runners
 
-    (train_dataset, _) = util.load_dataset(mnist.load_mnist_dataset,
-                                           train_size = nsamples,
-                                           train_batch_size = batch_size,
-                                           test_size = 0,
-                                           test_batch_size = batch_size)
-    model_runner.reset_weights()
-    model_runner.train_model(train_dataset, number_epochs)
-    final_weights = model_runner.get_weights()
+    tnt_model_runner.train_model(train_dataset, number_epochs)
+    reference_model_runner.train_model(ref_train_dataset, number_epochs)
 
-    # broadcast the weights from the master rank to all the participating ranks
-    model_runner.model._broadcast_weights()
-
-    reference_rank_weights = model_runner.get_weights()
-    util.compare_weights(final_weights, reference_rank_weights, 1e-6)
+    tnt_weights = tnt_model_runner.get_weights()
+    reference_weights = reference_model_runner.get_weights()
+    util.compare_weights(tnt_weights, reference_weights, 1e-4)
