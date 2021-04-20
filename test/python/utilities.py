@@ -1,10 +1,13 @@
 import tarantella as tnt
 import models.mnist_models as mnist
 
-import datetime
 import tensorflow as tf
 import numpy as np
+
+import datetime
 import logging
+import os
+import random
 
 def create_dataset_from_arrays(samples, labels, batch_size):
   assert(len(samples) == len(labels))
@@ -15,6 +18,7 @@ def load_dataset(dataset_loader,
                  train_size, train_batch_size,
                  test_size = 0, test_batch_size = 1,
                  shuffle = True):
+  set_tf_random_seed()
   shuffle_seed = current_date()
 
   (x_train, y_train), (x_val, y_val), (x_test, y_test) = dataset_loader(train_size, 0, test_size)
@@ -41,7 +45,12 @@ def current_date():
   return int(date.strftime("%Y%m%d"))
 
 def set_tf_random_seed(seed = current_date()):
+  np.random.seed(seed)
   tf.random.set_seed(seed)
+  random.seed(seed)
+  os.environ['PYTHONHASHSEED']=str(seed)
+  os.environ['TF_DETERMINISTIC_OPS']='1'
+  os.environ['TF_CUDNN_DETERMINISTIC']='1'
 
 def check_accuracy_greater(accuracy, acc_value):
   logging.getLogger().info("Test accuracy: {}".format(accuracy))
