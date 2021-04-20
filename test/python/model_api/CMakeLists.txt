@@ -6,7 +6,7 @@ tarantella_generate_python_gpi_test(NAME ModelSaveLoadFile
                                     LOCALRANKS_LIST "${localranks_list}"
                                     TIMEOUT 300)
 
-set(localranks_list 2 3 4)
+set(localranks_list 4)
 tarantella_generate_python_gpi_test(NAME ModelSaveLoadFile
                                     TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/model_save_load.py
                                     LOCALRANKS_LIST "${localranks_list}"
@@ -17,7 +17,7 @@ set(localranks_list 1)
 tarantella_generate_python_gpi_test(NAME ModelSaveLoadState
                                     TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/model_save_load_state.py
                                     LOCALRANKS_LIST "${localranks_list}"
-                                    LABELS gpu cluster integration
+                                    LABELS gpu cluster disabled
                                     TIMEOUT 300)
 
 set(localranks_list 1 2)
