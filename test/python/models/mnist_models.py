@@ -7,20 +7,6 @@ import numpy as np
 
 import logging
 
-# Optimizer Hyperparameters
-# Dictionary: Optimizer Name: (number_epochs, learning_rate)
-hyperparams_mnist = {'Adadelta': (2, 1),
-                    'Adagrad':   (4, 0.05),
-                    'Adam':      (1, 0.001),
-                    'Adamax':    (2, 0.001),
-                    'Nadam':     (1, 0.002),
-                    'RMSprop':   (2, 0.001),
-                    'SGD':       (8, 0.01)}
-
-def get_hyperparams(optimizer):
-  opt = optimizer.__name__
-  return hyperparams_mnist.get(opt)
-
 # Load MNIST dataset
 def load_mnist_dataset(training_samples, validation_samples, test_samples):
   mnist_train_size = 60000
