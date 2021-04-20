@@ -19,7 +19,27 @@ class DistributedDataset:
     
     self.special_global_batch_size = None
     self.special_my_size = None
+    self.special_iteration = None
     self.normal_factor = None
+    
+  def create_seqeunce_ds(self,*param):
+    #For case that param has only one dataset
+    if len(param) == 1 and not isinstance(param[0],tuple):
+      return self.batching_info.apply(param[0], new_batch_size = self.micro_batch_size)
+    result = []
+    #Param contain multiple element
+    for pa in param:
+      #if a element is a tuple, each element in tuple is a dataset
+      if isinstance(pa,tuple):
+        temp = []
+        for p in pa:
+          temp.append(self.batching_info.apply(p, new_batch_size = self.micro_batch_size))
+        result.append(tuple(temp))
+      ##otherwise, this is a dataset
+      else:
+        result.append(self.batching_info.apply(pa, new_batch_size = self.micro_batch_size))
+    #return result after zip.
+    return tf.data.Dataset.zip(tuple(result))
 
   def distribute_dataset_across_ranks(self, user_micro_batch_size = None, is_training = True):
     dataset = self.base_dataset
@@ -84,18 +104,9 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
 
   def pad_dataset(self,dataset,batch_size,comm_size,num_samples):
     real_batch_size = int(batch_size//comm_size) * comm_size
-    #num_samples = 23 new_batch_size = 3*3 = 9
-    #num_padded = 9-(23 - 2 * 9) = 4
-    #take last 2*9 - 5 element as rest_dataset, rest_dataset has 14 elements
-    #first batch rest_dataset with batch_size 9,rest_dataset would contain 2 part. First with 9 element, second with 5    elements
-    #Then padded batch with batch_size 2 without passing padded shape,
-    #All dimensions of all components are padded to the maximum size in the batch.
-    #Now the size of rest_dataset is 1*2*9,with 2 unbatch,the size of rest_dataset is 18 with padded 0
-    #concat two dataset, now the size of dataset is 9 + 18 = 27,which is multiple of new_batch_size.
-    #batch the dataset with micro_batchsize 3,the shape of dataset is 9*3,then shard with 3 nodes,each node has dataset with shape 3*3
     if num_samples % real_batch_size != 0:
       num_padded = num_samples - int(num_samples // real_batch_size)*real_batch_size
-      self.special_global_batch_size = real_batch_size
+      self.special_global_batch_size = num_padded
       num_padded = real_batch_size - num_padded
     
       zero_elem = num_padded//self.num_ranks
@@ -104,7 +115,7 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
         zero_elem = zero_elem + 1
       #get my true micro_size that is not zero.
       self.special_my_size = self.micro_batch_size - zero_elem
-    
+      self.special_iteration = num_samples//real_batch_size
       rest_dataset = dataset.take(2*real_batch_size - num_padded)
       logger.info("Dataset is padded with {} elements.".format(
                 num_padded))
@@ -115,9 +126,8 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
       rest_dataset = rest_dataset.unbatch()
       rest_dataset = rest_dataset.unbatch()
 
-      ##take previous and concat togther with rest_dataset
       rest_dataset = rest_dataset.skip(2*real_batch_size - num_padded)
-      dataset = rest_dataset.concatenate(dataset)
+      dataset = dataset.concatenate(rest_dataset)
     return dataset
 
   def distributed_batch(self, dataset, batch_size, micro_batch_size):
@@ -128,52 +138,24 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
       num_samples = ds_helpers.get_num_samples(dataset)
       if num_samples == tf.data.experimental.INFINITE_CARDINALITY:
         raise ValueError("[DistributedDataset] Infinite dataset provided")
-      #get large batch, check is num_sample is multiple of new_batch_size
-      new_batch_size = batch_size
-#       print("dist num_samples is : new_batch_size is ",num_samples," ",new_batch_size)
+    
       if tf.version.VERSION >= "2.2.0":
-        #Always pad for version greater than 2.2.0
-        dataset = self.pad_dataset(dataset,new_batch_size,self.num_ranks,num_samples)
+        dataset = self.pad_dataset(dataset,batch_size,self.num_ranks,num_samples)
       else:
-        if num_samples % new_batch_size != 0:
-          num_samples_multiple = (num_samples // new_batch_size) * new_batch_size
+        if num_samples % batch_size != 0:
+          num_samples_multiple = (num_samples // batch_size) * batch_size
           logger.warn("Number of samples ({}) is not a multiple of batch size.\
  Removing the last incomplete batch from the dataset. Now dataset has {} samples.".format(num_samples,num_samples_multiple))
           dataset = dataset.take(num_samples_multiple)
     
+    #shard dataset
     if self.diff_micro_batch:
-      print("use dataset.window(),micro_batch_size is",self.micro_batch_size)
-      #get scaling factor for diff micro_batch_size
       self.normal_factor = self.micro_batch_size * self.num_ranks / batch_size
-      ##Assume that we have 3 rank with global batch size 7. And the dataset has 14 elements.(num_sample must be multiple of batch size here)
-      ##Rank 0 has micro_batch_size 3, rank 1 and 2 has  micro_batch_size 2.
-      ##So rank 0 need 1,4,7, 8,11,14th elements in dataset. rank 1 needs 2,5, 9,15th elements in dataset.
-      ##rank 2 need 3,6, 10,13th elements in datasets.
-      ##with windows,rank 1 and rank 2 should skip 1 and 2 element repectively.
-      ##As for rank 0, size = 3, shift = 7, stride = 3. And it start from the first element. So it can first take size = 3 element with stride 3 so it get 1,4,7. Then it shift to the 1 + 7 = 8th elements, And again take take size = 3 element with stride 3 so it get 8,11,14.
       if self.rank != 0:
         dataset = dataset.skip(self.rank)
       dataset = dataset.window(size = self.micro_batch_size,shift = batch_size,stride = self.num_ranks,drop_remainder = False)
-      def create_seqeunce_ds(*param):
-        #For case that param has only one dataset
-        if len(param) == 1 and not isinstance(param[0],tuple):
-          return self.batching_info.apply(param[0], new_batch_size = self.micro_batch_size)
-        result = []
-        #Param contain multiple element
-        for pa in param:
-          #if a element is a tuple, each element in tuple is a dataset
-          if isinstance(pa,tuple):
-            temp = []
-            for p in pa:
-              temp.append(self.batching_info.apply(p, new_batch_size = self.micro_batch_size))
-            result.append(tuple(temp))
-          ##otherwise, this is a dataset
-          else:
-            result.append(self.batching_info.apply(pa, new_batch_size = self.micro_batch_size))
-        #return result after zip.
-        return tf.data.Dataset.zip(tuple(result))
-    
-      dataset = dataset.interleave(create_seqeunce_ds,cycle_length = 8,num_parallel_calls = 8)
+      dataset = dataset.interleave(self.create_seqeunce_ds,
+                                   cycle_length = 8,num_parallel_calls = 8)
     else:
       dataset = dataset.shard(num_shards=self.num_ranks, index = self.rank)
       dataset = self.batching_info.apply(dataset, new_batch_size = self.micro_batch_size)
@@ -200,7 +182,7 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
     logger.debug("Rank {} has micro batch {}.".format(
                  self.rank, self.micro_batch_size))
     return self.micro_batch_size
-  ##generate a callback if it necessary
+
   def generate_callback_if_have(self):
     if self.normal_factor == None and self.special_global_batch_size == None:
       return None
@@ -208,6 +190,6 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
       self.normal_factor = 1.0
       return ds_helpers.ScalingFactorScheduler(self.normal_factor,
                                      self.special_my_size * self.num_ranks / self.special_global_batch_size,
-                                     0)
+                                     self.special_iteration)
     else:
       return ds_helpers.ScalingFactorScheduler(self.normal_factor)

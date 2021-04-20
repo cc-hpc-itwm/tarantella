@@ -167,7 +167,7 @@ _transformations = {ds.BatchDataset : _get_transformation_info_batch,
                     ds.WindowDataset : _get_transformation_info_window,
                     ds._OptionsDataset : _get_transformation_info_withoptions,
                     }
-
+    
 def gen_dataset_transformations(dataset):
   """Generate the list of transformations that has been applied to a dataset
      Returns: tuple(original dataset, list of transformations)
