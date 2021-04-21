@@ -8,6 +8,7 @@ import tarantella.optimizers.synchronous_distributed_optimizer as distributed_op
 import tarantella.datasets.distributed_dataset as ds
 import tarantella.keras.callbacks as tnt_callbacks
 import tarantella.keras.utilities as utilities
+import tarantella.utilities.tf_version as version_utils
 from tarantella import logger
 
 
@@ -431,7 +432,7 @@ class Model(tf.keras.models.Model):
       del callbacks[remove_tensorboard_index]
 
   def _preprocess_compile_kwargs(self, kwargs):
-    if hasattr(self.model, '_experimental_run_tf_function'):  #TF version < 2.2
+    if version_utils.tf_version_below_equal('2.1'):
       kwargs['experimental_run_tf_function'] = False
       logger.info("Set `experimental_run_tf_function` to False.")
     return kwargs

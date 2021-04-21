@@ -1,5 +1,6 @@
 import tarantella as tnt
 import tarantella.collectives.utils as utils
+import tarantella.utilities.tf_version as version_utils
 
 from tnt_tfops import tnt_ops
 import GPICommLib
@@ -63,7 +64,7 @@ class SynchCommunicator():
                                                 tensor_id = grad_id,
                                                 Tout = tf.float32,
                                                 tnt_synchcomm = self.comm.get_raw_ptr())
-      if (float(tf.__version__[:3]) < 2.4):
+      if version_utils.tf_version_below_equal('2.3'):
         reduced_gradients.append(output_grad)
       else:
         reduced_gradients.append((output_grad, weight))
