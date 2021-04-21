@@ -63,5 +63,8 @@ class SynchCommunicator():
                                                 tensor_id = grad_id,
                                                 Tout = tf.float32,
                                                 tnt_synchcomm = self.comm.get_raw_ptr())
-      reduced_gradients.append(output_grad)
+      if (float(tf.__version__[:3]) < 2.4):
+        reduced_gradients.append(output_grad)
+      else:
+        reduced_gradients.append((output_grad, weight))
     return reduced_gradients
