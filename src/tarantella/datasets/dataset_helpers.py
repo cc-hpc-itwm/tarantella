@@ -204,7 +204,7 @@ def pad_dataset(dataset,batch_size,comm_size,num_samples):
 
     ##take previous and concat togther with rest_dataset
     rest_dataset = rest_dataset.skip(2*real_batch_size - num_padded)
-    dataset = rest_dataset.concatenate(dataset)
+    dataset = dataset.concatenate(rest_dataset)
   return dataset
 
 class BatchingOpInfo:
