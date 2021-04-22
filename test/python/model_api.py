@@ -20,9 +20,15 @@ class TestsModelAPI:
     tnt_model = tnt.Model(mnist.lenet5_model_generator())
     assert tnt_model.dynamic == False
 
+  @pytest.mark.max_tfversion('2.3')
   def test_input_spec(self):
     tnt_model = tnt.Model(mnist.lenet5_model_generator())
     assert tnt_model.input_spec == None
+
+  @pytest.mark.min_tfversion('2.4')
+  def test_input_spec(self):
+    tnt_model = tnt.Model(mnist.lenet5_model_generator())
+    assert tnt_model.input_spec[0].shape == (None, 28, 28, 1)
 
   def test_layers(self):
     tnt_model = tnt.Model(mnist.lenet5_model_generator())
@@ -39,12 +45,12 @@ class TestsModelAPI:
     tnt_model = tnt.Model(mnist.lenet5_model_generator())
     assert tnt_model.metrics == []
 
-  @pytest.mark.tfversion(['2.0', '2.1'])
+  @pytest.mark.max_tfversion('2.1')
   def test_metrics_names(self):
     tnt_model = tnt.Model(mnist.lenet5_model_generator())
     assert tnt_model.metrics_names == ['loss']
 
-  @pytest.mark.tfversion(['2.2', '2.3'])
+  @pytest.mark.min_tfversion('2.2')
   def test_metrics_names(self):
     tnt_model = tnt.Model(mnist.lenet5_model_generator())
     assert tnt_model.metrics_names == []
@@ -85,7 +91,7 @@ class TestsModelAPI:
     tnt_model.add_loss(tf.reduce_mean(tnt_model.output))
     assert len(tnt_model.losses) == 1
 
-  @pytest.mark.tfversion(['2.0', '2.1'])
+  @pytest.mark.max_tfversion('2.1')
   def test_add_metric(self):
     tnt_model = tnt.Model(mnist.lenet5_model_generator())
     assert tnt_model.metrics == ['loss']
@@ -93,7 +99,7 @@ class TestsModelAPI:
     assert len(tnt_model.metrics) == 2
     assert tnt_model.metrics_names == ['loss', 'metric_name']
 
-  @pytest.mark.tfversion(['2.2', '2.3'])
+  @pytest.mark.min_tfversion('2.2')
   def test_add_metric(self):
     tnt_model = tnt.Model(mnist.lenet5_model_generator())
     assert tnt_model.metrics == []
