@@ -2,6 +2,7 @@ import tensorflow as tf
 from tensorflow import keras
 
 import tarantella as tnt
+import utilities as util
 
 def generate_tnt_model_runner(model):
   model_data_par = tnt.Model(model)
@@ -21,7 +22,7 @@ class TrainingRunner:
     self.initial_weights = model.get_weights()
 
   def compile_model(self, optimizer):
-
+    util.set_tf_random_seed()
     kwargs = {}
     if tf.__version__.startswith('2.0') or \
        tf.__version__.startswith('2.1'):
