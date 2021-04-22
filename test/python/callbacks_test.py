@@ -8,16 +8,29 @@ from tensorflow import keras
 
 import numpy as np
 
+import os
 import pytest
-import logging
+import shutil
 
-@pytest.fixture(scope="class", params=[mnist.fc_model_generator,
-                                       mnist.subclassed_model_generator,
-                                      ])
+@pytest.fixture(scope="function", params=[mnist.fc_model_generator,
+                                          mnist.subclassed_model_generator])
 def model_runners(request):
   tnt_model_runner = base_runner.generate_tnt_model_runner(request.param())
   reference_model_runner = base_runner.TrainingRunner(request.param())
   yield tnt_model_runner, reference_model_runner
+
+
+@pytest.fixture(scope="function")
+def setup_save_path(request):
+  # save logs in a shared directory accessible to all ranks
+  save_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                          "test_callbacks")
+  yield save_dir
+
+  # clean up
+  if tnt.is_master_rank():
+    shutil.rmtree(save_dir, ignore_errors=True)
+
 
 def train_val_dataset_generator():
   micro_batch_size = 64
@@ -61,15 +74,16 @@ class TestsDataParallelCallbacks:
       assert all(np.isclose(tnt_history.history[key], reference_history.history[key], atol=1e-6))
 
   @pytest.mark.parametrize("number_epochs", [1])
-  def test_tensorboard_callback(self, model_runners, number_epochs):
-    callbacks = [tf.keras.callbacks.TensorBoard()]
+  def test_tensorboard_callback(self, setup_save_path, model_runners, number_epochs):
+    callbacks = [tf.keras.callbacks.TensorBoard(log_dir = setup_save_path)]
     self.train_tnt_and_ref_models_with_callbacks(callbacks, model_runners, number_epochs)
     # FIXME: assert correct file exists
     assert True
 
   @pytest.mark.parametrize("number_epochs", [1])
-  def test_model_checkpoint_callback(self, model_runners, number_epochs):
-    callbacks = [tf.keras.callbacks.ModelCheckpoint(filepath='logs')]
+  def test_model_checkpoint_callback(self, setup_save_path, model_runners, number_epochs):
+    checkpoint_path = os.path.join(setup_save_path, "logs")
+    callbacks = [tf.keras.callbacks.ModelCheckpoint(filepath = checkpoint_path)]
     self.train_tnt_and_ref_models_with_callbacks(callbacks, model_runners, number_epochs)
     # FIXME: assert correct file exists
     assert True
