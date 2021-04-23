@@ -78,3 +78,42 @@ You will also need to specify the path to the python library on the command line
    export PATH=${PATH_TO_CONDA_ENV}/bin:${PATH}
    cmake -DPYTHON_EXECUTABLE=${PATH_TO_CONDA_ENV}/bin/python \
          -DPYTHON_LIBRARY=${PATH_TO_CONDA_ENV}/lib ../
+
+.. admonition:: Question
+
+   Why do I get runtime errors when I compile Tarantella using `clang`?
+
+Currently, Tarantella can be built properly only by using `gcc`.
+
+The `clang` compiler relies on a different standard library (`libc++` instead
+of `libstdc++` that is used by `gcc`).
+
+However, the TensorFlow pip/conda packages for Linux are compiled using `gcc`.
+The `tnt_tfops` library in Tarantella is linked against Tensorflow, which leads to
+linking errors at runtime if the two libraries expect a different standard library
+implementation.
+
+.. admonition:: Question
+
+   I get `undefined symbol` errors in the `libtnt-tfops.so` library at runtime. What can I do?
+
+Such errors might be due to a TensorFlow version mismatch between Tarantella and the loaded Conda
+environment. Make sure to use the same Conda environment that was active when compiling Tarantella.
+
+.. admonition:: Question
+
+   Why does loading a Tarantella or Keras model from YAML fail?
+
+Make sure to have the `PyYAML` Python package installed in your environment, using version `3.13`
+or below. Newer versions of `PyYAML` do not work with TensorFlow model loading.
+
+.. code-block:: bash
+
+  pip install PyYAML==3.13
+
+.. admonition:: Question
+
+    Can I install Tarantella on MacOS?
+
+Tarantella is only supported on Linux systems, as its GPI-2 dependency is built on top of a
+Linux kernel API called `epoll`.

@@ -522,6 +522,18 @@ Type "help", "copyright", "credits" or "license" for more information.
 On Beehive/LTS, the TensorFlow install path should be under `/p/hpc/soft/tarantella/tf2.*`,
 where the conda environment is installed.
 
+#### Runtime error: Why do I get runtime errors when I compile Tarantella using `clang`?
+
+Currently, Tarantella can be built properly only by using `gcc`.
+
+The `clang` compiler relies on a different standard library (`libc++` instead
+of `libstdc++` that is used by `gcc`).
+
+However, the TensorFlow pip/conda packages for Linux are compiled using `gcc`.
+The `tnt_tfops` library in Tarantella is linked against Tensorflow, which leads to
+linking errors at runtime if the two libraries expect a different standard library
+implementation.
+
 #### Runtime error: Cannot load Keras model from YAML
 * Newer versions of `PyYAML` do not work with TensorFlow model loading for TF2.0-2.2.
 * **Solution**: Downgrade the version of `PyYAML` to 3.13 or below
