@@ -78,3 +78,18 @@ You will also need to specify the path to the python library on the command line
    export PATH=${PATH_TO_CONDA_ENV}/bin:${PATH}
    cmake -DPYTHON_EXECUTABLE=${PATH_TO_CONDA_ENV}/bin/python \
          -DPYTHON_LIBRARY=${PATH_TO_CONDA_ENV}/lib ../
+
+.. admonition:: Question
+
+   Why do I get runtime errors when I compile Tarantella using `clang`?
+
+Currently, Tarantella can be built properly only by using `gcc`.
+
+The `clang` compiler relies on a different standard library (`libc++` instead
+of `libstdc++` that is used by `gcc`).
+
+However, the TensorFlow pip/conda packages for Linux are compiled using `gcc`.
+The `tnt_tfops` library in Tarantella is linked against Tensorflow, which leads to
+linking errors at runtime if the two libraries expect a different standard library
+implementation.
+
