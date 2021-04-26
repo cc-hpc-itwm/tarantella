@@ -41,8 +41,8 @@ tarantella_generate_python_gpi_test(NAME DistributedDatasets
                                     TIMEOUT 200)
 
 set(localranks_list 1 2 3)
-tarantella_generate_python_gpi_test(NAME ModelAPIMNIST
-                                    TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/model_api_mnist.py
+tarantella_generate_python_gpi_test(NAME DataParallel_TF_Model
+                                    TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/model_api.py
                                     LOCALRANKS_LIST "${localranks_list}"
                                     TIMEOUT 60)
 
