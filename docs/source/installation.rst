@@ -74,7 +74,7 @@ Installing TensorFlow 2
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 Next you will need to install TensorFlow 2.
-Tarantella supports TensorFlow versions ``2.0`` to ``2.2``.
+Tarantella supports TensorFlow versions ``2.0`` to ``2.4``.
 Either version can be installed in a conda environment using pip,
 as recommended on the `TensorFlow website <https://www.tensorflow.org/install>`_.
 
@@ -91,7 +91,7 @@ Now, you can install the latest supported TensorFlow version with
 .. code-block:: bash
 
   conda install python=3.8
-  pip install --upgrade tensorflow==2.2
+  pip install --upgrade tensorflow==2.4
 
 Tarantella requires at least Python ``3.7``. Make sure the selected version also matches
 the `TensorFlow requirements <https://www.tensorflow.org/install>`_.
