@@ -66,10 +66,7 @@ conda activate tarantella
 ```
 ### Installing TensorFlow
 
-`Tarantella` supports the following `TensorFlow` versions:
-- Tensorflow 2.0
-- Tensorflow 2.1
-- Tensorflow 2.2
+`Tarantella` supports all `TensorFlow` versions between `2.0` and `2.4`.
 
 Either version can be installed in a conda environment using `pip`, as recommended
 on the [TensorFlow website](https://www.tensorflow.org/install).
@@ -77,7 +74,7 @@ on the [TensorFlow website](https://www.tensorflow.org/install).
 ```bash
 conda activate tarantella
 conda install python=3.8
-pip install --upgrade tensorflow==2.2
+pip install --upgrade tensorflow==2.4
 ```
 
 ### Installing Pybind11
@@ -535,7 +532,7 @@ linking errors at runtime if the two libraries expect a different standard libra
 implementation.
 
 #### Runtime error: Cannot load Keras model from YAML
-* Newer versions of `PyYAML` do not work with TensorFlow model loading for TF2.0-2.2.
+* Newer versions of `PyYAML` do not work with TensorFlow model loading for TF2.0-2.4.
 * **Solution**: Downgrade the version of `PyYAML` to 3.13 or below
 ```
 pip install PyYAML==3.13
