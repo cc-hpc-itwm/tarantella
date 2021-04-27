@@ -19,7 +19,12 @@ def model_runners(request):
   yield tnt_model_runner, reference_model_runner
 
 class TestsDataParallelCompareAccuracy:
-  @pytest.mark.parametrize("micro_batch_size", [32])
+
+  def test_initialization(self, tarantella_framework):
+    assert tarantella_framework
+
+  @pytest.mark.parametrize("micro_batch_size", [32, 61])
+  @pytest.mark.parametrize("extra_batch", [0, 7, 13])
   @pytest.mark.parametrize("number_epochs", [3])
   @pytest.mark.parametrize("nbatches", [20])
   @pytest.mark.parametrize("test_nbatches", [10])
