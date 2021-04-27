@@ -3,6 +3,7 @@ stages:
   - unit_tests_cpp
   - unit_tests_python
   - integration_tests
+  - unit_tests_python_nightly
   - integration_tests_nightly
 
 variables:
