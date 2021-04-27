@@ -1,52 +1,21 @@
 include (add_test_wrappers)
 
-set(localranks_list 2 4)
-tarantella_generate_python_gpi_test(NAME WeightsDataParallel
-                                    TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/data_parallel_training/weights_test.py
-                                    LOCALRANKS_LIST "${localranks_list}"
-                                    LABELS integration
-                                    TIMEOUT 1000)
-
-set(localranks_list 4)
-tarantella_generate_python_gpi_test(NAME AccuracyDataParallel
-                                    TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/data_parallel_training/accuracy_test.py
-                                    LOCALRANKS_LIST "${localranks_list}"
-                                    LABELS integration gpu
-                                    TIMEOUT 600)
-
-set(localranks_list 4)
-tarantella_generate_python_gpi_test(NAME OptimizersDataParallelMNIST
-                                    TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/data_parallel_training/optimizers_mnist_test.py
-                                    LOCALRANKS_LIST "${localranks_list}"
-                                    LABELS integration gpu cluster
-                                    TIMEOUT 600)
-
-set(localranks_list 4)
-tarantella_generate_python_gpi_test(NAME OptimizersDataParallelCIFAR
-                                    TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/data_parallel_training/optimizers_cifar10_test.py
-                                    LOCALRANKS_LIST "${localranks_list}"
-                                    LABELS integration gpu cluster disabled
-                                    TIMEOUT 10000)
-
-set(localranks_list 1 3 4)
-tarantella_generate_python_gpi_test(NAME CallbacksDataParallel
-                                    TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/data_parallel_training/callbacks_test.py
+set(localranks_list 1 4)
+tarantella_generate_python_gpi_test(NAME DataParallel_TF_Callbacks
+                                    TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/callbacks_test.py
                                     LOCALRANKS_LIST "${localranks_list}"
                                     LABELS integration
                                     TIMEOUT 100)
 
-tarantella_generate_python_gpi_test(NAME DistributedDatasets
-                                    LOCALRANKS_LIST "1"
-                                    TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/datasets/distributed_dataset.py
-                                    TIMEOUT 200)
-
-set(localranks_list 1 2 3)
-tarantella_generate_python_gpi_test(NAME ModelAPIMNIST
-                                    TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/model_api_mnist.py
+set(localranks_list 1 3)
+tarantella_generate_python_gpi_test(NAME DataParallel_TF_Model
+                                    TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/model_api.py
                                     LOCALRANKS_LIST "${localranks_list}"
                                     TIMEOUT 60)
 
-add_subdirectory(collectives)
-add_subdirectory(pipelining_parallel)
-add_subdirectory(tnt_cli)
 add_subdirectory(model_api)
+add_subdirectory(datasets)
+add_subdirectory(data_parallel_training)
+add_subdirectory(pipelining_parallel)
+add_subdirectory(collectives)
+add_subdirectory(tnt_cli)

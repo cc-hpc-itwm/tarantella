@@ -33,56 +33,59 @@ class TestsDataParallelOptimizers:
                                          keras.optimizers.RMSprop,
                                          keras.optimizers.SGD,
                                         ])
-  @pytest.mark.parametrize("micro_batch_size", [42])
-  @pytest.mark.parametrize("nbatches", [8])
-  @pytest.mark.parametrize("test_nbatches", [3])
+  @pytest.mark.parametrize("micro_batch_size", [32])
+  @pytest.mark.parametrize("nbatches", [15])
   @pytest.mark.parametrize("number_epochs", [2])
   def test_optimizers_compare_to_reference(self, model_generator, optimizer, micro_batch_size,
-                                           nbatches, test_nbatches, number_epochs):
-    (train_dataset, test_dataset) = util.train_test_mnist_datasets(nbatches, test_nbatches,
-                                                                   micro_batch_size)
-    (ref_train_dataset, ref_test_dataset) = util.train_test_mnist_datasets(nbatches, test_nbatches,
-                                                                           micro_batch_size)
+                                           nbatches, number_epochs):
+    (train_dataset, _) = util.train_test_mnist_datasets(nbatches = nbatches,
+                                                        micro_batch_size = micro_batch_size)
+    (ref_train_dataset, _) = util.train_test_mnist_datasets(nbatches = nbatches,
+                                                            micro_batch_size = micro_batch_size)
     tnt_model_runner, ref_model_runner = get_compiled_models(model_generator, optimizer)
 
-    tnt_model_runner.train_model(train_dataset, number_epochs)
-    ref_model_runner.train_model(ref_train_dataset, number_epochs)
-
-    tnt_loss_accuracy = tnt_model_runner.evaluate_model(test_dataset)
-    ref_loss_accuracy = ref_model_runner.evaluate_model(ref_test_dataset)
+    tnt_history = tnt_model_runner.train_model(train_dataset, number_epochs)
+    ref_history = ref_model_runner.train_model(ref_train_dataset, number_epochs)
 
     rank = tnt.get_rank()
-    logging.getLogger().info("[Rank %d] Tarantella[loss, accuracy] = %s" % (rank, str(tnt_loss_accuracy)))
-    logging.getLogger().info("[Rank %d] Reference [loss, accuracy] = %s" % (rank, str(ref_loss_accuracy)))
-    assert np.isclose(tnt_loss_accuracy[0], ref_loss_accuracy[0], atol=1e-2) # losses might not be identical
-    assert np.isclose(tnt_loss_accuracy[1], ref_loss_accuracy[1],
-                      atol=1e-2 if isinstance(optimizer(),  keras.optimizers.RMSprop) else 1e-6)
+    metric = 'sparse_categorical_accuracy'
+    logging.getLogger().info(f"[Rank {rank}] Tarantella (loss, accuracy) = "
+                             f"({tnt_history.history['loss']}, {tnt_history.history[metric]})")
+    logging.getLogger().info(f"[Rank {rank}] Reference (loss, accuracy) = "
+                             f"({ref_history.history['loss']}, {ref_history.history[metric]})")
+    # compare histories (note that RMSProp performs worse than the other optimizers)
+    assert np.allclose(tnt_history.history['loss'], ref_history.history['loss'],
+                       atol=1e-2 if isinstance(optimizer(),  keras.optimizers.RMSprop) else 1e-4)
+    assert np.allclose(tnt_history.history[metric], ref_history.history[metric],
+                       atol=1e-2 if isinstance(optimizer(),  keras.optimizers.RMSprop) else 1e-6)
 
   @pytest.mark.parametrize("model_generator", [mnist.lenet5_model_generator,
                                                mnist.sequential_model_generator])
   @pytest.mark.parametrize("nesterov", [False, True])
   @pytest.mark.parametrize("momentum", [0.9])
   @pytest.mark.parametrize("micro_batch_size", [32])
-  @pytest.mark.parametrize("nbatches", [5])
-  @pytest.mark.parametrize("test_nbatches", [3])
+  @pytest.mark.parametrize("nbatches", [10])
   @pytest.mark.parametrize("number_epochs", [2])
   def test_sgd_momentum_compare_to_reference(self, model_generator, nesterov, momentum,
-                                             micro_batch_size, nbatches, test_nbatches, number_epochs):
-    (train_dataset, test_dataset) = util.train_test_mnist_datasets(nbatches, test_nbatches,
-                                                                   micro_batch_size)
-    (ref_train_dataset, ref_test_dataset) = util.train_test_mnist_datasets(nbatches, test_nbatches,
-                                                                           micro_batch_size)
+                                             micro_batch_size, nbatches, number_epochs):
+    (train_dataset, _) = util.train_test_mnist_datasets(nbatches = nbatches,
+                                                        micro_batch_size = micro_batch_size)
+    (ref_train_dataset, _) = util.train_test_mnist_datasets(nbatches = nbatches,
+                                                            micro_batch_size = micro_batch_size)
     optimizer = keras.optimizers.SGD
     optimizer_kwargs = {'learning_rate' : 0.01,
                         'momentum' : momentum,
                         'nesterov' : nesterov}
     tnt_model_runner, ref_model_runner = get_compiled_models(model_generator, optimizer,
                                                              **optimizer_kwargs)
-    tnt_model_runner.train_model(train_dataset, number_epochs)
-    ref_model_runner.train_model(ref_train_dataset, number_epochs)
+    tnt_history = tnt_model_runner.train_model(train_dataset, number_epochs)
+    ref_history = ref_model_runner.train_model(ref_train_dataset, number_epochs)
 
-    tnt_loss_accuracy = tnt_model_runner.evaluate_model(test_dataset)
-    ref_loss_accuracy = ref_model_runner.evaluate_model(ref_test_dataset)
-
-    assert np.isclose(tnt_loss_accuracy[0], ref_loss_accuracy[0], atol=1e-2) # losses might not be identical
-    assert np.isclose(tnt_loss_accuracy[1], ref_loss_accuracy[1], atol=1e-6)
+    rank = tnt.get_rank()
+    metric = 'sparse_categorical_accuracy'
+    logging.getLogger().info(f"[Rank {rank}] Tarantella (loss, accuracy) = "
+                             f"({tnt_history.history['loss']}, {tnt_history.history[metric]})")
+    logging.getLogger().info(f"[Rank {rank}] Reference (loss, accuracy) = "
+                             f"({ref_history.history['loss']}, {ref_history.history[metric]})")
+    assert np.allclose(tnt_history.history['loss'], ref_history.history['loss'], 1e-4)
+    assert np.allclose(tnt_history.history[metric], ref_history.history[metric], 1e-6)

@@ -10,6 +10,8 @@ function (tarantella_compile_and_generate_gpi_test)
   _default_if_unset (ARG_TIMEOUT 10)
   set(CLEANUP_TEST_NAME gpi_cleanup)
 
+  set(ARG_NAME "Cpp_${ARG_NAME}")
+
   set (target_name ${ARG_NAME}.test)
   compile_tarantella_test(${ARGN}
                           NAME ${target_name})
@@ -46,6 +48,8 @@ function (tarantella_compile_and_generate_test)
                         "${multi_value_options}" "${required_options}" ${ARGN})
   _default_if_unset (ARG_TIMEOUT 10)
 
+  set(ARG_NAME "Cpp_${ARG_NAME}")
+
   set (target_name ${ARG_NAME}.test)
   compile_tarantella_test(${ARGN}
                           NAME ${target_name})
@@ -75,6 +79,8 @@ function (tarantella_generate_python_gpi_test)
 
   list(APPEND ARG_LABELS "Python")
   list(REMOVE_DUPLICATES ARG_LABELS)
+
+  set(ARG_NAME "Py_${ARG_NAME}")
   
   # wrap call to the test executable in a script that exports the current environment
   # the script can then be executed within a `gaspi_run` call
@@ -111,6 +117,8 @@ function (tarantella_generate_python_test)
 
   list(APPEND ARG_LABELS "Python")
   list(REMOVE_DUPLICATES ARG_LABELS)
+
+  set(ARG_NAME "Py_${ARG_NAME}")
 
   # wrap call to the test executable in a script that exports the current environment
   # the script can then be executed within a `gaspi_run` call
