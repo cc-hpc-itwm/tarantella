@@ -193,7 +193,10 @@ class Model(tf.keras.models.Model):
       ##generate callback for scaling factor
       dataset_callback = distributed_x.generate_callback_if_have()
       if dataset_callback != None:
-        callbacks.append(dataset_callback)
+        if callbacks != None:
+          callbacks.append(dataset_callback)
+        else:
+          callbacks = [dataset_callback]
      
     else:
       logger.info("Automatic dataset distribution is disabled."
