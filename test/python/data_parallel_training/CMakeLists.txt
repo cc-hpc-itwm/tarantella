@@ -1,18 +1,18 @@
 include (add_test_wrappers)
 
-set(localranks_list 2 4)
+set(localranks_list 4)
 tarantella_generate_python_gpi_test(NAME DataParallel_Training_Weights_Adam
                                     TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/weights_test.py
                                     LOCALRANKS_LIST "${localranks_list}"
                                     LABELS integration
-                                    TIMEOUT 1000)
+                                    TIMEOUT 200)
 
 set(localranks_list 4)
 tarantella_generate_python_gpi_test(NAME DataParallel_Training_Accuracy_Adam
                                     TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/accuracy_test.py
                                     LOCALRANKS_LIST "${localranks_list}"
                                     LABELS integration gpu
-                                    TIMEOUT 600)
+                                    TIMEOUT 200)
 
 set(localranks_list 4)
 tarantella_generate_python_gpi_test(NAME DataParallel_Training_Accuracy_Optimizers
