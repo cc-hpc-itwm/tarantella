@@ -103,7 +103,7 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
     return dataset.shuffle(**ds_kwargs)
 
   def pad_dataset(self,dataset,batch_size,comm_size,num_samples):
-    real_batch_size = int(batch_size//comm_size) * comm_size
+    real_batch_size = batch_size
     if num_samples % real_batch_size != 0:
       num_padded = num_samples - int(num_samples // real_batch_size)*real_batch_size
       self.special_global_batch_size = num_padded
@@ -184,12 +184,13 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
     return self.micro_batch_size
 
   def generate_callback_if_have(self):
-    if self.normal_factor == None and self.special_global_batch_size == None:
+    if self.normal_factor is None and self.special_global_batch_size is None:
       return None
-    if self.normal_factor == None:
-      self.normal_factor = 1.0
+    if self.special_global_batch_size is None:
+      return ds_helpers.ScalingFactorScheduler(self.normal_factor)
+    else:
+      if self.normal_factor is None:
+        self.normal_factor = 1.0
       return ds_helpers.ScalingFactorScheduler(self.normal_factor,
                                      self.special_my_size * self.num_ranks / self.special_global_batch_size,
                                      self.special_iteration)
-    else:
-      return ds_helpers.ScalingFactorScheduler(self.normal_factor)
