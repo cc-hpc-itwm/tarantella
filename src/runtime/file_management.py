@@ -22,7 +22,10 @@ class TemporaryFileWrapper(metaclass = ABCMeta):
       make_executable(self.filename)
 
   def __exit__(self, *args):
-    os.remove(self.filename)
+    try:
+      os.remove(self.filename)
+    except:
+      pass
 
   @abstractmethod
   def get_initial_contents(self):
@@ -59,3 +62,16 @@ class GPIScriptFile(TemporaryFileWrapper):
 
   def get_initial_contents(self):
     return '\n'.join(self.contents)
+
+class CleanupScriptFile(TemporaryFileWrapper):
+  def __init__(self, header, environment, command, dir):
+    super().__init__(dir = dir, is_executable = True)
+    self.contents = [header,
+                     environment,
+                     command]
+
+  def get_initial_contents(self):
+    return '\n'.join(self.contents)
+  
+  def __exit__(self):
+    pass

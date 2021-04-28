@@ -4,7 +4,7 @@ import os
 import shutil
 import subprocess
 import sys
-
+import paramiko
 try:
   from version import tnt_version
 except:
@@ -15,6 +15,7 @@ import runtime.logging_config as logging_config
 import runtime.platform_config as platform_config
 import runtime.environment_config as env_config
 from runtime import logger
+from runtime import tarantella_cleanup
 
 def create_parser():
   parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -76,6 +77,11 @@ def create_parser():
                     dest = "pin_to_socket",
                     action='store_true',
                     default=False)
+  parser.add_argument("--clean-up",
+                    help="automatically kill processes on abnormal termination",
+                    dest = "clean_up",
+                    action='store_true',
+                    default=False)
   parser.add_argument("--version",
                     action='version',
                     version=generate_version_message())
@@ -91,6 +97,7 @@ def parse_args():
       sys.exit("[TNT_CLI] Use either `-n`, `--n-per-node`, or `--devices-per-node` argument.")
     else:
       args.npernode = args.npernode_single_node
+   
   return args
 
 def generate_version_message():
@@ -153,6 +160,12 @@ def get_numa_prefix(npernode):
     command += f"numactl --cpunodebind=$socket --membind=$socket"
   return command
 
+def get_ssh_client(host):
+  client = paramiko.client.SSHClient()
+  client.load_system_host_keys()
+  client.connect(host)
+  return client
+
 class TarantellaCLI:
   def __init__(self, hostlist, num_gpus_per_node, num_cpus_per_node, args):
     self.args = args
@@ -166,6 +179,7 @@ class TarantellaCLI:
       self.npernode = num_cpus_per_node
       device_type = "CPU processes"
 
+    self.hostlist = hostlist
     self.nranks = len(hostlist) * self.npernode
     self.hostfile = file_man.HostFile(hostlist, self.npernode)
     self.executable_script = self.generate_executable_script()
@@ -198,6 +212,15 @@ class TarantellaCLI:
 
     command = f"{self.generate_interpreter()} {' '.join(self.command_list)}"
     return file_man.GPIScriptFile(header, environment, command, dir = os.getcwd())
+  
+  def generate_cleanup_script(self):
+    header = "#!/bin/bash\n"
+    header += "cd {}".format(os.path.abspath(os.getcwd()))
+
+    environment = env_config.gen_exports_from_dict(env_config.collect_environment_variables())
+  
+    command = f"python {tarantella_cleanup.__file__} --proc_names {self.command_list[0].split('.')[0]}"
+    return file_man.GPIScriptFile(header, environment, command, dir = os.getcwd())
 
   def run(self, dry_run = False):
     with self.hostfile, self.executable_script:
@@ -219,6 +242,30 @@ class TarantellaCLI:
                     check = True,
                     cwd = os.getcwd(),
                     stdout = None, stderr = None,)
-      except subprocess.CalledProcessError as e:
+      except (subprocess.CalledProcessError) as e:
         sys.exit(generate_run_error_message(e, self.hostfile.name,
                                             self.executable_script.filename))
+      except (KeyboardInterrupt) as e:
+        logger.warn('[TNT_CLI] KeyboardInterrupt : running cleanup')
+        self.clean_up_run()
+  
+  def clean_up_run(self):
+    cleanup_script = self.generate_cleanup_script()
+    hostlist = file_man.HostFile(self.hostlist, 1)
+    with hostlist, cleanup_script:
+      command_list = ["gaspi_run",
+                      "-m", hostlist.name,
+                      cleanup_script.filename]
+
+      path_to_gpi = shutil.which("gaspi_run")
+      if path_to_gpi is None:
+        sys.exit("[TNT_CLI] Cannot execute `gaspi_run`; make sure it is added to the current `PATH`.")
+
+      try:
+        result = subprocess.run(command_list,
+                    check = True,
+                    cwd = os.getcwd(),
+                    stdout = None, stderr = None,)
+      except (subprocess.CalledProcessError) as e:
+        sys.exit(generate_run_error_message(e, hostlist.name,
+                                            cleanup_script.filename))
