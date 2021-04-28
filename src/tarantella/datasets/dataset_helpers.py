@@ -187,7 +187,7 @@ def gen_dataset_transformations(dataset):
   return (dataset, list(reversed(stack)))
       
 def pad_dataset(dataset,batch_size,comm_size,num_samples):
-  real_batch_size = int(batch_size//comm_size) * comm_size
+  real_batch_size = batch_size
   if num_samples % real_batch_size != 0:
     num_padded = num_samples - int(num_samples // real_batch_size)*real_batch_size
     num_padded = real_batch_size - num_padded
