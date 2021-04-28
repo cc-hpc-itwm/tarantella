@@ -58,10 +58,7 @@ def gen_dataset_shuffle_batch(dataset, batch_size, drop_remainder,comm_size,pad=
   dataset = dataset.prefetch(buffer_size=2)
   return dataset
 
-def gen_dataset_filter(dataset, batch_size, drop_remainder,comm_size,pad=False):
-  # Read from multiple files in parallel
-#   dataset = dataset.shuffle(300, seed=44, reshuffle_each_iteration=True)
-  
+def gen_dataset_filter(dataset, batch_size, drop_remainder,comm_size,pad=False):  
   def pred(x,y):
     return x > 5
   dataset = dataset.filter(predicate = lambda x, y: pred(x,y))
@@ -74,22 +71,20 @@ def gen_dataset_filter(dataset, batch_size, drop_remainder,comm_size,pad=False):
   return dataset
 
 def gen_dataset_filter_after_batch(dataset, batch_size, drop_remainder,comm_size,pad=False):
-  dataset = dataset.shuffle(10, seed=44, reshuffle_each_iteration=True)
-
   def pred1(x,y):
-    return x > 3
+    return x > 5
   dataset = dataset.filter(predicate = lambda x, y: pred1(x,y))
-  if pad:
+    
+  if pad and not drop_remainder:
     num_samples = ds_helpers.get_num_samples(dataset)
-    if drop_remainder:
-      num_samples = int(num_samples//batch_size)*batch_size
     dataset = ds_helpers.pad_dataset(dataset,batch_size,comm_size,num_samples)
 
   dataset = dataset.batch(batch_size, drop_remainder)
 
   def pred2(x,y): # apply to batched dataset
-    return x[1] > 10
+    return x[0] > 20
   dataset = dataset.filter(predicate = lambda x, y: pred2(x,y))
+
   return dataset
 
 def gen_dataset_flat_map(dataset, batch_size, drop_remainder,comm_size,pad=False):
@@ -121,7 +116,7 @@ def gen_dataset_flat_map_after_batch(dataset, batch_size, drop_remainder, comm_s
   return dataset
 
 def gen_dataset_interleave(dataset, batch_size, drop_remainder,comm_size,pad=False):
-  dataset = dataset.batch(batch_size = 1, drop_remainder = False)
+  dataset = dataset.batch(batch_size = 3, drop_remainder = False)
   dataset = dataset.interleave(map_func = lambda x, y: tf.data.Dataset.from_tensor_slices((x+3, y)),
                                cycle_length=tf.data.experimental.AUTOTUNE,
                                block_length=2,
@@ -139,11 +134,10 @@ def gen_dataset_interleave_after_batch(dataset, batch_size, drop_remainder,comm_
                                cycle_length=tf.data.experimental.AUTOTUNE,
                                block_length=2,
                                deterministic = True)
-  if pad:
+  if pad and not drop_remainder:
     num_samples = ds_helpers.get_num_samples(dataset)
-    if drop_remainder:
-      num_samples = int(num_samples//batch_size)*batch_size
     dataset = ds_helpers.pad_dataset(dataset,batch_size,comm_size,num_samples)
+    
   dataset = dataset.batch(batch_size, drop_remainder)
   dataset = dataset.interleave(map_func = lambda x,y: tf.data.Dataset.from_tensors((x, y)),
                                block_length=2,
@@ -174,7 +168,7 @@ def gen_dataset_map(dataset, batch_size, drop_remainder,comm_size,pad=False):
   dataset = dataset.batch(batch_size, drop_remainder)
   return dataset
 
-def gen_dataset_map_after_batch(dataset, batch_size, drop_remainder):
+def gen_dataset_map_after_batch(dataset, batch_size, drop_remainder,comm_size,pad=False):
   def map_fn(x, y):
     return x*5, y
   dataset = dataset.map(lambda x, y: map_fn(x, y),
@@ -212,7 +206,7 @@ def gen_dataset_padded_batch(dataset, batch_size, drop_remainder,comm_size,pad=F
   return dataset
 
 def gen_dataset_parallel_interleave(dataset, batch_size, drop_remainder,comm_size,pad=False):
-  dataset = dataset.batch(batch_size = 3, drop_remainder = False)
+  dataset = dataset.batch(batch_size = 1, drop_remainder = False)
   dataset = dataset.interleave(map_func = lambda x, y: tf.data.Dataset.from_tensor_slices((x+3, y)),
                                cycle_length=tf.data.experimental.AUTOTUNE,
                                block_length=2,
@@ -226,12 +220,12 @@ def gen_dataset_parallel_interleave(dataset, batch_size, drop_remainder,comm_siz
   return dataset
 
 def gen_dataset_parallel_interleave_after_batch(dataset, batch_size, drop_remainder,comm_size,pad=False):
-  dataset = dataset.batch(batch_size = 3, drop_remainder = False)
-  if pad:
+  dataset = dataset.batch(batch_size = 1, drop_remainder = False)
+
+  if pad and not drop_remainder:
     num_samples = ds_helpers.get_num_samples(dataset)
-    if drop_remainder:
-      num_samples = int(num_samples//batch_size)*batch_size
     dataset = ds_helpers.pad_dataset(dataset,batch_size,comm_size,num_samples)
+    
   dataset = dataset.batch(batch_size, drop_remainder)
   dataset = dataset.interleave(map_func = lambda x, y: tf.data.Dataset.from_tensors((x+3, y)),
                                cycle_length=tf.data.experimental.AUTOTUNE,
@@ -241,7 +235,7 @@ def gen_dataset_parallel_interleave_after_batch(dataset, batch_size, drop_remain
   return dataset
 
 def gen_dataset_parallel_interleave_v1(dataset, batch_size, drop_remainder,comm_size,pad=False):
-  dataset = dataset.batch(batch_size = 3, drop_remainder = False)
+  dataset = dataset.batch(batch_size = 1, drop_remainder = False)
   dataset = dataset.interleave(map_func = lambda x, y: tf.data.Dataset.from_tensor_slices((x+3, y)),
                                cycle_length=tf.data.experimental.AUTOTUNE,
                                num_parallel_calls=4)
@@ -361,14 +355,11 @@ def validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank,co
     # TODO: check all elements of the tuples
     while isinstance(local_batch, tuple):
       local_batch = local_batch[0]
-      
+    
     while isinstance(expected_batch, tuple):
       expected_batch = expected_batch[0]
-      
     # extract the slice of the reference dataset that corresponds to `rank`
-#     print("expected_batch",expected_batch)
     expected_micro_batch = expected_batch[rank::comm_size]
-    
     assert np.array_equal(local_batch,expected_micro_batch)
 
   # verify that the two datasets have the same length
