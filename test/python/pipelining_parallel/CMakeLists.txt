@@ -22,3 +22,9 @@ tarantella_generate_python_gpi_test(NAME Pipeline_HardcodedPartitions_AutoMicrob
                                     LOCALRANKS_LIST "2"
                                     LABELS integration cluster
                                     TIMEOUT 200)
+
+tarantella_generate_python_gpi_test(NAME Pipeline_Partition_Generator
+                                    TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/partition_generator.py
+                                    LOCALRANKS_LIST "1"
+                                    LABELS integration cluster
+                                    TIMEOUT 100)
