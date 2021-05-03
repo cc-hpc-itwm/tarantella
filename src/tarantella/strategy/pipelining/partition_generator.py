@@ -20,7 +20,15 @@ class SplitLayer(tf.keras.layers.Layer):
     layer = model.get_layer(name = name)
     return isinstance(layer, cls)
 
-
+# TODO: add support for TF-generated Lambda layers
+# Example: `x + x` as input after `SplitLayer`
+# {'class_name': 'SplitLayer', 'config': {'name': 'split_layer1', 'trainable': True, 'dtype': 'float32'},
+#  'name': 'split_layer1',
+#  'inbound_nodes': [[['dense_relu', 0, 0, {}]]]}
+# {'class_name': 'TFOpLambda', 'config': {'name': 'tf.__operators__.add', 'trainable': True,
+#                                         'dtype': 'float32', 'function': '__operators__.add'},
+#  'name': 'tf.__operators__.add',
+#  'inbound_nodes': [['split_layer1', 0, 0, {'y': ['split_layer1', 0, 0], 'name': None}]]}
 def get_incoming_edges_per_layer(model):
   edges_list = dict()
   for index, layer_info in enumerate(model.get_config()['layers']):
@@ -29,6 +37,17 @@ def get_incoming_edges_per_layer(model):
       edges_list[layer_info['name']] = [info[0] for info in layer_info['inbound_nodes'][0]]
   return edges_list
 
+# Extract input/output names from `keras.Model` configuration:
+# { 'layers' : ...
+#   'input_layers': [['input', 0, 0], ..., ['input_n', 0, 0]],
+#   'output_layers': [['output', 0, 0], ..., ['output_k', 0, 0]]
+# }
+def formatted_inout_to_node_names(inout_list):
+  node_names = list()
+  for elem in inout_list:
+    node_names.append(elem[0])
+  return node_names
+
 class GraphPartitionGenerator:
   def __init__(self, model):
     self.model = model
@@ -36,8 +55,8 @@ class GraphPartitionGenerator:
     self.connections = self._get_split_connections()
     self._replace_split_layers()
 
-    self.partitions = self._get_partitions()
-    self.connection_graph = self._get_connection_graph()
+    self.partitions = self._build_partitions()
+    self.partition_graph = self._build_partition_graph()
 
   def _build_graph(self, model):
     graph = nx.DiGraph()
@@ -55,7 +74,22 @@ class GraphPartitionGenerator:
     for node, in_list in edges_list.items():
       for in_node in in_list:
         graph.add_edge(in_node, node)
+
+    self._add_input_ids(graph, model)
+    self._add_output_ids(graph, model)
     return graph
+
+  def _add_input_ids(self, graph, model):
+    input_names = formatted_inout_to_node_names(model.get_config()['input_layers'])
+    for index, layer_name in enumerate(input_names):
+      graph.nodes[layer_name]['original_input_id'] = index
+      graph.nodes[layer_name]['shape'] = model.get_layer(layer_name).output.shape
+
+  def _add_output_ids(self, graph, model):
+    output_names = formatted_inout_to_node_names(model.get_config()['output_layers'])
+    for index, layer_name in enumerate(output_names):
+      graph.nodes[layer_name]['original_output_id'] = index
+      graph.nodes[layer_name]['shape'] = model.get_layer(layer_name).output.shape
 
   def _get_split_layers(self):
     split_layers = [node for node in self.graph.nodes() \
@@ -95,27 +129,30 @@ class GraphPartitionGenerator:
     successors = list(self.graph.successors(layer_name))
     assert len(successors) == 1, "[replace_layer] Layer to be replaced can only have one output."
 
+    keras_layer = self.model.get_layer(name = layer_name)
+
     connection_id = self._get_connection_id(layer_name)
     for node in self.graph.predecessors(layer_name):
       self.graph.nodes[node]['connection_id'] = connection_id
+      self.graph.nodes[node]['shape'] = keras_layer.output.shape
 
     self.graph.remove_node(layer_name)
 
     input_name = layer_name + '_output'
-    keras_layer = self.model.get_layer(name = layer_name)
-    input_layer_config =  {'class_name': 'InputLayer',
-                           'config': {'batch_input_shape': keras_layer.output.shape,
-                                      'dtype': keras_layer.output.dtype,
-                                      'name': input_name},
-                           'connection_id': connection_id}
+    input_layer_config = {'class_name': 'InputLayer',
+                          'config': {'batch_input_shape': keras_layer.output.shape,
+                                     'dtype': keras_layer.output.dtype,
+                                     'name': input_name},
+                          'shape' : keras_layer.output.shape,
+                          'connection_id': connection_id}
     self.graph.add_node(input_name, **input_layer_config)
     self.graph.add_edge(input_name, successors[0])
 
-  def _get_partitions(self):    
+  def _build_partitions(self):
     partitions = dict()
     connected_components = nx.connected_components(self.graph.to_undirected(as_view = True))
     for component in connected_components:
-      name = f"p_{len(partitions)}"
+      name = f"{len(partitions)}"
       partitions[name] = self.graph.subgraph(component)
     return partitions
 
@@ -131,13 +168,13 @@ class GraphPartitionGenerator:
       if node_info['connection_id'] == connection_id:
         assert node_info['class_name'] == 'InputLayer', \
                f"[get_input_size] Provided node {n} does not represent a graph input."
-        
+
         size = np.prod(node_info['config']['batch_input_shape'].as_list()[1:])
         size_in_bytes = size * node_info['config']['dtype'].size
         return size_in_bytes
     raise ValueError(f"[get_input_size] Cannot find node {layer_name} in the graph.")
 
-  def _get_connection_graph(self):    
+  def _build_partition_graph(self):
     conn_graph = nx.MultiDiGraph()
 
     for conn, conn_info in self.connections.items():
@@ -155,3 +192,7 @@ class GraphPartitionGenerator:
       if p_name == partition_id:
         return p
     raise ValueError(f"[get_partition] Cannot find partition {input_name}.")
+
+  def get_partition_graph(self):
+    return self.partition_graph
+
