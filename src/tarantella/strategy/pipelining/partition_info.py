@@ -78,7 +78,7 @@ class PartitionInfo:
   def _fill_in_endpoint_infos(self, partition_graph):
     if partition_graph is None:
       return
-    for node_name, node_info in partition_graph.nodes.items():
+    for node_name, node_info in sorted(partition_graph.nodes.items()):
       if 'connection_id' in node_info:  # edge node in the partitions graph
         endpoint_info = build_endpoint_info(partition_graph, node_name, 'connection_id')
         if partition_graph.in_degree(node_name) == 0: # input node

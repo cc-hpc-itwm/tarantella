@@ -98,7 +98,7 @@ class GraphPartitionGenerator:
 
   def _get_split_connections(self):
     connections = dict()
-    for index, node in enumerate(self._get_split_layers()):
+    for index, node in enumerate(sorted(self._get_split_layers())):
       predecessors = list(self.graph.predecessors(node))
       assert len(predecessors) == 1, \
              "[get_split_connections] SplitLayers should only have one input."
@@ -171,7 +171,7 @@ class GraphPartitionGenerator:
   def _get_connection_size(self, layer_name, connection_id):
     for n in self.graph.predecessors(layer_name):
       node_info = self.graph.nodes[n]
-      if node_info['connection_id'] == connection_id:
+      if node_info.get('connection_id', None) == connection_id:
         assert node_info['class_name'] == 'InputLayer', \
                f"[get_input_size] Provided node {n} does not represent a graph input."
 
