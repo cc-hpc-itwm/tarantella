@@ -18,7 +18,7 @@ def setup_tf_threading_before_tests():
     tf.config.threading.set_inter_op_parallelism_threads(number_connections)
   yield
 
-@pytest.mark.tfversion(['2.2', '2.3'])
+@pytest.mark.tfversion(['2.2', '2.3', '2.4'])
 class TestPipelineSimpleModel:
 
   @pytest.mark.parametrize("num_micro_batches", [2, 1, 3])
