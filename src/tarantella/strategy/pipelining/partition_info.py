@@ -41,8 +41,11 @@ class EndpointInfo:
     if not isinstance(other, EndpointInfo):
       return False
     return self.endpoint_id == other.endpoint_id and \
-           self.shape == other.shape and \
+           self.shape[1:] == other.shape[1:] and \
            self.dtype == other.dtype
+
+  def __str__(self):
+    return f"Endpoint id={self.endpoint_id}, shape={self.shape}, dtype={self.dtype}"
 
 def build_endpoint_info(partition_graph, node_name, id_field_name):
   node_info = partition_graph.nodes[node_name]
