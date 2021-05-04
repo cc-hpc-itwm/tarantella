@@ -78,7 +78,7 @@ def get_pipeline_communicator(micro_batch_size, num_micro_batches):
 
 def get_partition_info(core_model):
   if rank == p_0_rank:
-    partition_info = pinfo.PartitionInfo(p_0_id, core_model)
+    partition_info = pinfo.PartitionInfo(p_0_id)
 
     in_0 = pinfo.EndpointInfo(0, core_model.inputs[0].shape, tf.float32)
     partition_info.real_input_infos = [in_0]
@@ -90,7 +90,7 @@ def get_partition_info(core_model):
     partition_info.edge_output_infos = [out_edge_0, out_edge_1]
 
   elif rank == p_1_rank:
-    partition_info = pinfo.PartitionInfo(p_1_id, core_model)
+    partition_info = pinfo.PartitionInfo(p_1_id)
     partition_info.real_input_infos = []
 
     in_edge_0 = pinfo.EndpointInfo(0, core_model.inputs[0].shape, tf.float32)

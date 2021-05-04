@@ -1,9 +1,8 @@
 import tarantella as tnt
 import tarantella.strategy.pipelining.pipeline_microbatched_dataset as pipelining
-import tarantella.strategy.pipelining.partition_info as pinfo
 import tarantella.strategy.pipelining.shared_model_builder as shared
 import tarantella.strategy.pipelining.microbatched_model_builder as microbatched
-from hardcoded_model import *
+from models.hardcoded_model import *
 
 import tensorflow as tf
 import tensorflow.keras as keras

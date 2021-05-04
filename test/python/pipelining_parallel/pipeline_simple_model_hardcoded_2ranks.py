@@ -2,9 +2,8 @@ import tarantella as tnt
 import tarantella.keras.layers as tnt_layers
 import tarantella.keras.losses as tnt_losses
 import tarantella.keras.metrics as tnt_metrics
-import tarantella.strategy.pipelining.partition_info as pinfo
 import tarantella.strategy.pipelining.pipeline_microbatched_dataset as pipelining
-from hardcoded_model import *
+from models.hardcoded_model import *
 
 import tensorflow as tf
 from tensorflow import keras
