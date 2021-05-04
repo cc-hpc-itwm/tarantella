@@ -37,10 +37,15 @@ def formatted_inbound_nodes(inbound_nodes_list):
 def set_weights(target_model, source_model):
   for layer in target_model.layers:
     try:
-      layer.set_weights(target_model.get_layer(layer.name).get_weights())
-    except:
-      raise RuntimeError(f"[CoreModelBuilder][set_weights] Cannot find layer {layer_name} "
-                          "in original model.")
+      if layer.count_params() > 0:
+        try:
+          source_layer = source_model.get_layer(layer.name)
+        except ValueError:
+          raise RuntimeError(f"[CoreModelBuilder][set_weights] Cannot find layer {layer.name} "
+                              "in original model.")
+        layer.set_weights(source_layer.get_weights())
+    except ValueError:
+      pass  # layer is not built yet, so no weights are needed
 
 class CoreModelBuilder():
   def __init__(self, model, partition_generator, rank_mapper, rank):
