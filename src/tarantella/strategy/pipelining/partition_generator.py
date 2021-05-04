@@ -202,3 +202,5 @@ class GraphPartitionGenerator:
   def get_partition_graph(self):
     return self.partition_graph
 
+  def get_number_partitions(self):
+    return len(self.partitions)
