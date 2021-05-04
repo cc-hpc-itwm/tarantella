@@ -218,7 +218,7 @@ class TarantellaCLI:
 
     environment = env_config.gen_exports_from_dict(env_config.collect_environment_variables())
   
-    command = f"python {tarantella_cleanup.__file__} --proc_names {self.command_list[0].split('.')[0]}"
+    command = f"python {tarantella_cleanup.__file__} --proc_names {self.command_list[0].split('.')[0]} --skip_proc {os.getpid()}"
     return file_man.GPIScriptFile(header, environment, command, dir = os.getcwd())
 
   def run(self, dry_run = False):
@@ -263,7 +263,6 @@ class TarantellaCLI:
       try:
         result = subprocess.run(command_list,
                     check = True,
-                    cwd = os.getcwd(),
                     stdout = None, stderr = None,)
       except (subprocess.CalledProcessError) as e:
         sys.exit(generate_run_error_message(e, hostlist.name,
