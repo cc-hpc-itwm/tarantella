@@ -126,17 +126,23 @@ class GraphPartitionGenerator:
 
   def _replace_layer(self, layer_name):
     assert layer_name in self.graph.nodes(), f"[replace_layer] Cannot find {layer_name} in the graph."
+    predecessors = list(self.graph.predecessors(layer_name))
     successors = list(self.graph.successors(layer_name))
+    assert len(predecessors) == 1, "[replace_layer] Layer to be replaced can only have one input."
     assert len(successors) == 1, "[replace_layer] Layer to be replaced can only have one output."
 
     keras_layer = self.model.get_layer(name = layer_name)
-
     connection_id = self._get_connection_id(layer_name)
-    for node in self.graph.predecessors(layer_name):
-      self.graph.nodes[node]['connection_id'] = connection_id
-      self.graph.nodes[node]['shape'] = keras_layer.output.shape
-
     self.graph.remove_node(layer_name)
+
+    output_name = layer_name + '_input'
+    output_layer_config = {'class_name': 'Layer',
+                          'config': {'dtype': keras_layer.output.dtype,
+                                     'name': output_name},
+                          'shape' : keras_layer.output.shape,
+                          'connection_id': connection_id}
+    self.graph.add_node(output_name, **output_layer_config)
+    self.graph.add_edge(predecessors[0], output_name)
 
     input_name = layer_name + '_output'
     input_layer_config = {'class_name': 'InputLayer',
