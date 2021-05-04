@@ -5,21 +5,21 @@ def get_digraph_inputs(graph):
   for node_name, degree in graph.in_degree():
     if degree == 0: # input nodes
       node_list += [node_name]
-  return node_list
+  return sorted(node_list)
 
 def get_digraph_outputs(graph):
   node_list = list()
   for node_name, degree in graph.out_degree():
     if degree == 0: # output nodes
       node_list += [node_name]
-  return node_list
+  return sorted(node_list)
 
 def formatted_inout_node(node_name):
   return [node_name, 0, 0]
 
 def formatted_inout(node_list):
   formatted_list = []
-  for node_name in node_list:
+  for node_name in sorted(node_list):
     formatted_list.append(formatted_inout_node(node_name))
   return formatted_list
 
@@ -28,7 +28,7 @@ def formatted_inbound_node(node_name):
 
 def formatted_inbound_nodes(inbound_nodes_list):
   inbound_nodes = []
-  for in_node in inbound_nodes_list:
+  for in_node in sorted(inbound_nodes_list):
     inbound_nodes.append(formatted_inbound_node(node_name = in_node))
   if len(inbound_nodes) == 0:
     return []
@@ -46,7 +46,7 @@ class CoreModelBuilder():
   def __init__(self, model, partition_generator, rank_mapper, rank):
     self.partition_generator = partition_generator
     self.partition_id = rank_mapper.get_partition_for_rank(rank)
-    self.model = self._get_model(model)
+    self.core_model = self._get_model(model)
 
   def _to_model_config(self, partition_id, partition):
     model_config = {'layers' : [],
@@ -74,4 +74,4 @@ class CoreModelBuilder():
     return core_model
 
   def get_model(self):
-    return self.model
+    return self.core_model
