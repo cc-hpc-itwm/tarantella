@@ -56,7 +56,8 @@ class TestPipelineCommunicator:
   @pytest.mark.parametrize("num_micro_batches", [1,2,3])
   def test_send_all_connections(self, partition, num_micro_batches):
     elem_type = np.dtype(np.float32)
-    pipeline_comm = tnt.PipelineCommunicator(partition, num_micro_batches)
+    micro_batch_size = 1
+    pipeline_comm = tnt.PipelineCommunicator(partition, micro_batch_size, num_micro_batches)
         
     # send on all connections
     for micro_batch_id in range(num_micro_batches):

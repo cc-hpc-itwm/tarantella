@@ -71,9 +71,9 @@ def get_partitioned_core_model():
     return p_1_core
 
 def get_pipeline_communicator(micro_batch_size, num_micro_batches):
-  partition_table = { 0 : ((p_0_rank, p_1_rank), fc_units * micro_batch_size * elem_type.itemsize),
-                      1 : ((p_0_rank, p_1_rank), fc_units * micro_batch_size * elem_type.itemsize) }
-  ppl_comm = tnt.PipelineCommunicator(partition_table, num_micro_batches)
+  partition_table = { 0 : ((p_0_rank, p_1_rank), fc_units * elem_type.itemsize),
+                      1 : ((p_0_rank, p_1_rank), fc_units * elem_type.itemsize) }
+  ppl_comm = tnt.PipelineCommunicator(partition_table, micro_batch_size, num_micro_batches)
   return ppl_comm
 
 def get_partition_info(core_model):
