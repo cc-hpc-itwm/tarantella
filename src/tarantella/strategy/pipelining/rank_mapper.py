@@ -7,9 +7,6 @@ class RankMapper:
   def __init__(self, partition_graph, nranks):
     self.partition_graph = partition_graph
     self.nranks = nranks
-    assert len(self.partition_graph.nodes) >= self.nranks, \
-           f"[RankMapper] The number of partitions {len(self.partition_graph.nodes)}" \
-           f" is smaller than the number of ranks {nranks}."
 
   def get_partition_for_rank(self, rank):
     assert rank < self.nranks
@@ -22,7 +19,7 @@ class RankMapper:
     raise RuntimeError(f"[get_rank_for_partition] Unknown partition name {partition_name}")
 
   def get_connections_for_rank(self, rank):
-    # Create connections dict: { conn_id: (rank_i, rank)}
+    # Create connections dict: { conn_id: ((rank_i, rank), size_in_bytes)}
     assert rank < self.nranks
     partition_table = dict()
     for edge, edge_info in self.partition_graph.edges.items():
