@@ -157,10 +157,14 @@ class TestPipelineSimpleModel:
     microbatched_model = get_partitioned_model(shared_model)
 
     ### LOAD DATASETS
-    ds = load_datasets(batch_size, num_batches, 0, num_micro_batches, core_model)
+    partition_info = get_partition_info(core_model)
+    microbatched_ds = load_microbatched_datasets(micro_batch_size, num_micro_batches,
+                                                 num_batches, 0, partition_info)
+    reference_ds = load_reference_datasets(batch_size, num_batches, 0)
 
     ### MODEL COMPILE/TRAIN (on each rank individually)
     # single rank model
+    fit_params = {'epochs' : number_epochs, 'shuffle' : False, 'verbose' : 0}
     sgd = keras.optimizers.SGD(learning_rate)
     if rank == master_rank:
       print("\nTraining reference model")
@@ -168,9 +172,8 @@ class TestPipelineSimpleModel:
       reference_model.compile(optimizer = sgd,
                               loss = keras.losses.SparseCategoricalCrossentropy(),
                               metrics = [keras.metrics.SparseCategoricalAccuracy()])
-      reference_history = reference_model.fit(ds["reference_train_dataset"],
-                                              epochs = number_epochs,
-                                              verbose = 0)
+      reference_history = reference_model.fit(reference_ds["train"],
+                                              **fit_params)
 
     # pipelined model
     if rank == p_0_rank:
@@ -195,9 +198,8 @@ class TestPipelineSimpleModel:
                                loss = partition_losses,
                                loss_weights = partition_loss_weights,
                                metrics = partition_metrics)
-    pipeline_history = microbatched_model.fit(ds["partition_train_dataset"],
-                                              epochs = number_epochs,
-                                              verbose = 0)
+    pipeline_history = microbatched_model.fit(microbatched_ds["train"],
+                                              **fit_params)
     if rank == master_rank:
       check_histories_match(reference_history, pipeline_history, num_micro_batches)
 
@@ -219,10 +221,14 @@ class TestPipelineSimpleModel:
     microbatched_model = get_partitioned_model(shared_model)
 
     ### LOAD DATASETS
-    ds = load_datasets(batch_size, num_batches, num_test_batches, num_micro_batches, core_model)
+    partition_info = get_partition_info(core_model)
+    microbatched_ds = load_microbatched_datasets(micro_batch_size, num_micro_batches,
+                                                 num_batches, num_test_batches, partition_info)
+    reference_ds = load_reference_datasets(batch_size, num_batches, num_test_batches)
 
     ### MODEL COMPILE/TRAIN (on each rank individually)
     # single rank model
+    fit_params = {'epochs' : number_epochs, 'shuffle' : False, 'verbose' : 0}
     sgd = keras.optimizers.SGD(learning_rate)
     if rank == master_rank:
       print("\nTraining reference model")
@@ -230,12 +236,10 @@ class TestPipelineSimpleModel:
       reference_model.compile(optimizer = sgd,
                               loss = keras.losses.SparseCategoricalCrossentropy(),
                               metrics = [keras.metrics.SparseCategoricalAccuracy()])
-      reference_history = reference_model.fit(ds["reference_train_dataset"],
-                                              validation_data = ds["reference_val_dataset"],
-                                              epochs = number_epochs,
-                                              verbose = 0)
-      reference_result = reference_model.evaluate(ds["reference_test_dataset"],
-                                                  verbose = 0)
+      reference_history = reference_model.fit(reference_ds["train"],
+                                              validation_data = reference_ds["val"],
+                                              **fit_params)
+      reference_result = reference_model.evaluate(reference_ds["test"], verbose = 0)
 
     # pipelined model
     if rank == p_0_rank:
@@ -260,12 +264,11 @@ class TestPipelineSimpleModel:
                                loss = partition_losses,
                                loss_weights = partition_loss_weights,
                                metrics = partition_metrics)
-    pipeline_history = microbatched_model.fit(ds["partition_train_dataset"],
-                           validation_data = ds["partition_val_dataset"],
-                           epochs = number_epochs,
-                           verbose = 0)
-    pipeline_result = microbatched_model.evaluate(ds["partition_test_dataset"],
-                                                  verbose = 0)
+    pipeline_history = microbatched_model.fit(microbatched_ds["train"],
+                                              validation_data = microbatched_ds["val"],
+                                              **fit_params)
+    pipeline_result = microbatched_model.evaluate(microbatched_ds["test"], verbose = 0)
+
     if rank == master_rank:
       check_histories_match(reference_history, pipeline_history, num_micro_batches)
       check_validation_histories_match(reference_history, pipeline_history, num_micro_batches)

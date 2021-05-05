@@ -103,52 +103,62 @@ def get_partition_info(core_model):
   return partition_info
 
 
-def get_microbatched_dataset(samples, labels, micro_batch_size, num_micro_batches, core_model):
-  if rank == p_0_rank:
+def get_microbatched_dataset(samples, labels, micro_batch_size, num_micro_batches, partition_info):
+  partition_samples = []
+  partition_labels = []
+  # assume all inputs are passed to the same start partition and
+  # all outputs are generated on the same final partition
+  if len(partition_info.get_real_ids(pinfo.EndpointDirection.inp)) > 0:
     partition_samples = [tf.data.Dataset.from_tensor_slices(samples)]
-    partition_labels = []
-  elif rank == p_1_rank:
-    partition_samples = []
+  if len(partition_info.get_real_ids(pinfo.EndpointDirection.out)) > 0:
     partition_labels = [tf.data.Dataset.from_tensor_slices(labels)]
 
-  partition_info = get_partition_info(core_model)
   return pipelining.create_micro_batched_dataset(samples = partition_samples,
                                                  labels = partition_labels,
                                                  partition_info = partition_info,
                                                  num_micro_batches = num_micro_batches,
                                                  micro_batch_size = micro_batch_size)
 
-def load_datasets(batch_size, num_batches, num_test_batches, num_micro_batches, core_model):
+def load_dataset_as_arrays(batch_size, num_batches, num_test_batches):
   train_size = num_batches * batch_size
   test_size = num_test_batches * batch_size
-  micro_batch_size = batch_size // num_micro_batches
-
   (x_train, y_train), (x_val, y_val), (x_test, y_test) = mnist.load_mnist_dataset(
-                                                                train_size, test_size, test_size)
-  reference_train_dataset = util.create_dataset_from_arrays(x_train, y_train, batch_size=batch_size) \
-                            .shuffle(len(x_train), shuffle_seed)
-  reference_val_dataset = util.create_dataset_from_arrays(x_val, y_val, batch_size=batch_size)
-  reference_test_dataset = util.create_dataset_from_arrays(x_test, y_test, batch_size=batch_size)
+                                                          train_size, test_size, test_size)
+  return (x_train, y_train), (x_val, y_val), (x_test, y_test)
 
-  partition_train_dataset = get_microbatched_dataset(x_train, y_train,
-                                                     micro_batch_size, num_micro_batches,
-                                                     core_model) \
-                            .shuffle(len(x_train), shuffle_seed)
-  partition_val_dataset = get_microbatched_dataset(x_val, y_val,
-                                                   micro_batch_size, num_micro_batches, core_model)
-  partition_test_dataset = get_microbatched_dataset(x_test, y_test,
-                                                    micro_batch_size, num_micro_batches, core_model)
+def load_microbatched_datasets(micro_batch_size, num_micro_batches, num_batches,
+                               num_test_batches, partition_info):
+  util.set_tf_random_seed()
+  (x_train, y_train), (x_val, y_val), (x_test, y_test) = load_dataset_as_arrays(
+                      micro_batch_size * num_micro_batches, num_batches, num_test_batches)
+  train_dataset = get_microbatched_dataset(x_train, y_train, micro_batch_size,
+                                           num_micro_batches, partition_info) \
+                            .shuffle(len(x_train))
+  val_dataset = get_microbatched_dataset(x_val, y_val, micro_batch_size,
+                                         num_micro_batches, partition_info)
+  test_dataset = get_microbatched_dataset(x_test, y_test, micro_batch_size,
+                                          num_micro_batches, partition_info)
+  return {"train" : train_dataset,
+          "val"   : val_dataset,
+          "test"  : test_dataset }
 
-  return { "reference_train_dataset" : reference_train_dataset,
-           "reference_val_dataset"   : reference_val_dataset,
-           "reference_test_dataset"  : reference_test_dataset,
-           "partition_train_dataset" : partition_train_dataset,
-           "partition_val_dataset"   : partition_val_dataset,
-           "partition_test_dataset"  : partition_test_dataset }
+def load_reference_datasets(batch_size, num_batches, num_test_batches):
+  util.set_tf_random_seed()
+  (x_train, y_train), (x_val, y_val), (x_test, y_test) = load_dataset_as_arrays(
+                                      batch_size, num_batches, num_test_batches)
+  train_dataset = util.create_dataset_from_arrays(x_train, y_train, batch_size=batch_size) \
+                                                 .shuffle(len(x_train))
+  val_dataset = util.create_dataset_from_arrays(x_val, y_val, batch_size=batch_size)
+  test_dataset = util.create_dataset_from_arrays(x_test, y_test, batch_size=batch_size)
+  return {"train" : train_dataset,
+          "val"   : val_dataset,
+          "test"  : test_dataset }
 
 def check_histories_match(reference_history, pipeline_history, num_micro_batches, prefix = ""):
   loss_name = prefix + 'loss'
   metric_name = 'sparse_categorical_accuracy'
+  output_id = 0
+  partition_id = tnt.get_size() - 1 # compute metric only on the last partition
 
   for i in range(len(reference_history.history[loss_name])):
     # check loss matches
@@ -159,7 +169,8 @@ def check_histories_match(reference_history, pipeline_history, num_micro_batches
     pipeline_metric_value = 0
     for m in range(num_micro_batches):
       pipeline_metric_value += \
-        pipeline_history.history[prefix + 'p_1_m_' + str(m) + '_real_output_0_' + metric_name][i]
+        pipeline_history.history[f"{prefix}p_{partition_id}_m_{m}"
+                                 f"_real_output_{output_id}_{metric_name}"][i]
     pipeline_metric_value = pipeline_metric_value / num_micro_batches
     assert np.allclose(reference_metric_value, pipeline_metric_value)
 
@@ -174,3 +185,20 @@ def check_predictions_match(reference_results, pipeline_results, num_micro_batch
   reference_accuracy = reference_results[1]
   pipeline_accuracy = np.sum(pipeline_results[-num_micro_batches:]) / num_micro_batches
   assert np.allclose(reference_accuracy, pipeline_accuracy)
+
+def get_reference_compile_params():
+  return {'optimizer' : keras.optimizers.SGD(0.01),
+          'loss' : keras.losses.SparseCategoricalCrossentropy(),
+          'metrics' : keras.metrics.SparseCategoricalAccuracy()}
+
+def get_microbatched_compile_params(microbatched_model_builder):
+  reference_output_id = 0
+  reference_params = get_reference_compile_params()
+  losses = {reference_output_id : reference_params['loss']}
+  metrics = {reference_output_id : reference_params['metrics']}
+
+  return {'optimizer' : reference_params['optimizer'],
+          'loss' : microbatched_model_builder.get_losses(losses),
+          'loss_weights' : microbatched_model_builder.get_loss_weights(),
+          'metrics' : microbatched_model_builder.get_metrics(metrics)}
+
