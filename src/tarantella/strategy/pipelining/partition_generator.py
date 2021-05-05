@@ -183,9 +183,20 @@ class GraphPartitionGenerator:
   def _build_partition_graph(self):
     conn_graph = nx.MultiDiGraph()
 
+    if len(self.connections) == 0: # no split layers
+      if len(self.graph.nodes) > 0:
+        first_node = list(self.graph.nodes)[0]
+        conn_graph.add_node(self._get_partition_with_node(first_node))
+      return conn_graph
+
     for conn, conn_info in self.connections.items():
       source_partition = self._get_partition_with_node(conn_info['source'])
       target_partition = self._get_partition_with_node(conn_info['target'])
+      if source_partition == target_partition:
+        raise RuntimeError(f"[build_partition_graph] Incorrectly specified `SplitLayer` between "
+                           f"`{conn_info['source']}` and `{conn_info['target']}` layers: "
+                            "both sides of the split edge belong to the same partition.")
+
       connection_size_bytes = self._get_connection_size(conn_info['target'],
                                                         conn_info['connection_id'])
       conn_graph.add_edges_from([(source_partition, target_partition,
