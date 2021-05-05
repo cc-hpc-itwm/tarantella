@@ -369,3 +369,14 @@ def simple_partition_info(ref_model, rank):
 def simple_partitioned_core_model(rank):
   return simple_model_generator()
 
+def incorrect_split_model():
+  inputs = keras.Input(shape=(28,28,1,), name='input')
+  x = keras.layers.Conv2D(32, 3, strides=(1, 1), padding='valid', name='conv')(inputs)
+  y = pgen.SplitLayer(name="split_layer0")(x)
+
+  z = keras.layers.Conv2D(32, 1, strides=(1, 1), padding='valid', activation='relu',
+                          name='conv_relu')(y)
+  x = keras.layers.Concatenate(name='concat')([x, z])
+  model = keras.Model(inputs=inputs, outputs=x)
+  return model
+

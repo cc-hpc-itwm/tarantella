@@ -113,3 +113,10 @@ class TestPartitionGenerator:
       reference_model = expected_model_gen(rank)
       utils.check_model_configuration_identical(core_model, reference_model)
       utils.compare_weights(core_model.get_weights(), reference_model.get_weights(), 1e-6)
+
+
+  @pytest.mark.parametrize("model_generator", [models.incorrect_split_model])
+  def test_incorrect_split(self, model_generator):
+    model = model_generator()
+    with pytest.raises(RuntimeError):
+      pgen.GraphPartitionGenerator(model)
