@@ -22,7 +22,7 @@ def get_pid_by_name(process_name):
     args.skip_pid.append(os.getpid())
     result = [int(res) for res in result.split('\n')[:-1] if int(res) not in args.skip_pid]
   except (subprocess.CalledProcessError) as e:
-    sys.exit(f"[TNT_CLI] Error occured while killing processes started by tarantella command") 
+    sys.exit(f"[TNT_CLI] Error occured while getting process ids of GPI processes") 
   return result
 
 def kill_processes(proc_names):
