@@ -14,11 +14,12 @@ def get_pid_by_name(process_name):
   '''
   uses linux command pgrep to extract pid
   '''
-  # gets pid based on process_name string passed
   try:
     result = subprocess.run(["pgrep", "-f", process_name], stdout=subprocess.PIPE)
     result = result.stdout.decode('utf-8')
     args.skip_pid = list(args.skip_pid) if not isinstance(args.skip_pid, list) else args.skip_pid
+    # skip the current process from terminating
+    args.skip_pid.append(os.getpid())
     result = [int(res) for res in result.split('\n')[:-1] if int(res) not in args.skip_pid]
   except (subprocess.CalledProcessError) as e:
     sys.exit(f"[TNT_CLI] Error occured while killing processes started by tarantella command") 

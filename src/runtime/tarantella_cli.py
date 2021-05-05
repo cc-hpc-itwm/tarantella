@@ -159,12 +159,6 @@ def get_numa_prefix(npernode):
     command += f"numactl --cpunodebind=$socket --membind=$socket"
   return command
 
-def get_ssh_client(host):
-  client = paramiko.client.SSHClient()
-  client.load_system_host_keys()
-  client.connect(host)
-  return client
-
 class TarantellaCLI:
   def __init__(self, hostlist, num_gpus_per_node, num_cpus_per_node, args):
     self.args = args
@@ -198,6 +192,9 @@ class TarantellaCLI:
 
     return interpreter
 
+  def get_absolute_path(self, module):
+    return module.__file__
+
   def generate_executable_script(self):
     header = "#!/bin/bash\n"
     header += "cd {}".format(os.path.abspath(os.getcwd()))
@@ -214,11 +211,12 @@ class TarantellaCLI:
   
   def generate_cleanup_script(self):
     header = "#!/bin/bash\n"
-    header += "cd {}".format(os.path.abspath(os.getcwd()))
 
     environment = env_config.gen_exports_from_dict(env_config.collect_environment_variables())
-  
-    command = f"python {tarantella_cleanup.__file__} --proc_names {self.command_list[0].split('.')[0]} --skip_pid {os.getpid()}"
+
+    command = f"{self.generate_interpreter()} {self.get_absolute_path(tarantella_cleanup)} \
+                                              --proc_names {self.command_list[0].split('.')[0]} \
+                                              --skip_pid {os.getpid()}"
     return file_man.GPIScriptFile(header, environment, command, dir = os.getcwd())
 
   def run(self, dry_run = False):
@@ -245,7 +243,7 @@ class TarantellaCLI:
         sys.exit(generate_run_error_message(e, self.hostfile.name,
                                             self.executable_script.filename))
       except (KeyboardInterrupt) as e:
-        logger.warn('[TNT_CLI] KeyboardInterrupt : running cleanup')
+        logger.warn('KeyboardInterrupt : running cleanup')
         self.clean_up_run()
   
   def clean_up_run(self):
@@ -261,8 +259,8 @@ class TarantellaCLI:
         sys.exit("[TNT_CLI] Cannot execute `gaspi_run`; make sure it is added to the current `PATH`.")
 
       try:
-        result = subprocess.run(command_list,
-                    check = True,
+        subprocess.run(command_list,
+                    cwd = os.getcwd(),
                     stdout = None, stderr = None,)
       except (subprocess.CalledProcessError) as e:
         sys.exit(generate_run_error_message(e, hostlist.name,
