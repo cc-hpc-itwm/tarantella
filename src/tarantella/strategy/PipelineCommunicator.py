@@ -21,29 +21,29 @@ import GPICommLib
 #                     3 : ((3, 5), size_of_edge_2_to_5,
 #                     4 : ((4, 6), size_of_edge_4_to_6,
 #                     5 : ((5, 7), size_of_edge_5_to_7 }
-# table = { conn_id : ((rank_left, rank_right), size_per_micro_batch_in_bytes), ... }
-#                                                 repeat for each edge and DP replica
+# table = { conn_id : ((rank_left, rank_right), size_per_sample_in_bytes), ... }
+#                                               repeat for each edge and DP replica
 # Local list of edges for rank 4:
 # local_edges = { 0: (0, size_of_edge_0_to_4),
 #                 1: (1, size_of_edge_0_to_4) }
 # Local edges (per rank):
 #         { ConnectionID : (PartnerRank, MessageSizeBytes), ... }
 
-def extract_local_edges(partition_table, rank):
+def extract_local_edges(partition_table, rank, micro_batch_size):
   local_edges = {}
   for connection_id, info in partition_table.items():
     edge = {}
     if info[0][0] == rank:
-      edge = { connection_id : (info[0][1], info[1])}
+      edge = { connection_id : (info[0][1], info[1] * micro_batch_size)}
     elif info[0][1] == rank:
-      edge = { connection_id : (info[0][0], info[1])}
+      edge = { connection_id : (info[0][0], info[1] * micro_batch_size)}
     local_edges.update(edge)
   return local_edges
 
 class PipelineCommunicator:
-  def __init__(self, partition_table, num_micro_batches):
+  def __init__(self, partition_table, micro_batch_size, num_micro_batches):
     rank = tnt.get_rank()
-    self.local_edge_list = extract_local_edges(partition_table, rank)
+    self.local_edge_list = extract_local_edges(partition_table, rank, micro_batch_size)
     self.pipeline_comm = GPICommLib.PipelineCommunicator(self.local_edge_list, num_micro_batches)
 
   def send(self, input, connection_id, micro_batch_id):
