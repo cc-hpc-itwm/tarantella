@@ -349,3 +349,23 @@ def multi_output_partitioned_core_model(rank):
   elif rank == p_1_rank:
     return core_model1
 
+def simple_model_generator():
+  util.set_tf_random_seed()
+  input0 = keras.Input(shape=(28,28,1,), name='input')
+  x = keras.layers.Flatten(name='flatten')(input0)
+  x = keras.layers.Dense(10, activation='softmax', name='dense_softmax')(x)
+  model = keras.Model(inputs=input0, outputs=x)
+  return model
+
+def simple_partition_info(ref_model, rank):
+  partition_info = pinfo.PartitionInfo('0')
+
+  in_0 = pinfo.EndpointInfo(0, ref_model.inputs[0].shape, tf.float32)
+  partition_info.real_input_infos = [in_0]
+  out_0 = pinfo.EndpointInfo(0, ref_model.outputs[0].shape, tf.float32)
+  partition_info.real_output_infos = [out_0]
+  return partition_info
+
+def simple_partitioned_core_model(rank):
+  return simple_model_generator()
+

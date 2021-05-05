@@ -64,46 +64,52 @@ models_and_partition_infos = [
     'core_models' : models.multi_output_partitioned_core_model,
     'num_partitions' : 2
   },
+  # Test case 5:
+  # i0 --> (0) ----> o0
+  { 'model_gen' : models.simple_model_generator,
+    'expected_pinfo' : models.simple_partition_info,
+    'core_models' : models.simple_partitioned_core_model,
+    'num_partitions' : 1
+  },
 ]
+
+@pytest.fixture(scope="class", params=models_and_partition_infos)
+def model_and_partitions(request):
+  model = request.param['model_gen']()
+  partition_generator = pgen.GraphPartitionGenerator(model)
+  yield model, partition_generator, request.param['num_partitions'], \
+        request.param['expected_pinfo'], request.param['core_models']
 
 @pytest.mark.tfversion(['2.2', '2.3', '2.4'])
 class TestPartitionGenerator:
 
-  @pytest.mark.parametrize("model_and_pinfo", models_and_partition_infos)
-  def test_number_partitions(self, model_and_pinfo):
-    model = model_and_pinfo['model_gen']()
-    partition_generator = pgen.GraphPartitionGenerator(model)
-    assert partition_generator.get_number_partitions() == model_and_pinfo['num_partitions']
+  def test_number_partitions(self, model_and_partitions):
+    model, partition_gen, expected_num_partitions, _, _ = model_and_partitions
+    assert partition_gen.get_number_partitions() == expected_num_partitions
 
-  @pytest.mark.parametrize("model_and_pinfo", models_and_partition_infos)
-  def test_partition_info(self, model_and_pinfo):
 
-    model = model_and_pinfo['model_gen']()
-    partition_generator = pgen.GraphPartitionGenerator(model)
+  def test_partition_info(self, model_and_partitions):
+    model, partition_gen, expected_num_partitions, expected_partition_gen, _ = model_and_partitions
+    rank_mapper = rmapper.RankMapper(partition_gen.get_partition_graph(),
+                                     nranks = expected_num_partitions)
 
-    rank_mapper = rmapper.RankMapper(partition_generator.get_partition_graph(),
-                                     model_and_pinfo['num_partitions'])
-
-    for rank in range(model_and_pinfo['num_partitions']):
+    for rank in range(expected_num_partitions):
       partition_id = rank_mapper.get_partition_for_rank(rank)
       partition_info = pinfo.PartitionInfo(
                           partition_id = partition_id,
-                          partition_graph = partition_generator.get_partition(partition_id))
-      assert partition_info == model_and_pinfo['expected_pinfo'](model, rank)
+                          partition_graph = partition_gen.get_partition(partition_id))
+      assert partition_info == expected_partition_gen(model, rank)
 
-  @pytest.mark.parametrize("model_and_pinfo", models_and_partition_infos)
-  def test_partition_core_models(self, model_and_pinfo):
 
-    model = model_and_pinfo['model_gen']()
-    partition_generator = pgen.GraphPartitionGenerator(model)
+  def test_partition_core_models(self, model_and_partitions):
+    model, partition_gen, expected_num_partitions, _, expected_model_gen = model_and_partitions
+    rank_mapper = rmapper.RankMapper(partition_gen.get_partition_graph(),
+                                     nranks = expected_num_partitions)
 
-    rank_mapper = rmapper.RankMapper(partition_generator.get_partition_graph(),
-                                     model_and_pinfo['num_partitions'])
-
-    for rank in range(model_and_pinfo['num_partitions']):
-      cm_builder = core_model_builder.CoreModelBuilder(model, partition_generator,
+    for rank in range(expected_num_partitions):
+      cm_builder = core_model_builder.CoreModelBuilder(model, partition_gen,
                                                        rank_mapper, rank)
       core_model = cm_builder.get_model()
-      reference_model = model_and_pinfo['core_models'](rank)
+      reference_model = expected_model_gen(rank)
       utils.check_model_configuration_identical(core_model, reference_model)
       utils.compare_weights(core_model.get_weights(), reference_model.get_weights(), 1e-6)
