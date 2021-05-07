@@ -22,14 +22,18 @@ def model_runners(request):
 
 @pytest.fixture(scope="function")
 def setup_save_path(request):
+  barrier = tnt.Barrier()
+  barrier.synchronize()
   # save logs in a shared directory accessible to all ranks
   save_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                           "test_callbacks")
   yield save_dir
 
   # clean up
+  barrier.synchronize()
   if tnt.is_master_rank():
     shutil.rmtree(save_dir, ignore_errors=True)
+
 
 
 def train_val_dataset_generator():
