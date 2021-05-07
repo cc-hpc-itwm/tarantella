@@ -1,5 +1,8 @@
 import argparse
 import datetime
+import numpy as np
+import os
+import random
 
 import tensorflow as tf
 from tensorflow import keras
@@ -20,8 +23,18 @@ def parse_args():
   parser.add_argument("-val", "--val_size", type=int, default=10000)
   parser.add_argument("-test", "--test_size", type=int, default=10000)
   parser.add_argument("-v", "--verbose", type=int, default=0)
+  parser.add_argument("--tensorboard", action='store_true')
+  parser.add_argument("--checkpoint", action='store_true')
   args = parser.parse_args()
   return args
+
+def set_tf_random_seed(seed = 42):
+  np.random.seed(seed)
+  tf.random.set_seed(seed)
+  random.seed(seed)
+  os.environ['PYTHONHASHSEED']=str(seed)
+  os.environ['TF_DETERMINISTIC_OPS']='1'
+  os.environ['TF_CUDNN_DETERMINISTIC']='1'
 
 def mnist_as_np_arrays(training_samples, validation_samples, test_samples):
   mnist_train_size = 60000
@@ -69,7 +82,7 @@ shuffle_seed = 12
 # ======
 
 # Reference model
-tf.random.set_seed(42)
+set_tf_random_seed()
 inputs = keras.Input(shape=(28,28,1,), name='input')
 x = layers.Flatten()(inputs)
 x = layers.Dense(200, activation='relu', name='FC')(x)
@@ -78,7 +91,7 @@ outputs = layers.Dense(10, activation='softmax', name='softmax')(x)
 reference_model = keras.Model(inputs=inputs, outputs=outputs)
 
 # Tarantella model
-tf.random.set_seed(42) # re-seed to get the same initial weights as in reference
+set_tf_random_seed() # re-seed to get the same initial weights as in reference
 tnt_model = tnt.models.clone_model(reference_model)
 
 # Optimizer
@@ -111,26 +124,32 @@ test_dataset = create_dataset_from_arrays(x_test, y_test, batch_size)
 
 # Callbacks
 # ---------
+tnt_callbacks = []
 
 # TensorBoard
-log_dir = "logs"
-tensorboard_callback = keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+if args.tensorboard:
+  log_dir = "logs"
+  tensorboard_callback = keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+  tnt_callbacks +=[tensorboard_callback]
 
 # ModelCheckpoint
-save_weights_only = False
-if save_weights_only:
-  chk_path = "checkpoints/weights"
-else:
-  chk_path = "checkpoints/chk_{epoch}"
-model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
-    chk_path, monitor='val_acc', verbose=1, save_best_only=False,
-    save_weights_only=save_weights_only, mode='auto', save_freq='epoch', options=None)
+if args.checkpoint:
+  save_weights_only = False
+  if save_weights_only:
+    chk_path = "checkpoints/weights"
+  else:
+    chk_path = "checkpoints/chk_{epoch}"
+  model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+      chk_path, monitor='val_acc', verbose=1, save_best_only=False,
+      save_weights_only=save_weights_only, mode='auto', save_freq='epoch', options=None)
+  tnt_callbacks +=[model_checkpoint_callback]
 
 # LearningRateScheduler
 def scheduler(epoch, learning_rate):
   return learning_rate * tf.math.exp(-0.1)
 learning_rate_scheduler_callback_reference = tf.keras.callbacks.LearningRateScheduler(scheduler, verbose = 0)
 learning_rate_scheduler_callback = tf.keras.callbacks.LearningRateScheduler(scheduler, verbose = 1)
+tnt_callbacks += [learning_rate_scheduler_callback]
 
 # Reference model
 # ---------------
@@ -151,9 +170,7 @@ history = tnt_model.fit(train_dataset,
                         shuffle = False,
                         verbose = args.verbose,
                         validation_data = val_dataset,
-                        callbacks = [model_checkpoint_callback,
-                                     learning_rate_scheduler_callback,
-                                     tensorboard_callback],
+                        callbacks = tnt_callbacks,
                        )
 tnt_loss_accuracy = tnt_model.evaluate(test_dataset, verbose=0)
 
@@ -163,30 +180,30 @@ if tnt.is_master_rank():
 
 # RECONSTRUCT SAVED MODEL
 # =======================
+if args.checkpoint:
+  sgd_reconstructed = keras.optimizers.SGD(learning_rate = args.learning_rate)
 
-sgd_reconstructed = keras.optimizers.SGD(learning_rate = args.learning_rate)
+  # Save tnt.Model configuration, initialize new model, and load weights from checkpoint
+  if save_weights_only:
+    config = tnt_model.get_config()
+    reconstructed_model = tnt.models.model_from_config(config)
+    reconstructed_model.compile(optimizer = sgd_reconstructed,
+                      loss=keras.losses.SparseCategoricalCrossentropy(),
+                      metrics=[keras.metrics.SparseCategoricalAccuracy()],
+                    )
+    reconstructed_model.load_weights(filepath = chk_path)
 
-# Save tnt.Model configuration, initialize new model, and load weights from checkpoint
-if save_weights_only:
-  config = tnt_model.get_config()
-  reconstructed_model = tnt.models.model_from_config(config)
-  reconstructed_model.compile(optimizer = sgd_reconstructed,
-                    loss=keras.losses.SparseCategoricalCrossentropy(),
-                    metrics=[keras.metrics.SparseCategoricalAccuracy()],
-                   )
-  reconstructed_model.load_weights(filepath = chk_path)
+  # Restore Tarantella model from checkpoint
+  if not save_weights_only:
+    model_path = "checkpoints/chk_" + str(args.number_epochs)
+    reconstructed_model = tnt.models.load_model(model_path)
+    # TODO: Automatically compile in `tnt.models.load_model`
+    reconstructed_model.compile(optimizer = sgd_reconstructed,
+                                loss=keras.losses.SparseCategoricalCrossentropy(),
+                                metrics=[keras.metrics.SparseCategoricalAccuracy()],
+                              )
 
-# Restore Tarantella model from checkpoint
-if not save_weights_only:
-  model_path = "checkpoints/chk_" + str(args.number_epochs)
-  reconstructed_model = tnt.models.load_model(model_path)
-  # TODO: Automatically compile in `tnt.models.load_model`
-  reconstructed_model.compile(optimizer = sgd_reconstructed,
-                              loss=keras.losses.SparseCategoricalCrossentropy(),
-                              metrics=[keras.metrics.SparseCategoricalAccuracy()],
-                             )
+  reconstructed_loss_accuracy = reconstructed_model.evaluate(test_dataset, verbose=0)
 
-reconstructed_loss_accuracy = reconstructed_model.evaluate(test_dataset, verbose=0)
-
-if tnt.is_master_rank():
-  print("Reconstructed model [test_loss, accuracy] = ", reconstructed_loss_accuracy)
+  if tnt.is_master_rank():
+    print("Reconstructed model [test_loss, accuracy] = ", reconstructed_loss_accuracy)
