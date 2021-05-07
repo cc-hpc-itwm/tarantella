@@ -48,7 +48,7 @@
   stage: unit_tests_python
   script:
     - cd ${TNT_BUILD_DIR}
-    - ctest --output-on-failure -LE "disabled|integration|gpu" -L "Python"
+    - ctest --output-on-failure -LE "disabled|integration|gpu|cluster" -L "Python"
   only:
     - master
 
@@ -68,7 +68,7 @@
   stage: integration_tests_nightly
   script:
     - cd ${TNT_BUILD_DIR}
-    - ctest --output-on-failure -LE "disabled|cluster" -L integration
+    - ctest --output-on-failure -LE "disabled|gpu|cluster" -L integration
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $NIGHTLY_PIPELINE && $NIGHTLY_PIPELINE == "true"'
 
@@ -161,23 +161,7 @@ tf2.2-cpu-eth-gcc8.3.0-Release-py:
     - job: tf2.2-cpu-eth-gcc8.3.0-Release-build
 
 ######## Integration tests ############
-tf2.3-cpu-eth-gcc8.3.0-Release-integration:
-  extends:
-    - .vm_centos_tf2.3_job
-    - .eth_job
-    - .vm_centos_integration_tests
-  needs:
-    - job: tf2.3-cpu-eth-gcc8.3.0-Release-build
 
-tf2.2-cpu-eth-gcc8.3.0-Release-integration:
-  extends:
-    - .vm_centos_tf2.2_job
-    - .eth_job
-    - .vm_centos_integration_tests
-  needs:
-    - job: tf2.2-cpu-eth-gcc8.3.0-Release-build
-
-# Nightly integration tests
 tf2.3-cpu-eth-gcc8.3.0-Release-integration-nightly:
   extends:
     - .vm_centos_tf2.3_job
