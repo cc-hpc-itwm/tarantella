@@ -9,6 +9,10 @@ import logging
 import os
 import random
 
+def current_date():
+  date = datetime.datetime.now()
+  return int(date.strftime("%Y%m%d"))
+
 def create_dataset_from_arrays(samples, labels, batch_size):
   assert(len(samples) == len(labels))
   ds = tf.data.Dataset.from_tensor_slices((samples, labels))
@@ -40,11 +44,7 @@ def train_test_mnist_datasets(nbatches = 1, test_nbatches = 0,
                       test_size = test_nsamples, test_batch_size = batch_size,
                       shuffle = shuffle)
 
-def current_date():
-  date = datetime.datetime.now()
-  return int(date.strftime("%Y%m%d"))
-
-def set_tf_random_seed(seed = current_date()):
+def set_tf_random_seed(seed = 42):
   np.random.seed(seed)
   tf.random.set_seed(seed)
   random.seed(seed)
