@@ -21,7 +21,7 @@ def model_runners(request):
 class TestsDataParallelCompareAccuracy:
   @pytest.mark.parametrize("micro_batch_size", [32])
   @pytest.mark.parametrize("number_epochs", [3])
-  @pytest.mark.parametrize("nbatches", [30])
+  @pytest.mark.parametrize("nbatches", [20])
   @pytest.mark.parametrize("test_nbatches", [10])
   def test_compare_accuracy_against_reference(self, model_runners, micro_batch_size,
                                               number_epochs, nbatches, test_nbatches):
@@ -31,14 +31,14 @@ class TestsDataParallelCompareAccuracy:
                                                                            micro_batch_size)
 
     tnt_model_runner, reference_model_runner = model_runners
-    reference_model_runner.train_model(ref_train_dataset, number_epochs)
     tnt_model_runner.train_model(train_dataset, number_epochs)
+    reference_model_runner.train_model(ref_train_dataset, number_epochs)
 
     tnt_loss_accuracy = tnt_model_runner.evaluate_model(test_dataset)
     reference_loss_accuracy = reference_model_runner.evaluate_model(ref_test_dataset)
 
     rank = tnt.get_rank()
-    logging.getLogger().info("[Rank %d] Tarantella[loss, accuracy] = %s" % (rank, str(tnt_loss_accuracy)))
-    logging.getLogger().info("[Rank %d] Reference [loss, accuracy] = %s" % (rank, str(reference_loss_accuracy)))
+    logging.getLogger().info(f"[Rank {rank}] Tarantella[loss, accuracy] = {tnt_loss_accuracy}")
+    logging.getLogger().info(f"[Rank {rank}] Reference [loss, accuracy] = {reference_loss_accuracy}")
     assert np.isclose(tnt_loss_accuracy[0], reference_loss_accuracy[0], atol=1e-2) # losses might not be identical
     assert np.isclose(tnt_loss_accuracy[1], reference_loss_accuracy[1], atol=1e-6)
