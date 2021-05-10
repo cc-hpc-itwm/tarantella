@@ -27,58 +27,35 @@ def np_arrays_from_range(training_samples):
   return (tf.range(training_samples), tf.range(training_samples))
 
 
-def gen_dataset_batch(dataset, batch_size, drop_remainder,comm_size,pad=False):
-  if pad and not drop_remainder:
-    num_samples = ds_helpers.get_num_samples(dataset)
-    dataset = ds_helpers.pad_dataset(dataset,batch_size,comm_size,num_samples)
+def gen_dataset_batch(dataset, batch_size, drop_remainder,comm_size):
     
   dataset = dataset.batch(batch_size, drop_remainder)
   dataset = dataset.prefetch(buffer_size=2)
   return dataset
 
-def gen_dataset_multiple_batch(dataset, batch_size, drop_remainder,comm_size,pad=False):
+def gen_dataset_multiple_batch(dataset, batch_size, drop_remainder,comm_size):
   dataset = dataset.batch(1, drop_remainder = True)
   dataset = dataset.batch(1, drop_remainder= True)
-    
-  if pad and not drop_remainder:
-    num_samples = ds_helpers.get_num_samples(dataset)
-    dataset = ds_helpers.pad_dataset(dataset,batch_size,comm_size,num_samples)
-  
   dataset = dataset.batch(batch_size, drop_remainder)
   return dataset
 
-def gen_dataset_shuffle_batch(dataset, batch_size, drop_remainder,comm_size,pad=False):
+def gen_dataset_shuffle_batch(dataset, batch_size, drop_remainder,comm_size):
   dataset = dataset.shuffle(10, seed=44, reshuffle_each_iteration=True)
-  
-  if pad and not drop_remainder:
-    num_samples = ds_helpers.get_num_samples(dataset)
-    dataset = ds_helpers.pad_dataset(dataset,batch_size,comm_size,num_samples)
-  
   dataset = dataset.batch(batch_size, drop_remainder)
   dataset = dataset.prefetch(buffer_size=2)
   return dataset
 
-def gen_dataset_filter(dataset, batch_size, drop_remainder,comm_size,pad=False):  
+def gen_dataset_filter(dataset, batch_size, drop_remainder,comm_size):  
   def pred(x,y):
     return x > 5
   dataset = dataset.filter(predicate = lambda x, y: pred(x,y))
-
-  if pad and not drop_remainder:
-    num_samples = ds_helpers.get_num_samples(dataset)
-    dataset = ds_helpers.pad_dataset(dataset,batch_size,comm_size,num_samples)
-    
   dataset = dataset.batch(batch_size, drop_remainder)
   return dataset
 
-def gen_dataset_filter_after_batch(dataset, batch_size, drop_remainder,comm_size,pad=False):
+def gen_dataset_filter_after_batch(dataset, batch_size, drop_remainder,comm_size):
   def pred1(x,y):
     return x > 5
   dataset = dataset.filter(predicate = lambda x, y: pred1(x,y))
-    
-  if pad and not drop_remainder:
-    num_samples = ds_helpers.get_num_samples(dataset)
-    dataset = ds_helpers.pad_dataset(dataset,batch_size,comm_size,num_samples)
-
   dataset = dataset.batch(batch_size, drop_remainder)
 
   def pred2(x,y): # apply to batched dataset
@@ -87,56 +64,38 @@ def gen_dataset_filter_after_batch(dataset, batch_size, drop_remainder,comm_size
 
   return dataset
 
-def gen_dataset_flat_map(dataset, batch_size, drop_remainder,comm_size,pad=False):
+def gen_dataset_flat_map(dataset, batch_size, drop_remainder,comm_size):
   dataset = dataset.batch(batch_size = 1, drop_remainder = False)
-
   # flat map works on batched datasets
   dataset = dataset.flat_map(lambda x, y: tf.data.Dataset.from_tensor_slices((x, y)))
-
-  if pad and not drop_remainder:
-    num_samples = ds_helpers.get_num_samples(dataset)
-    dataset = ds_helpers.pad_dataset(dataset,batch_size,comm_size,num_samples)
-    
   dataset = dataset.batch(batch_size, drop_remainder)
   return dataset
 
-def gen_dataset_flat_map_after_batch(dataset, batch_size, drop_remainder, comm_size,pad=False):
+def gen_dataset_flat_map_after_batch(dataset, batch_size, drop_remainder, comm_size):
   dataset = dataset.batch(batch_size = 3, drop_remainder = False)
 
   # flat map works on batched datasets
   dataset = dataset.flat_map(lambda x, y: tf.data.Dataset.from_tensor_slices((x+6, 3*y)))
-  if pad:
-    num_samples = ds_helpers.get_num_samples(dataset)
-    if drop_remainder:
-      num_samples = int(num_samples//batch_size)*batch_size
-    dataset = ds_helpers.pad_dataset(dataset,batch_size,comm_size,num_samples)
-
   dataset = dataset.batch(batch_size, drop_remainder)
   dataset = dataset.flat_map(lambda x, y: tf.data.Dataset.from_tensors((3*x, y)))
   return dataset
 
-def gen_dataset_interleave(dataset, batch_size, drop_remainder,comm_size,pad=False):
+def gen_dataset_interleave(dataset, batch_size, drop_remainder,comm_size):
   dataset = dataset.batch(batch_size = 3, drop_remainder = False)
   dataset = dataset.interleave(map_func = lambda x, y: tf.data.Dataset.from_tensor_slices((x+3, y)),
                                cycle_length=tf.data.experimental.AUTOTUNE,
                                block_length=2,
                                deterministic = True)
-  if pad and not drop_remainder:
-    num_samples = ds_helpers.get_num_samples(dataset)
-    dataset = ds_helpers.pad_dataset(dataset,batch_size,comm_size,num_samples)
     
   dataset = dataset.batch(batch_size, drop_remainder)
   return dataset
 
-def gen_dataset_interleave_after_batch(dataset, batch_size, drop_remainder,comm_size,pad=False):
+def gen_dataset_interleave_after_batch(dataset, batch_size, drop_remainder,comm_size):
   dataset = dataset.batch(batch_size = 3, drop_remainder = False)
   dataset = dataset.interleave(map_func = lambda x, y: tf.data.Dataset.from_tensor_slices((x+3, y)),
                                cycle_length=tf.data.experimental.AUTOTUNE,
                                block_length=2,
                                deterministic = True)
-  if pad and not drop_remainder:
-    num_samples = ds_helpers.get_num_samples(dataset)
-    dataset = ds_helpers.pad_dataset(dataset,batch_size,comm_size,num_samples)
     
   dataset = dataset.batch(batch_size, drop_remainder)
   dataset = dataset.interleave(map_func = lambda x,y: tf.data.Dataset.from_tensors((x, y)),
@@ -144,88 +103,62 @@ def gen_dataset_interleave_after_batch(dataset, batch_size, drop_remainder,comm_
                                deterministic = True)
   return dataset
 
-def gen_dataset_interleave_v1(dataset, batch_size, drop_remainder,comm_size,pad=False):
+def gen_dataset_interleave_v1(dataset, batch_size, drop_remainder,comm_size):
   dataset = dataset.batch(batch_size = 1, drop_remainder = False)
   dataset = dataset.interleave(map_func = lambda x, y: tf.data.Dataset.from_tensor_slices((x+3, y)),
                                cycle_length=tf.data.experimental.AUTOTUNE,
                                block_length=2)
-  if pad and not drop_remainder:
-    num_samples = ds_helpers.get_num_samples(dataset)
-    dataset = ds_helpers.pad_dataset(dataset,batch_size,comm_size,num_samples)
     
   dataset = dataset.batch(batch_size, drop_remainder)
   return dataset
 
-def gen_dataset_map(dataset, batch_size, drop_remainder,comm_size,pad=False):
+def gen_dataset_map(dataset, batch_size, drop_remainder,comm_size):
   def map_fn(x, y):
     return x*5, y
   dataset = dataset.map(lambda x, y: map_fn(x, y),
                         deterministic = True)
-  if pad and not drop_remainder:
-    num_samples = ds_helpers.get_num_samples(dataset)
-    dataset = ds_helpers.pad_dataset(dataset,batch_size,comm_size,num_samples)
     
   dataset = dataset.batch(batch_size, drop_remainder)
   return dataset
 
-def gen_dataset_map_after_batch(dataset, batch_size, drop_remainder,comm_size,pad=False):
+def gen_dataset_map_after_batch(dataset, batch_size, drop_remainder,comm_size):
   def map_fn(x, y):
     return x*5, y
   dataset = dataset.map(lambda x, y: map_fn(x, y),
                         deterministic = True)
-  if pad:
-    num_samples = ds_helpers.get_num_samples(dataset)
-    if drop_remainder:
-      num_samples = int(num_samples//batch_size)*batch_size
-    dataset = ds_helpers.pad_dataset(dataset,batch_size,comm_size,num_samples)
   dataset = dataset.batch(batch_size, drop_remainder)
   dataset = dataset.map(lambda x, y: map_fn(x+4, y),
                         deterministic = True)
   return dataset
 
-def gen_dataset_map_v1(dataset, batch_size, drop_remainder,comm_size,pad=False):
+def gen_dataset_map_v1(dataset, batch_size, drop_remainder,comm_size):
   def map_fn(x, y):
     return x*5, y
   dataset = dataset.map(lambda x, y: map_fn(x, y))
-  if pad and not drop_remainder:
-    num_samples = ds_helpers.get_num_samples(dataset)
-    dataset = ds_helpers.pad_dataset(dataset,batch_size,comm_size,num_samples)
     
   dataset = dataset.batch(batch_size, drop_remainder)
   return dataset
 
-def gen_dataset_padded_batch(dataset, batch_size, drop_remainder,comm_size,pad=False):
+def gen_dataset_padded_batch(dataset, batch_size, drop_remainder,comm_size):
   dataset = dataset.map(lambda x, y: tf.fill([4], x))
-  if pad and not drop_remainder:
-    num_samples = ds_helpers.get_num_samples(dataset)
-    dataset = ds_helpers.pad_dataset(dataset,batch_size,comm_size,num_samples)
   dataset = dataset.padded_batch(batch_size,
                                  drop_remainder = drop_remainder,
                                  padded_shapes = 8)
   dataset = dataset.prefetch(buffer_size=2)
   return dataset
 
-def gen_dataset_parallel_interleave(dataset, batch_size, drop_remainder,comm_size,pad=False):
+def gen_dataset_parallel_interleave(dataset, batch_size, drop_remainder,comm_size):
   dataset = dataset.batch(batch_size = 1, drop_remainder = False)
   dataset = dataset.interleave(map_func = lambda x, y: tf.data.Dataset.from_tensor_slices((x+3, y)),
                                cycle_length=tf.data.experimental.AUTOTUNE,
                                block_length=2,
                                num_parallel_calls=4,
                                deterministic = True)
-  if pad and not drop_remainder:
-    num_samples = ds_helpers.get_num_samples(dataset)
-    dataset = ds_helpers.pad_dataset(dataset,batch_size,comm_size,num_samples)
-    
   dataset = dataset.batch(batch_size, drop_remainder)
   return dataset
 
-def gen_dataset_parallel_interleave_after_batch(dataset, batch_size, drop_remainder,comm_size,pad=False):
+def gen_dataset_parallel_interleave_after_batch(dataset, batch_size, drop_remainder,comm_size):
   dataset = dataset.batch(batch_size = 1, drop_remainder = False)
-
-  if pad and not drop_remainder:
-    num_samples = ds_helpers.get_num_samples(dataset)
-    dataset = ds_helpers.pad_dataset(dataset,batch_size,comm_size,num_samples)
-    
   dataset = dataset.batch(batch_size, drop_remainder)
   dataset = dataset.interleave(map_func = lambda x, y: tf.data.Dataset.from_tensors((x+3, y)),
                                cycle_length=tf.data.experimental.AUTOTUNE,
@@ -234,19 +167,15 @@ def gen_dataset_parallel_interleave_after_batch(dataset, batch_size, drop_remain
                                deterministic = True)
   return dataset
 
-def gen_dataset_parallel_interleave_v1(dataset, batch_size, drop_remainder,comm_size,pad=False):
+def gen_dataset_parallel_interleave_v1(dataset, batch_size, drop_remainder,comm_size):
   dataset = dataset.batch(batch_size = 1, drop_remainder = False)
   dataset = dataset.interleave(map_func = lambda x, y: tf.data.Dataset.from_tensor_slices((x+3, y)),
                                cycle_length=tf.data.experimental.AUTOTUNE,
                                num_parallel_calls=4)
-  if pad and not drop_remainder:
-    num_samples = ds_helpers.get_num_samples(dataset)
-    dataset = ds_helpers.pad_dataset(dataset,batch_size,comm_size,num_samples)
-    
   dataset = dataset.batch(batch_size, drop_remainder)
   return dataset
 
-def gen_dataset_parallel_map(dataset, batch_size, drop_remainder,comm_size,pad=False):
+def gen_dataset_parallel_map(dataset, batch_size, drop_remainder,comm_size):
   dataset = dataset.repeat(2)
 
   def map_fn(x,y):
@@ -254,21 +183,14 @@ def gen_dataset_parallel_map(dataset, batch_size, drop_remainder,comm_size,pad=F
   dataset = dataset.map(map_func = lambda x, y: map_fn(x,y),
                         num_parallel_calls=2,
                         deterministic=True)
-  if pad and not drop_remainder:
-    num_samples = ds_helpers.get_num_samples(dataset)
-    dataset = ds_helpers.pad_dataset(dataset,batch_size,comm_size,num_samples)
-    
   dataset = dataset.batch(batch_size, drop_remainder)
   return dataset
 
-def gen_dataset_parallel_map_after_batch(dataset, batch_size, drop_remainder,comm_size,pad=False):
+def gen_dataset_parallel_map_after_batch(dataset, batch_size, drop_remainder,comm_size):
   dataset = dataset.repeat(2)
 
   def map_fn(x,y):
     return (x*5,y)
-  if pad and not drop_remainder:
-    num_samples = ds_helpers.get_num_samples(dataset)
-    dataset = ds_helpers.pad_dataset(dataset,batch_size,comm_size,num_samples)
     
   dataset = dataset.batch(batch_size, drop_remainder)
   dataset = dataset.map(map_func = lambda x, y: map_fn(x,y),
@@ -276,32 +198,25 @@ def gen_dataset_parallel_map_after_batch(dataset, batch_size, drop_remainder,com
                         deterministic=True)
   return dataset
 
-def gen_data_multiple_batch(dataset, batch_size, drop_remainder,comm_size,pad=False):
+def gen_data_multiple_batch(dataset, batch_size, drop_remainder,comm_size):
   dataset = dataset.repeat(2)
   dataset = dataset.batch(1)
   dataset = dataset.unbatch()
-  if pad and not drop_remainder:
-    num_samples = ds_helpers.get_num_samples(dataset)
-    dataset = ds_helpers.pad_dataset(dataset,batch_size,comm_size,num_samples)
-    
   dataset = dataset.batch(batch_size, drop_remainder)
     
   return dataset
     
-def gen_dataset_parallel_map_v1(dataset, batch_size, drop_remainder,comm_size,pad=False):
+def gen_dataset_parallel_map_v1(dataset, batch_size, drop_remainder,comm_size):
   dataset = dataset.repeat(2)
   def map_fn(x,y):
     return x*5, y+x
   dataset = dataset.map(map_func = lambda x, y: map_fn(x,y),
                         num_parallel_calls=2)
-  if pad and not drop_remainder:
-    num_samples = ds_helpers.get_num_samples(dataset)
-    dataset = ds_helpers.pad_dataset(dataset,batch_size,comm_size,num_samples)
     
   dataset = dataset.batch(batch_size, drop_remainder)
   return dataset
 
-def gen_dataset_io_pipeline(dataset, batch_size, drop_remainder,comm_size,pad=False):
+def gen_dataset_io_pipeline(dataset, batch_size, drop_remainder,comm_size):
   # Read from multiple files in parallel
   def parse_fn(x,y):
     return x,y
@@ -320,33 +235,22 @@ def gen_dataset_io_pipeline(dataset, batch_size, drop_remainder,comm_size,pad=Fa
   # Preprocess samples (in parallel)
   dataset = dataset.map(
       parse_fn, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-  if pad and not drop_remainder:
-    num_samples = ds_helpers.get_num_samples(dataset)
-    dataset = ds_helpers.pad_dataset(dataset,batch_size,comm_size,num_samples)
     
   dataset = dataset.batch(batch_size, drop_remainder=drop_remainder)
   dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
   return dataset
 
-def gen_dataset_concatenate(dataset, batch_size, drop_remainder,comm_size,pad=False):
-  dataset = dataset.concatenate(dataset)
-  if pad and not drop_remainder:
-    num_samples = ds_helpers.get_num_samples(dataset)
-    dataset = ds_helpers.pad_dataset(dataset,batch_size,comm_size,num_samples)
-    
+def gen_dataset_concatenate(dataset, batch_size, drop_remainder,comm_size):
+  dataset = dataset.concatenate(dataset)    
   dataset = dataset.batch(batch_size, drop_remainder)
   return dataset
 
-def gen_dataset_zip(dataset, batch_size, drop_remainder,comm_size,pad=False):
-  dataset = tf.data.Dataset.zip((dataset, dataset))
-  if pad and not drop_remainder:
-    num_samples = ds_helpers.get_num_samples(dataset)
-    dataset = ds_helpers.pad_dataset(dataset,batch_size,comm_size,num_samples)
-    
+def gen_dataset_zip(dataset, batch_size, drop_remainder,comm_size):
+  dataset = tf.data.Dataset.zip((dataset, dataset))    
   dataset = dataset.batch(batch_size, drop_remainder)
   return dataset
     
-def validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank,comm_size=1):
+def validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank, comm_size=1, padded=False):
   local_dataset_it = iter(local_dataset)
   expected_dataset_it = iter(ref_dataset)
 
@@ -360,6 +264,14 @@ def validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank,co
       expected_batch = expected_batch[0]
     # extract the slice of the reference dataset that corresponds to `rank`
     expected_micro_batch = expected_batch[rank::comm_size]
+    
+    if padded:
+      length = len(expected_micro_batch)
+      assert length <= micro_batch_size
+      if length != micro_batch_size:
+        padded_element = micro_batch_size - length
+        expected_micro_batch = np.pad(expected_micro_batch,(0,padded_element), 'constant', constant_values=(0,0))
+        
     assert np.array_equal(local_batch,expected_micro_batch)
 
   # verify that the two datasets have the same length
@@ -416,12 +328,13 @@ transformation_test_cases = [ gen_dataset_batch,
 @pytest.mark.parametrize("comm_size", [1,3,4])
 @pytest.mark.parametrize("micro_batch_size", [5])
 @pytest.mark.parametrize("num_batches", [6])
-@pytest.mark.parametrize("size_final_batch", [0, 1, 6, 11])
+@pytest.mark.parametrize("size_final_batch", [0, 1, 7, 11])
+@pytest.mark.parametrize("size_batch_remainder", [0, 1, 7, 11])
 @pytest.mark.parametrize("drop_remainder", [False,True])
 def test_batch_normal_remainderv1(apply_transformations, dataset_generator,
                            comm_size, micro_batch_size, num_batches,
-                           size_final_batch,drop_remainder):
-  batch_size = comm_size * micro_batch_size
+                           size_final_batch, size_batch_remainder, drop_remainder):
+  batch_size = comm_size * micro_batch_size + size_batch_remainder
   num_samples = num_batches * batch_size + size_final_batch
   (x_train, y_train) = dataset_generator(num_samples)
   
@@ -429,7 +342,6 @@ def test_batch_normal_remainderv1(apply_transformations, dataset_generator,
 
   tnt_dataset =  tf.data.Dataset.from_tensor_slices((x_train, y_train))
 
-  # Dataset should behve like the sequential dataset with `drop_ramainder=True`
   tnt_dataset = apply_transformations(tnt_dataset,
                                       batch_size = batch_size,
                                       drop_remainder=drop_remainder,
@@ -441,56 +353,17 @@ def test_batch_normal_remainderv1(apply_transformations, dataset_generator,
                                           num_ranks = comm_size,
                                           rank = rank)
     local_dataset = dist_dataset.distribute_dataset_across_ranks()
-    micro_batch_size = dist_dataset.get_microbatch_size(batch_size)
+    micro_batch_size = dist_dataset.micro_batch_size
 
     # rebuild reference dataset each time to prevent
     # shuffling effects for repeated iterations
     ref_dataset = apply_transformations(reference_dataset,
                                         batch_size = batch_size,
                                         drop_remainder=drop_remainder,
-                                        comm_size = comm_size,
-                                        pad = True)
-    validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank,comm_size = comm_size)
-
-@pytest.mark.skipif(tf.version.VERSION < "2.2.0",reason="requires tf >= 2.2")
-@pytest.mark.parametrize("apply_transformations", transformation_test_cases)
-@pytest.mark.parametrize("dataset_generator", [np_arrays_from_range])
-@pytest.mark.parametrize("comm_size", [3, 4])
-@pytest.mark.parametrize("micro_batch_size", [5])
-@pytest.mark.parametrize("size_batch_remainder", [1, 7, 11])
-@pytest.mark.parametrize("drop_remainder", [False,True])
-def test_batch_not_multiple_num_ranksv1(apply_transformations, dataset_generator,
-                                      comm_size, micro_batch_size,
-                                      size_batch_remainder,drop_remainder):
-  batch_size = comm_size * micro_batch_size + size_batch_remainder
-  num_samples = 6 * batch_size
-  (x_train, y_train) = dataset_generator(num_samples)
-
-  reference_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train))
-  real_num_samples = num_samples
-
-  if drop_remainder:
-    real_num_samples = int(num_samples//batch_size) * batch_size
-
-  tnt_dataset =  tf.data.Dataset.from_tensor_slices((x_train, y_train))
-  tnt_dataset = apply_transformations(tnt_dataset,
-                                      batch_size = batch_size,
-                                      drop_remainder=drop_remainder,
-                                      comm_size = comm_size)
-
-  for rank in range(comm_size):   # verify each rank separately
-    dist_dataset = ds.DistributedDataset(tnt_dataset,
-                                          num_ranks = comm_size,
-                                          rank = rank)
-    local_dataset = dist_dataset.distribute_dataset_across_ranks()
-    micro_batch_size = dist_dataset.get_microbatch_size(batch_size)
-
-    ref_dataset = apply_transformations(reference_dataset,
-                                        batch_size = batch_size,
-                                        drop_remainder=drop_remainder,
-                                        comm_size = comm_size,
-                                        pad = True)
-    validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank,comm_size = comm_size)
+                                        comm_size = comm_size)
+    
+    padded = True if size_final_batch != 0 else False
+    validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank,comm_size = comm_size, padded = padded)
 
 @pytest.mark.skipif(tf.version.VERSION >= "2.2.0",reason="requires tf < 2.2")
 @pytest.mark.parametrize("apply_transformations", transformation_test_cases)
@@ -498,12 +371,13 @@ def test_batch_not_multiple_num_ranksv1(apply_transformations, dataset_generator
 @pytest.mark.parametrize("comm_size", [1,3,4])
 @pytest.mark.parametrize("micro_batch_size", [5])
 @pytest.mark.parametrize("num_batches", [6])
-@pytest.mark.parametrize("size_final_batch", [0, 1, 6, 11])
+@pytest.mark.parametrize("size_final_batch", [0, 1, 7, 11])
+@pytest.mark.parametrize("size_batch_remainder", [0, 1, 7, 11])
 @pytest.mark.parametrize("drop_remainder", [False,True])
 def test_batch_normal_remainderv2(apply_transformations, dataset_generator,
                            comm_size, micro_batch_size, num_batches,
-                           size_final_batch,drop_remainder):
-  batch_size = comm_size * micro_batch_size
+                           size_final_batch, size_batch_remainder, drop_remainder):
+  batch_size = comm_size * micro_batch_size + size_batch_remainder
   num_samples = num_batches * batch_size + size_final_batch
   (x_train, y_train) = dataset_generator(num_samples)
   
@@ -511,7 +385,6 @@ def test_batch_normal_remainderv2(apply_transformations, dataset_generator,
 
   tnt_dataset =  tf.data.Dataset.from_tensor_slices((x_train, y_train))
 
-  # Dataset should behve like the sequential dataset with `drop_ramainder=True`
   tnt_dataset = apply_transformations(tnt_dataset,
                                       batch_size = batch_size,
                                       drop_remainder=drop_remainder,
@@ -523,49 +396,9 @@ def test_batch_normal_remainderv2(apply_transformations, dataset_generator,
                                           num_ranks = comm_size,
                                           rank = rank)
     local_dataset = dist_dataset.distribute_dataset_across_ranks()
-    micro_batch_size = dist_dataset.get_microbatch_size(batch_size)
+    micro_batch_size = dist_dataset.micro_batch_size
 
-    # rebuild reference dataset each time to prevent
-    # shuffling effects for repeated iterations
-    ref_dataset = apply_transformations(reference_dataset,
-                                        batch_size = batch_size,
-                                        drop_remainder=True,
-                                        comm_size = comm_size)
-    validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank,comm_size = comm_size)
-
-@pytest.mark.skipif(tf.version.VERSION >= "2.2.0",reason="requires tf < 2.2")
-@pytest.mark.parametrize("apply_transformations", transformation_test_cases)
-@pytest.mark.parametrize("dataset_generator", [np_arrays_from_range])
-@pytest.mark.parametrize("comm_size", [3, 4])
-@pytest.mark.parametrize("micro_batch_size", [5])
-@pytest.mark.parametrize("size_batch_remainder", [1, 7, 11])
-@pytest.mark.parametrize("drop_remainder", [False,True])
-def test_batch_not_multiple_num_ranksv2(apply_transformations, dataset_generator,
-                                      comm_size, micro_batch_size,
-                                      size_batch_remainder,drop_remainder):
-  batch_size = comm_size * micro_batch_size + size_batch_remainder
-  num_samples = 6 * batch_size
-  (x_train, y_train) = dataset_generator(num_samples)
-
-  reference_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train))
-  real_num_samples = num_samples
-
-  if drop_remainder:
-    real_num_samples = int(num_samples//batch_size) * batch_size
-
-  tnt_dataset =  tf.data.Dataset.from_tensor_slices((x_train, y_train))
-  tnt_dataset = apply_transformations(tnt_dataset,
-                                      batch_size = batch_size,
-                                      drop_remainder=drop_remainder,
-                                      comm_size = comm_size)
-
-  for rank in range(comm_size):   # verify each rank separately
-    dist_dataset = ds.DistributedDataset(tnt_dataset,
-                                          num_ranks = comm_size,
-                                          rank = rank)
-    local_dataset = dist_dataset.distribute_dataset_across_ranks()
-    micro_batch_size = dist_dataset.get_microbatch_size(batch_size)
-
+    ##always set the drop_remainder to True
     ref_dataset = apply_transformations(reference_dataset,
                                         batch_size = batch_size,
                                         drop_remainder=True,
