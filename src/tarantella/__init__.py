@@ -32,4 +32,5 @@ from tarantella.strategy.SynchCommunicator import SynchCommunicator
 from tarantella.strategy.PipelineCommunicator import PipelineCommunicator
 
 import tarantella.optimizers as optimizers
+from tarantella.optimizers.synchronous_distributed_optimizer import SynchDistributedOptimizer as Optimizer
 import tarantella.optimizers.synchronous_distributed_optimizer as distributed_optimizers
