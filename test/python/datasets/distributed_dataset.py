@@ -331,7 +331,7 @@ transformation_test_cases = [ gen_dataset_batch,
 @pytest.mark.parametrize("size_final_batch", [0, 1, 7, 11])
 @pytest.mark.parametrize("size_batch_remainder", [0, 1, 7, 11])
 @pytest.mark.parametrize("drop_remainder", [False,True])
-def test_batch_normal_remainderv1(apply_transformations, dataset_generator,
+def test_batch_with_pad(apply_transformations, dataset_generator,
                            comm_size, micro_batch_size, num_batches,
                            size_final_batch, size_batch_remainder, drop_remainder):
   batch_size = comm_size * micro_batch_size + size_batch_remainder
@@ -374,7 +374,7 @@ def test_batch_normal_remainderv1(apply_transformations, dataset_generator,
 @pytest.mark.parametrize("size_final_batch", [0, 1, 7, 11])
 @pytest.mark.parametrize("size_batch_remainder", [0, 1, 7, 11])
 @pytest.mark.parametrize("drop_remainder", [False,True])
-def test_batch_normal_remainderv2(apply_transformations, dataset_generator,
+def test_batch_without_pad(apply_transformations, dataset_generator,
                            comm_size, micro_batch_size, num_batches,
                            size_final_batch, size_batch_remainder, drop_remainder):
   batch_size = comm_size * micro_batch_size + size_batch_remainder
