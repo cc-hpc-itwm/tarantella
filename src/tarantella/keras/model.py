@@ -39,8 +39,8 @@ class Model(tf.keras.models.Model):
   ##############
   @property
   def distribute_strategy(self):
-    return None
-  
+    return tf.distribute.get_strategy()
+
   @property
   def dynamic(self):
     return self.model.dynamic

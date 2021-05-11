@@ -14,7 +14,7 @@ class TestsModelAPI:
   # Attributes
   def test_distribute_strategy(self):
     tnt_model = tnt.Model(mnist.lenet5_model_generator())
-    assert tnt_model.distribute_strategy == None
+    assert tnt_model.distribute_strategy == tf.distribute.get_strategy()
 
   def test_dynamic(self):
     tnt_model = tnt.Model(mnist.lenet5_model_generator())
