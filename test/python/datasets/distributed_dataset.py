@@ -52,6 +52,8 @@ def gen_dataset_filter(dataset, batch_size, drop_remainder,comm_size):
   dataset = dataset.batch(batch_size, drop_remainder)
   return dataset
 
+##filter after batch can be wrong in this case since it only concern the first element in the batch, but once the batch is shard, every rank see different first element in their first batch
+##for exampe the final batch can be padded to [14,0,0,0,0] rank 0 get 14,0,0, rank 1 get 0,0. if the condition of filter is x[0] > 5, the final batch of rank 0 is reserved however the final batch of rank1 will be removed. If we look to a whole batch, this whole batch should be reserved, but since we do shard before batch, one can't see other elements.
 def gen_dataset_filter_after_batch(dataset, batch_size, drop_remainder,comm_size):
   def pred1(x,y):
     return x > 5
@@ -160,7 +162,7 @@ def gen_dataset_parallel_interleave(dataset, batch_size, drop_remainder,comm_siz
 def gen_dataset_parallel_interleave_after_batch(dataset, batch_size, drop_remainder,comm_size):
   dataset = dataset.batch(batch_size = 1, drop_remainder = False)
   dataset = dataset.batch(batch_size, drop_remainder)
-  dataset = dataset.interleave(map_func = lambda x, y: tf.data.Dataset.from_tensors((x+3, y)),
+  dataset = dataset.interleave(map_func = lambda x, y: tf.data.Dataset.from_tensors((2*x, y)),
                                cycle_length=tf.data.experimental.AUTOTUNE,
                                block_length=2,
                                num_parallel_calls=4,
@@ -292,9 +294,11 @@ transformation_test_cases = [ gen_dataset_batch,
                               gen_dataset_multiple_batch,
                               gen_dataset_io_pipeline,
                               gen_dataset_filter,
-                              gen_dataset_filter_after_batch,
                               gen_dataset_flat_map,
                               gen_dataset_flat_map_after_batch,
+                              pytest.param(gen_dataset_filter_after_batch,
+                                           marks=[pytest.mark.tfversion('2.0'),
+                                                  pytest.mark.tfversion('2.1')]),
                               pytest.param(gen_dataset_map,
                                            marks=pytest.mark.tfversion('2.2')),
                               pytest.param(gen_dataset_map_after_batch,
@@ -369,6 +373,11 @@ def test_batch_with_pad(apply_transformations, dataset_generator,
                                         comm_size = comm_size)
     
     padded = True if size_final_batch != 0 else False
+    
+    #it is possible that filter remove some sample so 0 is padded in the end
+    if apply_transformations == gen_dataset_filter_after_batch or apply_transformations == gen_dataset_filter:
+      padded = True
+    
     validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank,comm_size = comm_size, padded = padded)
 
 @pytest.mark.skipif(tf.version.VERSION >= "2.2.0",reason="requires tf < 2.2")
