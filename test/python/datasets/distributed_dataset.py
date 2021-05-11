@@ -127,7 +127,7 @@ def gen_dataset_map_after_batch(dataset, batch_size, drop_remainder,comm_size):
   dataset = dataset.map(lambda x, y: map_fn(x, y),
                         deterministic = True)
   dataset = dataset.batch(batch_size, drop_remainder)
-  dataset = dataset.map(lambda x, y: map_fn(x+4, y),
+  dataset = dataset.map(lambda x, y: map_fn(x, y),
                         deterministic = True)
   return dataset
 
@@ -249,7 +249,13 @@ def gen_dataset_zip(dataset, batch_size, drop_remainder,comm_size):
   dataset = tf.data.Dataset.zip((dataset, dataset))    
   dataset = dataset.batch(batch_size, drop_remainder)
   return dataset
-    
+
+def pad(array, reference):
+  result = np.zeros(reference.shape)
+  insertHere = [slice(0, array.shape[dim]) for dim in range(array.ndim)]
+  result[tuple(insertHere)] = array
+  return result
+
 def validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank, comm_size=1, padded=False):
   local_dataset_it = iter(local_dataset)
   expected_dataset_it = iter(ref_dataset)
@@ -266,11 +272,11 @@ def validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank, c
     expected_micro_batch = expected_batch[rank::comm_size]
     
     if padded:
-      length = len(expected_micro_batch)
-      assert length <= micro_batch_size
-      if length != micro_batch_size:
-        padded_element = micro_batch_size - length
-        expected_micro_batch = np.pad(expected_micro_batch,(0,padded_element), 'constant', constant_values=(0,0))
+      shape_expect = np.shape(expected_micro_batch)
+      shape_local = np.shape(local_batch)
+      # In order to handle differnet shape
+      if shape_expect != shape_local:
+        expected_micro_batch = pad(expected_micro_batch, local_batch)
         
     assert np.array_equal(local_batch,expected_micro_batch)
 
