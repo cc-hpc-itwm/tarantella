@@ -106,16 +106,19 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
     real_batch_size = batch_size
     if num_samples % real_batch_size != 0:
       num_padded = num_samples - int(num_samples // real_batch_size)*real_batch_size
-      self.special_global_batch_size = num_padded
-      num_padded = real_batch_size - num_padded
-    
-      zero_elem = num_padded//self.num_ranks
-      module = num_padded%self.num_ranks
-      if module >= self.rank + 1:
-        zero_elem = zero_elem + 1
+      self.special_global_batch_size = batch_size
+      print("dataset is padded, num_sample is ", num_samples)
+      print("the real final batch size is ",num_padded)
       #get my true micro_size that is not zero.
-      self.special_my_size = self.micro_batch_size - zero_elem
+      self.special_my_size = num_padded//self.num_ranks
+      extra = num_padded % self.num_ranks
+      if self.rank + 1 <= extra:
+        self.special_my_size = self.special_my_size + 1
+      num_padded = real_batch_size - num_padded
+      print("num of pad ",num_padded)
+      print("my micro in real size is", self.special_my_size)
       self.special_iteration = num_samples//real_batch_size
+      print("the special factor apply to iteration,", self.special_iteration)
       rest_dataset = dataset.take(2*real_batch_size - num_padded)
       logger.info("Dataset is padded with {} elements.".format(
                 num_padded))
@@ -153,6 +156,9 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
       self.normal_factor = self.micro_batch_size * self.num_ranks / batch_size
       if self.rank != 0:
         dataset = dataset.skip(self.rank)
+      print("data.window() is used, factor is ", self.normal_factor)
+      print("my micro_batch_size is ",self.micro_batch_size)
+      print("global batch size is ", batch_size)
       dataset = dataset.window(size = self.micro_batch_size,shift = batch_size,stride = self.num_ranks,drop_remainder = False)
       dataset = dataset.interleave(self.create_seqeunce_ds,
                                    cycle_length = 8,num_parallel_calls = 8)
@@ -186,11 +192,21 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
   def generate_callback_if_have(self):
     if self.normal_factor is None and self.special_global_batch_size is None:
       return None
+
+    def assign_factor(batch, normal_factor, special_factor, special_iteration):
+      if special_factor == None:
+        return normal_factor
+
+      if batch == special_iteration:
+        return special_factor
+      else:
+        return normal_factor
+    
     if self.special_global_batch_size is None:
-      return ds_helpers.ScalingFactorScheduler(self.normal_factor)
+      return ds_helpers.ScalingFactorScheduler(self.normal_factor,assign_factor)
     else:
       if self.normal_factor is None:
         self.normal_factor = 1.0
-      return ds_helpers.ScalingFactorScheduler(self.normal_factor,
-                                     self.special_my_size * self.num_ranks / self.special_global_batch_size,
+      return ds_helpers.ScalingFactorScheduler(self.normal_factor,assign_factor,
+                                     self.num_ranks * self.special_my_size / self.special_global_batch_size,
                                      self.special_iteration)
