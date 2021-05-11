@@ -406,7 +406,7 @@ class Model(tf.keras.models.Model):
     for index, callback in enumerate(callbacks):
       if isinstance(callback, tf_callbacks.ModelCheckpoint):
         tnt_callback = tnt_callbacks.ModelCheckpoint(keras_callback = callback,
-                                                     distributed_optimizer = self.dist_optimizer)
+                                                     tnt_model = self)
         callbacks[index] = tnt_callback
 
       elif isinstance(callback, tf_callbacks.LearningRateScheduler):
