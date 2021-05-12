@@ -38,7 +38,7 @@
   script:
     - cd ${TNT_BUILD_DIR}
       # exclude the `SynchCommunicator_4ranks` test as the test takes too long to complete
-    - ctest --output-on-failure -LE "disabled|integration|gpu|Python" -E "SynchCommunicator_4ranks"
+    - ctest --output-on-failure -LE "disabled|integration|gpu|cluster|Python" -E "SynchCommunicator_4ranks"
   only:
     - master
 
