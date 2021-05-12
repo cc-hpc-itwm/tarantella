@@ -3,6 +3,7 @@ include (add_test_wrappers)
 tarantella_generate_python_gpi_test(NAME Pipeline_Communicator
                                     TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/pipeline_communicator_4ranks.py
                                     LOCALRANKS_LIST "4"
+                                    LABELS cluster
                                     TIMEOUT 100)
 
 tarantella_generate_python_gpi_test(NAME Pipeline_SendRecvLayers
