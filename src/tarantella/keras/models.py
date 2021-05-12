@@ -1,5 +1,6 @@
 import tensorflow as tf
 import tarantella as tnt
+import tarantella.utilities.tf_version as version_utils
 from tarantella import logger
 
 def save_model(model, filepath, **kwargs):
@@ -24,8 +25,7 @@ def load_model(filepath, compile = True, **kwargs):
       tnt_model.compiled = True
       tnt_model.done_broadcast = True
 
-      # required for TF2.0/2.1
-      if hasattr(tnt_model.model, '_experimental_run_tf_function'):
+      if version_utils.tf_version_below_equal('2.1'):
         tnt_model.model._experimental_run_tf_function = False
         logger.info("Set `experimental_run_tf_function` to False.")
     except:

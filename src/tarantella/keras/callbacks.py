@@ -4,6 +4,7 @@ import numpy as np
 
 import tarantella as tnt
 import tarantella.keras.utilities as utilities
+import tarantella.utilities.tf_version as version_utils
 
 class LogsAverager():
   def __init__(self, num_ranks = tnt.get_size()):
@@ -18,14 +19,15 @@ class LogsAverager():
     return average_logs
 
 class ModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
-  def __init__(self, keras_callback, distributed_optimizer):
+  def __init__(self, keras_callback, tnt_model):
     self._construct_from_keras_object(keras_callback)
-    self.distributed_optimizer = distributed_optimizer
+    self.tnt_model = tnt_model
     # only master rank should save and thus print messages
     self.verbose = keras_callback.verbose if tnt.is_master_rank() else 0
 
   def _construct_from_keras_object(self, keras_callback):
-    implemented_methods = ['on_epoch_end',
+    implemented_methods = ['set_model',
+                           'on_epoch_end',
                            'on_train_begin',
                            'on_train_batch_end' ]
     super().__init__(keras_callback.filepath)
@@ -33,21 +35,20 @@ class ModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
       if k not in implemented_methods:
         setattr(self, k, copy.deepcopy(v))
 
+  def set_model(self, model):
+    # Overriding this method ensures that `ModelCheckpoint` is called on the
+    # `tnt.Model` within `fit` instead of the internal model
+    self.model = self.tnt_model
+
   def on_train_begin(self, logs=None):
     # As of TF 2.3, this only uses `self.model.load_weights`
     super().on_train_begin(logs)
 
   def on_train_batch_end(self, batch, logs=None):
-    # set the optimizer to the underlying to save a plain keras model
-    utilities._set_model_optimizer(self.model, self.distributed_optimizer.underlying_optimizer)
     super().on_train_batch_end(batch, logs)
-    utilities._set_model_optimizer(self.model, self.distributed_optimizer)
 
   def on_epoch_end(self, epoch, logs=None):
-    # set the optimizer to the underlying to save a plain keras model
-    utilities._set_model_optimizer(self.model, self.distributed_optimizer.underlying_optimizer)
     super().on_epoch_end(epoch, logs)
-    utilities._set_model_optimizer(self.model, self.distributed_optimizer)
 
 class LearningRateScheduler(tf.keras.callbacks.LearningRateScheduler):
   def __init__(self, keras_callback):
@@ -67,7 +68,7 @@ class History(tf.keras.callbacks.History, LogsAverager):
     averaged_logs = self.average_logs(logs)
     super().on_epoch_end(epoch, averaged_logs)
 
-    if tf.__version__ in ['2.0.0', '2.1.0']:
+    if version_utils.tf_version_below_equal('2.1'):
       # set the history object, returned by `tnt.Model.fit`,
       # to this callback
       self.model.history = self

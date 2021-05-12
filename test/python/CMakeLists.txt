@@ -5,7 +5,7 @@ tarantella_generate_python_gpi_test(NAME DataParallel_TF_Callbacks
                                     TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/callbacks_test.py
                                     LOCALRANKS_LIST "${localranks_list}"
                                     LABELS integration
-                                    TIMEOUT 100)
+                                    TIMEOUT 300)
 
 set(localranks_list 1 3)
 tarantella_generate_python_gpi_test(NAME DataParallel_TF_Model

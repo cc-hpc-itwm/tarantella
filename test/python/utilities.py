@@ -23,7 +23,7 @@ def load_dataset(dataset_loader,
                  test_size = 0, test_batch_size = 1,
                  shuffle = True):
   set_tf_random_seed()
-  shuffle_seed = current_date()
+  shuffle_seed = 1234
 
   (x_train, y_train), (x_val, y_val), (x_test, y_test) = dataset_loader(train_size, 0, test_size)
   train_dataset = create_dataset_from_arrays(x_train, y_train, train_batch_size)
@@ -31,7 +31,7 @@ def load_dataset(dataset_loader,
 
   if shuffle:
     train_dataset = train_dataset.shuffle(len(x_train), shuffle_seed,
-                                          reshuffle_each_iteration = True)
+                                          reshuffle_each_iteration = False)
   return (train_dataset, test_dataset)
 
 def train_test_mnist_datasets(nbatches = 1, test_nbatches = 0,

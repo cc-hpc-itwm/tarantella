@@ -266,7 +266,15 @@ ib-gcc8.4.0-Release-cpp:
     - job: tf2.2-cpu-ib-gcc8.4.0-Release-build
 
 ####### Unit tests [Python] ############
-### GPU runs 
+tf2.4-cpu-ib-gcc10.1.0-Release-py:
+  extends:
+    - .tnt_cluster_tf2.4_job
+    - .ib_job
+    - .gpi1.5.0_job
+    - .tnt_cluster_run_tests_py
+  needs:
+    - job: tf2.4-cpu-ib-gcc10.1.0-Release-build
+
 tf2.3-gpu-ib-gcc10.1.0-Release-py:
   extends:
     - .tnt_cluster_tf2.3_job
@@ -303,7 +311,7 @@ tf2.0-gpu-ib-gcc8.4.0-Release-py:
   needs:
     - job: tf2.0-gpu-ib-gcc8.4.0-Release-build
 
-### CPU runs
+### Nightly runs
 tf2.3-gpu-eth-gcc10.1.0-Release-py:
   extends:
     - .tnt_cluster_tf2.3_job
@@ -332,7 +340,14 @@ tf2.1-cpu-ib-gcc8.4.0-Release-py:
     - job: tf2.1-cpu-ib-gcc8.4.0-Release-build
 
 ####### Integration tests ############
-### GPU runs
+tf2.4-cpu-ib-gcc10.1.0-Release-integration:
+  extends:
+    - .ib_job
+    - .tnt_cluster_tf2.4_job
+    - .tnt_cluster_integration_tests
+  needs:
+    - job: tf2.4-cpu-ib-gcc10.1.0-Release-build
+
 tf2.3-gpu-ib-gcc10.1.0-Release-integration:
   extends:
     - .ib_job
