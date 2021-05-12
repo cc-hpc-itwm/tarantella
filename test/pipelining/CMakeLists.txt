@@ -15,4 +15,5 @@ tarantella_compile_and_generate_gpi_test(NAME Pipeline_Communicator
                 TIMEOUT 60
                 SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/PipelineCommunicator_4ranks.cpp
                 LIBRARIES tnt::gpicommlib
-                INCLUDE_DIRECTORIES ${include_dirs})
+                INCLUDE_DIRECTORIES ${include_dirs}
+                LABELS cluster)
