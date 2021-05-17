@@ -2,8 +2,8 @@ import pytest
 
 import tensorflow as tf
 
-import tarantella.datasets.distributed_dataset as ds
-import tarantella.datasets.dataset_helpers as ds_helpers
+import tarantella as tnt
+import tarantella.data.dataset_helpers as ds_helpers
 import utilities as ds_utils
 
 def gen_dataset_multiple_batch(dataset, batch_size, drop_remainder = True):
@@ -226,9 +226,9 @@ def test_dataset_transformations(apply_transformations, dataset_generator,
                                        batch_size = batch_size)
 
     # load local dataset for `rank`
-    tnt_dataset = ds.DistributedDataset(tf_dataset,
-                                        num_ranks = comm_size,
-                                        rank = rank)
+    tnt_dataset = tnt.data.Dataset(tf_dataset,
+                                   num_ranks = comm_size,
+                                   rank = rank)
     local_dataset = tnt_dataset.distribute_dataset_across_ranks()
     micro_batch_size = ds_helpers._get_microbatch_size(rank, comm_size, batch_size)
 

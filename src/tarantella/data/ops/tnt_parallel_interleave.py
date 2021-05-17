@@ -3,7 +3,7 @@ from tensorflow.python.framework import ops
 from tensorflow.python.framework import dtypes
 from tensorflow.python.ops import gen_dataset_ops
 
-import tarantella.datasets.dataset_helpers as ds_helpers
+import tarantella.data.dataset_helpers as ds_helpers
 
 class TntParallelInterleaveDataset(ds.UnaryDataset):
   """A `Dataset` that maps a function over its input and interleaves the result."""

@@ -20,6 +20,8 @@ def is_master_rank():
 from tarantella import tnt_initializer
 tnt_initializer.init()
 
+from tarantella import data
+
 from tarantella.keras import models
 from tarantella.keras.model import Model
 from tarantella.keras.sequential import Sequential

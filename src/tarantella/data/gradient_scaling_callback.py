@@ -3,7 +3,7 @@ from tensorflow.python.keras import backend as K
 
 import tarantella as tnt
 from tarantella import logger
-import tarantella.datasets.dataset_helpers as helpers
+import tarantella.data.dataset_helpers as helpers
 
 def _get_scaling_factor(micro_batch_size, batch_size, num_ranks):
   # Compute a scaling factor to be applied locally to weight gradients before

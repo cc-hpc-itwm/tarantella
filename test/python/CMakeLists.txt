@@ -14,7 +14,7 @@ tarantella_generate_python_gpi_test(NAME DataParallel_TF_Model
                                     TIMEOUT 60)
 
 add_subdirectory(model_api)
-add_subdirectory(datasets)
+add_subdirectory(data)
 add_subdirectory(data_parallel_training)
 add_subdirectory(pipelining_parallel)
 add_subdirectory(collectives)
