@@ -338,7 +338,7 @@ transformation_test_cases = [ gen_dataset_batch,
 @pytest.mark.parametrize("comm_size", [1,3,4])
 @pytest.mark.parametrize("micro_batch_size", [5])
 @pytest.mark.parametrize("num_batches", [6])
-@pytest.mark.parametrize("size_final_batch", [0, 1, 7, 11])
+@pytest.mark.parametrize("size_final_batch", [0, 1, 3, 11])
 @pytest.mark.parametrize("size_batch_remainder", [0, 1, 7, 11])
 @pytest.mark.parametrize("drop_remainder", [False,True])
 def test_batch_with_pad(apply_transformations, dataset_generator,
@@ -371,14 +371,8 @@ def test_batch_with_pad(apply_transformations, dataset_generator,
                                         batch_size = batch_size,
                                         drop_remainder=drop_remainder,
                                         comm_size = comm_size)
-    
-    padded = True if size_final_batch != 0 else False
-    
-    #it is possible that filter remove some sample so 0 is padded in the end
-    if apply_transformations == gen_dataset_filter_after_batch or apply_transformations == gen_dataset_filter:
-      padded = True
-    
-    validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank,comm_size = comm_size, padded = padded)
+
+    validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank,comm_size = comm_size, padded = True)
 
 @pytest.mark.skipif(tf.version.VERSION >= "2.2.0",reason="requires tf < 2.2")
 @pytest.mark.parametrize("apply_transformations", transformation_test_cases)

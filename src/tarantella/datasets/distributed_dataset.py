@@ -104,33 +104,44 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
 
   def pad_dataset(self,dataset,batch_size,comm_size,num_samples):
     real_batch_size = batch_size
+    
     if num_samples % real_batch_size != 0:
       num_padded = num_samples - int(num_samples // real_batch_size)*real_batch_size
-      self.special_global_batch_size = batch_size
+      self.special_global_batch_size = num_padded
+      
       print("dataset is padded, num_sample is ", num_samples)
       print("the real final batch size is ",num_padded)
-      #get my true micro_size that is not zero.
+      
       self.special_my_size = num_padded//self.num_ranks
+      
+      padded = False
+      ##if is 0, need to be padded
+      if self.special_my_size == 0:
+        padded = True
+    
       extra = num_padded % self.num_ranks
       if self.rank + 1 <= extra:
         self.special_my_size = self.special_my_size + 1
-      num_padded = real_batch_size - num_padded
-      print("num of pad ",num_padded)
+      
       print("my micro in real size is", self.special_my_size)
       self.special_iteration = num_samples//real_batch_size
       print("the special factor apply to iteration,", self.special_iteration)
-      rest_dataset = dataset.take(2*real_batch_size - num_padded)
-      logger.info("Dataset is padded with {} elements.".format(
+        
+      if padded:
+        num_padded = self.num_ranks - num_padded
+        print("num of pad ",num_padded)
+        rest_dataset = dataset.take(2*self.num_ranks - num_padded)
+        logger.info("Dataset is padded with {} elements.".format(
                 num_padded))
-      rest_dataset = rest_dataset.batch(real_batch_size,drop_remainder=False)
+        rest_dataset = rest_dataset.batch(self.num_ranks,drop_remainder=False)
 
-      #If padded_shape is unset, all dimensions of all components are padded to the maximum size in the batch.
-      rest_dataset = rest_dataset.padded_batch(2)
-      rest_dataset = rest_dataset.unbatch()
-      rest_dataset = rest_dataset.unbatch()
+        #If padded_shape is unset, all dimensions of all components are padded to the maximum size in the batch.
+        rest_dataset = rest_dataset.padded_batch(2)
+        rest_dataset = rest_dataset.unbatch()
+        rest_dataset = rest_dataset.unbatch()
 
-      rest_dataset = rest_dataset.skip(2*real_batch_size - num_padded)
-      dataset = dataset.concatenate(rest_dataset)
+        rest_dataset = rest_dataset.skip(2*self.num_ranks - num_padded)
+        dataset = dataset.concatenate(rest_dataset)
     return dataset
 
   def distributed_batch(self, dataset, batch_size, micro_batch_size):
