@@ -75,12 +75,13 @@ Executing your model with ``tarantella``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Next, let's execute our model distributedly using ``tarantella`` on the command line.
-Make sure to add the path to your installed :ref:`GPI-2 libraries <gpi2-install-label>` to
-``LD_LIBRARY_PATH``:
+Make sure to add the path to your installed :ref:`GaspiCxx <gaspicxx-install-label>` and
+:ref:`GPI-2 <gpi2-install-label>` libraries to ``LD_LIBRARY_PATH``:
 
 .. code-block:: bash
 
    export LD_LIBRARY_PATH=${GPI2_INSTALLATION_PATH}/lib64:${LD_LIBRARY_PATH}
+   export LD_LIBRARY_PATH=${GASPICXX_INSTALLATION_PATH}/lib:${LD_LIBRARY_PATH}
 
 .. todo::
 
