@@ -216,7 +216,8 @@ class TarantellaCLI:
 
     command = f"{self.generate_interpreter()} {self.get_absolute_path(tarantella_cleanup)} \
                                               --proc_names {self.command_list[0].split('.')[0]} \
-                                              --skip_pid {os.getpid()}"
+                                              --skip_gaspi_pid {os.getpid()} \
+                                              --gaspi_rank $GASPI_RANK"
     return file_man.GPIScriptFile(header, environment, command, dir = os.getcwd())
 
   def run(self, dry_run = False):
