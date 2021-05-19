@@ -468,6 +468,10 @@ class Model(tf.keras.models.Model):
         csv_logger_callback = tnt_callbacks.CSVLogger(keras_callback = callback)
         callbacks[index] = csv_logger_callback
 
+      elif isinstance(callback, tf_callbacks.TerminateOnNaN):
+        terminate_callback = tnt_callbacks.TerminateOnNaN(keras_callback = callback)
+        callbacks[index] = terminate_callback     
+      
     if remove_tensorboard_index is not None:
       del callbacks[remove_tensorboard_index]
 
