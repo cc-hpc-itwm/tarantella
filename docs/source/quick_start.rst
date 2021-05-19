@@ -407,6 +407,7 @@ Callbacks
 At the moment, Tarantella fully supports the following
 `Keras callbacks <https://www.tensorflow.org/api_docs/python/tf/keras/callbacks>`__:
 
+* ``tf.keras.callbacks.BaseLogger``
 * ``tf.keras.callbacks.CSVLogger``
 * ``tf.keras.callbacks.EarlyStopping``
 * ``tf.keras.callbacks.History``
@@ -414,6 +415,10 @@ At the moment, Tarantella fully supports the following
 * ``tf.keras.callbacks.ModelCheckpoint``
 * ``tf.keras.callbacks.RemoteMonitor``
 * ``tf.keras.callbacks.TensorBoard``
+* ``tf.keras.callbacks.TerminateOnNaN``
+
+The ``BaseLogger`` callback accumulates epoch averages of metrices. The metrices are averaged over all
+devices after every batch and epoch.
 
 The ``CSVLogger`` callback can be used to stream epoch results to a CSV file. All metrics are
 averaged over all devices after each epoch.
@@ -451,13 +456,14 @@ the local information on all devices use the environment variable ``TNT_TENSORBO
 
    TNT_TENSORBOARD_ON_ALL_DEVICES=true tarantella -- model.py
 
+The ``TerminateOnNaN`` callback can be used to terminate training when a NaN loss is encountered. 
+When loss on one or more devices returns NaN value, then average value is also NaN and thus, 
+training is terminated.
+
 .. note::
 
-   At the moment, all of the other Keras callbacks will be executed on all devices with
-   local information only.
-
-For instance, the ``BaseLogger`` callback will be executed on each and every rank,
-and will log the acculumated metric averages for the local (micro-batch) information.
+   At the moment, custom Keras callbacks (Callback, CallbackList, LambdaCallback) will be executed
+   on all devices with local information only.
 
 Important points
 ^^^^^^^^^^^^^^^^
