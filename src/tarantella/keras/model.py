@@ -470,7 +470,11 @@ class Model(tf.keras.models.Model):
 
       elif isinstance(callback, tf_callbacks.TerminateOnNaN):
         terminate_callback = tnt_callbacks.TerminateOnNaN(keras_callback = callback)
-        callbacks[index] = terminate_callback     
+        callbacks[index] = terminate_callback
+
+      elif isinstance(callback, tf_callbacks.BaseLogger):
+        base_logger_callback = tnt_callbacks.BaseLogger(keras_callback = callback)
+        callbacks[index] = base_logger_callback
       
     if remove_tensorboard_index is not None:
       del callbacks[remove_tensorboard_index]

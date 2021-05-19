@@ -18,6 +18,18 @@ class LogsAverager():
     average_logs = { k : v / self.num_ranks for k, v in sum_logs.items() }
     return average_logs
 
+  def average_specific_metrics(self, logs, metric_names):
+    log_values = dict()
+    for k in metric_names:
+      if k in logs:
+        log_values[k] = logs[k]
+
+    averaged_logs = self.average_logs(log_values)
+    for k in averaged_logs:
+      logs[k] = averaged_logs[k]
+
+    return logs
+
 class ModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
   def __init__(self, keras_callback, tnt_model):
     self._construct_from_keras_object(keras_callback)
@@ -150,22 +162,35 @@ class TerminateOnNaN(tf.keras.callbacks.TerminateOnNaN, LogsAverager):
         setattr(self, k, copy.deepcopy(v))
 
   def on_batch_end(self, batch, logs=None):
-    logging.getLogger().info(logs)
     if version_utils.tf_version_below_equal('2.1'):
-      averaged_logs = self.get_averaged_metrics(logs, self.params['metrics'])
+      averaged_logs = self.average_specific_metrics(logs, self.params['metrics'])
     else:
       averaged_logs = self.average_logs(logs)
 
     super().on_batch_end(batch, averaged_logs)
 
-  def get_averaged_metrics(self, logs, metric_names):
-    log_values = dict()
-    for k in metric_names:
-      if k in logs:
-        log_values[k] = logs[k]
+class BaseLogger(tf.keras.callbacks.BaseLogger, LogsAverager):
+  def __init__(self, keras_callback):
+    self._construct_from_keras_object(keras_callback)
 
-    averaged_logs = self.average_logs(log_values)
-    for k in averaged_logs:
-      logs[k] = averaged_logs[k]
+  def _construct_from_keras_object(self, keras_callback):
+    implemented_methods = ['on_batch_end',
+                           'on_epoch_end']
+    super().__init__()
+    for k, v in keras_callback.__dict__.items():
+      if k not in implemented_methods:
+        setattr(self, k, copy.deepcopy(v))
 
-    return logs
+  def on_batch_end(self, batch, logs=None):
+    LogsAverager.__init__(self)
+    if version_utils.tf_version_below_equal('2.1'):
+      averaged_logs = self.average_specific_metrics(logs, self.params['metrics'])
+    else:
+      averaged_logs = self.average_logs(logs)
+
+    super().on_batch_end(batch, averaged_logs)
+
+  def on_epoch_end(self, epoch, logs=None):
+    LogsAverager.__init__(self)
+    averaged_logs = self.average_logs(logs)
+    super().on_epoch_end(epoch, averaged_logs)
