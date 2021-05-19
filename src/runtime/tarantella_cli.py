@@ -221,31 +221,35 @@ class TarantellaCLI:
     return file_man.GPIScriptFile(header, environment, command, dir = os.getcwd())
 
   def run(self, dry_run = False):
-    with self.hostfile, self.executable_script:
-      command_list = ["gaspi_run", "-n", str(self.nranks),
-                      "-m", self.hostfile.name,
-                      self.executable_script.filename]
+    if self.args.clean_up:
+      logger.warn("Running Cleanup")
+      self.clean_up_run() 
+    else:
+      with self.hostfile, self.executable_script:
+        command_list = ["gaspi_run", "-n", str(self.nranks),
+                        "-m", self.hostfile.name,
+                        self.executable_script.filename]
 
-      if dry_run:
-        print(generate_dry_run_message(command_list, self.hostfile.name,
-                                       self.executable_script.filename))
-        return
+        if dry_run:
+          print(generate_dry_run_message(command_list, self.hostfile.name,
+                                        self.executable_script.filename))
+          return
 
-      path_to_gpi = shutil.which("gaspi_run")
-      if path_to_gpi is None:
-        sys.exit("[TNT_CLI] Cannot execute `gaspi_run`; make sure it is added to the current `PATH`.")
+        path_to_gpi = shutil.which("gaspi_run")
+        if path_to_gpi is None:
+          sys.exit("[TNT_CLI] Cannot execute `gaspi_run`; make sure it is added to the current `PATH`.")
 
-      try:
-        result = subprocess.run(command_list,
-                    check = True,
-                    cwd = os.getcwd(),
-                    stdout = None, stderr = None,)
-      except (subprocess.CalledProcessError) as e:
-        sys.exit(generate_run_error_message(e, self.hostfile.name,
-                                            self.executable_script.filename))
-      except (KeyboardInterrupt) as e:
-        logger.warn('KeyboardInterrupt : running cleanup')
-        self.clean_up_run()
+        try:
+          result = subprocess.run(command_list,
+                      check = True,
+                      cwd = os.getcwd(),
+                      stdout = None, stderr = None,)
+        except (subprocess.CalledProcessError) as e:
+          sys.exit(generate_run_error_message(e, self.hostfile.name,
+                                              self.executable_script.filename))
+        except (KeyboardInterrupt) as e:
+          logger.warn('KeyboardInterrupt : running cleanup')
+          self.clean_up_run()
   
   def clean_up_run(self):
     cleanup_script = self.generate_cleanup_script()

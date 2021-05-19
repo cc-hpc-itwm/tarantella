@@ -28,7 +28,6 @@ def get_pid_by_name(process_name):
       skip_pid = list(args.skip_gaspi_pid) if not isinstance(args.skip_gaspi_pid, list) else args.skip_gaspi_pid
     # skip the current process from terminating
     skip_pid.append(os.getpid())
-    print(f"Gaspi Rank : {args.gaspi_rank}, pids skipped : {skip_pid}")
     result = [int(res) for res in result.split('\n')[:-1] if int(res) not in skip_pid]
   except (subprocess.CalledProcessError) as e:
     sys.exit(f"[TNT_CLI] Error occured while getting process ids of GPI processes") 
