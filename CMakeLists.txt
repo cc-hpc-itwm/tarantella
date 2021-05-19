@@ -10,7 +10,6 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "-O3 -Wall -Wextra -Werror")
 
-option(LINK_IB "Defines whether to link against Infiniband drivers [default: disabled]" off)
 option(ENABLE_TESTING "Compile tests [default: disabled]" off)
 option(BUILD_DOCS "Build documentation [default: disabled]" off)
 
