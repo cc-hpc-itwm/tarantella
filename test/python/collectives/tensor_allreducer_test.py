@@ -2,6 +2,8 @@ import tarantella as tnt
 
 import tensorflow as tf
 import numpy as np
+import math
+
 import pytest
 
 class TestTensorAllreducer:
@@ -150,3 +152,18 @@ class TestTensorAllreducer:
 
     assert { k: tf.is_tensor(v) for k, v in output_dict.items() }
     assert { k: v == expected_value for k, v in output_dict.items() }
+
+  @pytest.mark.parametrize("array_length", [35])
+  @pytest.mark.parametrize("nan_index", [12])
+  @pytest.mark.parametrize("inf_index", [29])
+  def test_array_inf_nan(self, array_length, nan_index, inf_index):
+    input_array = np.ones(shape=(array_length, 1), dtype=np.float32)
+
+    if tnt.is_master_rank():
+      input_array[nan_index] = math.nan
+      input_array[inf_index] = math.inf
+
+    allreducer = tnt.TensorAllreducer(input_array)
+    output_array = allreducer.allreduce(input_array)
+
+    assert np.isnan(output_array[nan_index]) and np.isinf(output_array[inf_index])
