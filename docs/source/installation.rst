@@ -31,9 +31,13 @@ Installing GPI-2
 ^^^^^^^^^^^^^^^^
 
 Next, you will need to download, compile and install the GPI-2 library.
-The currently supported version is ``v1.4.0``, which needs to be built with
-position independent flags (``-fPIC``).
+GPI-2 is an API for high-performance, asynchronous communication for large scale
+applications, based on the
+`GASPI (Global Address Space Programming Interface) standard <http://www.gaspi.de>`_.
 
+
+The currently supported versions are ``v1.4-1.5``, which need to be built with
+position independent flags (``-fPIC``).
 To download the required version, clone the
 `git repository <https://github.com/cc-hpc-itwm/GPI-2.git>`_
 and checkout the correct ``tag``:
@@ -43,7 +47,7 @@ and checkout the correct ``tag``:
   git clone https://github.com/cc-hpc-itwm/GPI-2.git
   cd GPI-2
   git fetch --tags
-  git checkout -b v1.4.0 v1.4.0
+  git checkout -b v1.5.0 v1.5.0
 
 Now, use `autotools <https://www.gnu.org/software/automake/>`_ to configure and compile the code:
 
