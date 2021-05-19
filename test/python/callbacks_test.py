@@ -142,3 +142,12 @@ class TestsDataParallelCallbacks:
       tnt_metrics = util.get_metric_values_from_file(tnt_filename)
       ref_metrics = util.get_metric_values_from_file(ref_filename)
       assert np.allclose(tnt_metrics, ref_metrics, atol = 1e-6)
+
+  @pytest.mark.parametrize("number_epochs", [1])
+  def test_terminate_callback(self, model_runners, number_epochs):
+    callbacks = [tf.keras.callbacks.TerminateOnNaN()]
+    tnt_history, ref_history = self.train_tnt_and_ref_models_with_callbacks(
+                                       callbacks, model_runners, number_epochs)
+
+    for key in ref_history.history.keys():
+      assert all(np.isclose(tnt_history.history[key], ref_history.history[key], atol=1e-6))
