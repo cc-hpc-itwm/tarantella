@@ -168,7 +168,7 @@ def build_microbatched_datasets_real(endpoint_type, datasets, num_micro_batches,
 def build_microbatched_datasets_edge(endpoint_type, partition_info, num_micro_batches, micro_batch_size):
   microbatched_datasets = list()
   edge_data_value = 0.0
-  for edge_info in partition_info.get_infos(endpoint_type):
+  for edge_id, edge_info in sorted(partition_info.get_infos(endpoint_type).items()):
     dataset = tf.data.Dataset.from_tensors(
       tf.constant(edge_data_value, shape=edge_info.shape[1:], dtype=edge_info.dtype))
     # FIXME:

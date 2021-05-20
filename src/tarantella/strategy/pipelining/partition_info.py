@@ -65,10 +65,10 @@ class PartitionInfo:
   def __init__(self, partition_id, partition_graph = None):
     # build input/output info lists based on the partition graph of the keras model
     self.partition_id = partition_id
-    self.real_input_infos = []
-    self.edge_input_infos = []
-    self.real_output_infos = []
-    self.edge_output_infos = []
+    self.real_input_infos = dict()
+    self.edge_input_infos = dict()
+    self.real_output_infos = dict()
+    self.edge_output_infos = dict()
     self._fill_in_endpoint_infos(partition_graph)
 
   @property
@@ -78,23 +78,34 @@ class PartitionInfo:
   def _fill_in_endpoint_infos(self, partition_graph):
     if partition_graph is None:
       return
-    for node_name, node_info in sorted(partition_graph.nodes.items()):
+
+    index_input = 0
+    index_output = 0
+    for node_name in sorted(partition_graph.nodes.keys()):
+      node_info = partition_graph.nodes[node_name]
+
       if 'connection_id' in node_info:  # edge node in the partitions graph
         endpoint_info = build_endpoint_info(partition_graph, node_name, 'connection_id')
         if partition_graph.in_degree(node_name) == 0: # input node
           assert node_info['class_name'] == 'InputLayer'
-          self.edge_input_infos.append(endpoint_info)
+          self.edge_input_infos[index_input] = endpoint_info
+          index_input += 1
         else: # output node (can be any node in the graph)
-          self.edge_output_infos.append(endpoint_info)
+          self.edge_output_infos[index_output] = endpoint_info
+          index_output += 1
+
       elif 'original_input_id' in node_info:
         endpoint_info = build_endpoint_info(partition_graph, node_name, 'original_input_id')
         assert partition_graph.in_degree(node_name) == 0 # input node
         assert node_info['class_name'] == 'InputLayer'
-        self.real_input_infos.append(endpoint_info)
+        self.real_input_infos[index_input] = endpoint_info
+        index_input += 1
+
       elif 'original_output_id' in node_info:
         endpoint_info = build_endpoint_info(partition_graph, node_name, 'original_output_id')
         assert partition_graph.out_degree(node_name) == 0 # output node
-        self.real_output_infos.append(endpoint_info)
+        self.real_output_infos[index_output] = endpoint_info
+        index_output += 1
 
   def get_real_ids(self, endpoint_direction):
     if endpoint_direction == EndpointDirection.inp:
@@ -103,7 +114,7 @@ class PartitionInfo:
       partition_infos = self.real_output_infos
     else:
       partition_infos = []
-    return [endpoint_info.endpoint_id for endpoint_info in partition_infos]
+    return [endpoint_info.endpoint_id for endpoint_info in partition_infos.values()]
 
   def get_edge_ids(self, endpoint_direction):
     if endpoint_direction == EndpointDirection.inp:
@@ -112,7 +123,7 @@ class PartitionInfo:
       partition_infos = self.edge_output_infos
     else:
       partition_infos = []
-    return [endpoint_info.endpoint_id for endpoint_info in partition_infos]
+    return [endpoint_info.endpoint_id for endpoint_info in partition_infos.values()]
 
   def get_infos(self, endpoint_type):
     if endpoint_type == EndpointType.inp:
@@ -123,6 +134,20 @@ class PartitionInfo:
       return self.real_output_infos
     elif endpoint_type == EndpointType.out_edge:
       return self.edge_output_infos
+
+  def get_endpoint_type(self, endpoint_direction, endpoint_index_in_partition):
+    if endpoint_direction == EndpointDirection.inp:
+      if endpoint_index_in_partition in self.real_input_infos:
+        return EndpointType.inp
+      elif endpoint_index_in_partition in self.edge_input_infos:
+        return EndpointType.inp_edge
+    else:
+      if endpoint_index_in_partition in self.real_output_infos:
+        return EndpointType.out
+      elif endpoint_index_in_partition in self.edge_output_infos:
+        return EndpointType.out_edge
+    raise ValueError("[get_endpoint_type] Incorrect endpoint index:"
+                    f"{endpoint_index_in_partition} within the partition")
 
   def __eq__(self, other):
     return self.real_input_infos == other.real_input_infos and \

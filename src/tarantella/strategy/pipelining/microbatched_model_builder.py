@@ -117,10 +117,10 @@ class MicrobatchedModelBuilder(model_builder.ModelBuilder):
     micro_batched_inputs = {}
     for mbatch_id in range(self.number_micro_batches):
       micro_batched_inputs[mbatch_id] = []
-      for index, info in enumerate(input_infos):
+      for index, info in sorted(input_infos.items()):
         input_name = dataset_utils.create_name_micro_batched_layer(self.partition_info.pid,
                                     element_type = endpoint_type,
-                                    layer_id = index, # index within the real inputs
+                                    layer_id = index, # index within the real inputs of the partition
                                     micro_batch_id = mbatch_id)
         micro_batched_inputs[mbatch_id] += [keras.Input(shape = info.shape[1:], dtype = info.dtype,
                                                         name=input_name)]
@@ -170,7 +170,7 @@ class MicrobatchedModelBuilder(model_builder.ModelBuilder):
     microbatched_objectives = dict()
     output_infos = self.partition_info.get_infos(endpoint_type)
 
-    for local_endpoint_id, out_info in enumerate(output_infos):
+    for local_endpoint_id, out_info in sorted(output_infos.items()):
       for mbatch_id in range(self.number_micro_batches):
         output_name = dataset_utils.create_name_micro_batched_layer(self.partition_info.pid,
                                                                     element_type = endpoint_type,
@@ -214,7 +214,7 @@ class MicrobatchedModelBuilder(model_builder.ModelBuilder):
     microbatched_loss_weights = dict()
     output_infos = self.partition_info.get_infos(endpoint_type)
 
-    for index, out_info in enumerate(output_infos):
+    for index, out_info in sorted(output_infos.items()):
       for mbatch_id in range(self.number_micro_batches):
         output_name = dataset_utils.create_name_micro_batched_layer(self.partition_info.pid,
                                                                     element_type = endpoint_type,
