@@ -33,26 +33,26 @@ def alexnet_partition_info(ref_model, rank):
     partition_info = pinfo.PartitionInfo('0')
 
     in_0 = pinfo.EndpointInfo(0, ref_model.inputs[0].shape, tf.float32)
-    partition_info.real_input_infos = [in_0]
+    partition_info.real_input_infos = {0 : in_0}
 
     out_edge_0 = pinfo.EndpointInfo(0, ref_model.get_layer('split_layer0').output.shape, tf.float32)
-    partition_info.edge_output_infos = [out_edge_0]
+    partition_info.edge_output_infos = {0 : out_edge_0}
 
   elif rank == p_1_rank:
     partition_info = pinfo.PartitionInfo('1')
     in_edge_0 = pinfo.EndpointInfo(0, ref_model.get_layer('split_layer0').output.shape, tf.float32)
-    partition_info.edge_input_infos = [in_edge_0]
+    partition_info.edge_input_infos = {0 : in_edge_0}
 
     out_edge_0 = pinfo.EndpointInfo(1, ref_model.get_layer('split_layer1').output.shape, tf.float32)
-    partition_info.edge_output_infos = [out_edge_0]
+    partition_info.edge_output_infos = {0 : out_edge_0}
 
   elif rank == p_2_rank:
     partition_info = pinfo.PartitionInfo('2')
     in_edge_0 = pinfo.EndpointInfo(1, ref_model.get_layer('split_layer1').output.shape, tf.float32)
-    partition_info.edge_input_infos = [in_edge_0]
+    partition_info.edge_input_infos = {0 : in_edge_0}
 
     out_0 = pinfo.EndpointInfo(0, ref_model.outputs[0].shape, tf.float32)
-    partition_info.real_output_infos = [out_0]
+    partition_info.real_output_infos = {0 : out_0}
   return partition_info
 
 def alexnet_partitioned_core_model(rank):
@@ -105,17 +105,17 @@ def fc_partition_info(ref_model, rank):
     partition_info = pinfo.PartitionInfo('0')
 
     in_0 = pinfo.EndpointInfo(0, ref_model.inputs[0].shape, tf.float32)
-    partition_info.real_input_infos = [in_0]
+    partition_info.real_input_infos = {0 : in_0}
     out_edge_0 = pinfo.EndpointInfo(0, ref_model.get_layer('split_layer1').output.shape, tf.float32)
-    partition_info.edge_output_infos = [out_edge_0]
+    partition_info.edge_output_infos = {0 : out_edge_0}
 
   elif rank == p_1_rank:
     partition_info = pinfo.PartitionInfo('1')
     in_edge_0 = pinfo.EndpointInfo(0, ref_model.get_layer('split_layer1').output.shape, tf.float32)
-    partition_info.edge_input_infos = [in_edge_0]
+    partition_info.edge_input_infos = {0 : in_edge_0}
 
     out_0 = pinfo.EndpointInfo(0, ref_model.outputs[0].shape, tf.float32)
-    partition_info.real_output_infos = [out_0]
+    partition_info.real_output_infos = {0 : out_0}
   return partition_info
 
 
@@ -159,28 +159,28 @@ def skip_connection_partition_info(ref_model, rank):
   if rank == p_0_rank:
     partition_info = pinfo.PartitionInfo('0')
     in_0 = pinfo.EndpointInfo(0, ref_model.inputs[0].shape, tf.float32)
-    partition_info.real_input_infos = [in_0]
+    partition_info.real_input_infos = {0 : in_0}
 
     out_edge_0 = pinfo.EndpointInfo(0, ref_model.get_layer('split_layer0').output.shape, tf.float32)
     out_edge_1 = pinfo.EndpointInfo(1, ref_model.get_layer('split_layer1').output.shape, tf.float32)
-    partition_info.edge_output_infos = [out_edge_0, out_edge_1]
+    partition_info.edge_output_infos = {0 : out_edge_0, 1 : out_edge_1}
 
   elif rank == p_1_rank:
     partition_info = pinfo.PartitionInfo('1')
     in_edge_0 = pinfo.EndpointInfo(0, ref_model.get_layer('split_layer0').output.shape, tf.float32)
-    partition_info.edge_input_infos = [in_edge_0]
+    partition_info.edge_input_infos = {0 : in_edge_0}
 
     out_edge_0 = pinfo.EndpointInfo(2, ref_model.get_layer('split_layer2').output.shape, tf.float32)
-    partition_info.edge_output_infos = [out_edge_0]
+    partition_info.edge_output_infos = {0 : out_edge_0}
 
   elif rank == p_2_rank:
     partition_info = pinfo.PartitionInfo('2')
     in_edge_0 = pinfo.EndpointInfo(1, ref_model.get_layer('split_layer1').output.shape, tf.float32)
     in_edge_1 = pinfo.EndpointInfo(2, ref_model.get_layer('split_layer2').output.shape, tf.float32)
-    partition_info.edge_input_infos = [in_edge_0, in_edge_1]
+    partition_info.edge_input_infos = {0 : in_edge_0, 1 : in_edge_1}
 
     out_0 = pinfo.EndpointInfo(0, ref_model.outputs[0].shape, tf.float32)
-    partition_info.real_output_infos = [out_0]
+    partition_info.real_output_infos = {0 : out_0}
   return partition_info
 
 def skip_connection_partitioned_core_model(rank):
@@ -235,31 +235,31 @@ def multi_input_partition_info(ref_model, rank):
   if rank == p_0_rank:
     partition_info = pinfo.PartitionInfo('0')
     in_0 = pinfo.EndpointInfo(0, ref_model.inputs[0].shape, tf.float32)
-    partition_info.real_input_infos = [in_0]
+    partition_info.real_input_infos = {0 : in_0}
 
     out_edge_0 = pinfo.EndpointInfo(0, ref_model.get_layer('split_layer0').output.shape, tf.float32)
     out_edge_1 = pinfo.EndpointInfo(1, ref_model.get_layer('split_layer1').output.shape, tf.float32)
-    partition_info.edge_output_infos = [out_edge_0, out_edge_1]
+    partition_info.edge_output_infos = {0 : out_edge_0, 1 : out_edge_1}
 
   elif rank == p_1_rank:
     partition_info = pinfo.PartitionInfo('1')
     in_edge_0 = pinfo.EndpointInfo(0, ref_model.get_layer('split_layer0').output.shape, tf.float32)
-    partition_info.edge_input_infos = [in_edge_0]
+    partition_info.edge_input_infos = {0 : in_edge_0}
 
     out_edge_0 = pinfo.EndpointInfo(2, ref_model.get_layer('split_layer2').output.shape, tf.float32)
-    partition_info.edge_output_infos = [out_edge_0]
+    partition_info.edge_output_infos = {0 : out_edge_0}
 
   elif rank == p_2_rank:
     partition_info = pinfo.PartitionInfo('2')
     in_0 = pinfo.EndpointInfo(1, ref_model.inputs[1].shape, tf.float32)
-    partition_info.real_input_infos = [in_0]
+    partition_info.real_input_infos = {0 : in_0}
 
     in_edge_0 = pinfo.EndpointInfo(1, ref_model.get_layer('split_layer1').output.shape, tf.float32)
     in_edge_1 = pinfo.EndpointInfo(2, ref_model.get_layer('split_layer2').output.shape, tf.float32)
-    partition_info.edge_input_infos = [in_edge_0, in_edge_1]
+    partition_info.edge_input_infos = {1 : in_edge_0, 2 : in_edge_1}
 
     out_0 = pinfo.EndpointInfo(0, ref_model.outputs[0].shape, tf.float32)
-    partition_info.real_output_infos = [out_0]
+    partition_info.real_output_infos = {0 : out_0}
   return partition_info
 
 def multi_input_partitioned_core_model(rank):
@@ -310,20 +310,20 @@ def multi_output_partition_info(ref_model, rank):
     partition_info = pinfo.PartitionInfo('0')
 
     in_0 = pinfo.EndpointInfo(0, ref_model.inputs[0].shape, tf.float32)
-    partition_info.real_input_infos = [in_0]
+    partition_info.real_input_infos = {0 : in_0}
     out_edge_0 = pinfo.EndpointInfo(0, ref_model.get_layer('ten_classes').output.shape, tf.float32)
     out_edge_1 = pinfo.EndpointInfo(1, ref_model.get_layer('two_classes').output.shape, tf.float32)
-    partition_info.edge_output_infos = [out_edge_0, out_edge_1]
+    partition_info.edge_output_infos = {0 : out_edge_0, 1 : out_edge_1}
 
   elif rank == p_1_rank:
     partition_info = pinfo.PartitionInfo('1')
     in_edge_0 = pinfo.EndpointInfo(0, ref_model.get_layer('ten_classes').output.shape, tf.float32)
     in_edge_1 = pinfo.EndpointInfo(1, ref_model.get_layer('two_classes').output.shape, tf.float32)
-    partition_info.edge_input_infos = [in_edge_0, in_edge_1]
+    partition_info.edge_input_infos = {0 : in_edge_0, 1 : in_edge_1}
 
     out_0 = pinfo.EndpointInfo(0, ref_model.outputs[0].shape, tf.float32)
     out_1 = pinfo.EndpointInfo(1, ref_model.outputs[1].shape, tf.float32)
-    partition_info.real_output_infos = [out_0, out_1]
+    partition_info.real_output_infos = {0 : out_0, 1 : out_1}
   return partition_info
 
 def multi_output_partitioned_core_model(rank):
@@ -361,9 +361,9 @@ def simple_partition_info(ref_model, rank):
   partition_info = pinfo.PartitionInfo('0')
 
   in_0 = pinfo.EndpointInfo(0, ref_model.inputs[0].shape, tf.float32)
-  partition_info.real_input_infos = [in_0]
+  partition_info.real_input_infos = {0 : in_0}
   out_0 = pinfo.EndpointInfo(0, ref_model.outputs[0].shape, tf.float32)
-  partition_info.real_output_infos = [out_0]
+  partition_info.real_output_infos = {0 : out_0}
   return partition_info
 
 def simple_partitioned_core_model(rank):

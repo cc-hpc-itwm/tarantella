@@ -34,7 +34,7 @@ rank = tnt.get_rank()
 
 
 def get_reference_model():
-  tf.random.set_seed(42)
+  util.set_tf_random_seed()
   reference_input = keras.Input(shape=(28,28,1,), name='reference_input')
   reference_x = layers.Flatten()(reference_input)
   reference_x = layers.Dense(fc_units, activation='relu', name='dense_relu')(reference_x)
@@ -46,7 +46,7 @@ def get_reference_model():
 
 def get_partitioned_core_model():
   # --- core model on partition 0
-  tf.random.set_seed(42) # reset seed, so initial weights are same as for the reference model
+  util.set_tf_random_seed() # reset seed, so initial weights are same as for the reference model
   p_0_core_input = keras.Input(shape=(28,28,1,)) # may be more than one
   p_0_core_x = layers.Flatten()(p_0_core_input)
   p_0_core_output_0 = layers.Dense(fc_units, activation='relu', name='dense_relu'+'_0')(p_0_core_x)
@@ -81,25 +81,25 @@ def get_partition_info(core_model):
     partition_info = pinfo.PartitionInfo(p_0_id)
 
     in_0 = pinfo.EndpointInfo(0, core_model.inputs[0].shape, tf.float32)
-    partition_info.real_input_infos = [in_0]
-    partition_info.edge_input_infos = []
-    partition_info.real_output_infos = []
+    partition_info.real_input_infos = {0 : in_0}
+    partition_info.edge_input_infos = {}
+    partition_info.real_output_infos = {}
 
     out_edge_0 = pinfo.EndpointInfo(0, core_model.outputs[0].shape, tf.float32)
     out_edge_1 = pinfo.EndpointInfo(1, core_model.outputs[1].shape, tf.float32)
-    partition_info.edge_output_infos = [out_edge_0, out_edge_1]
+    partition_info.edge_output_infos = {0 : out_edge_0, 1 : out_edge_1}
 
   elif rank == p_1_rank:
     partition_info = pinfo.PartitionInfo(p_1_id)
-    partition_info.real_input_infos = []
+    partition_info.real_input_infos = {}
 
     in_edge_0 = pinfo.EndpointInfo(0, core_model.inputs[0].shape, tf.float32)
     in_edge_1 = pinfo.EndpointInfo(1, core_model.inputs[1].shape, tf.float32)
-    partition_info.edge_input_infos = [in_edge_0, in_edge_1]
+    partition_info.edge_input_infos = {0 : in_edge_0, 1 : in_edge_1}
 
     out_0 = pinfo.EndpointInfo(0, core_model.outputs[0].shape, tf.float32)
-    partition_info.real_output_infos = [out_0]
-    partition_info.edge_output_infos = []
+    partition_info.real_output_infos = {0 : out_0}
+    partition_info.edge_output_infos = {}
   return partition_info
 
 
