@@ -26,8 +26,6 @@ class SynchDistributedOptimizer(wrapper.OptimizerWrapper):
   # customized gradient reduction method used by `keras.model.fit`
   # cf. https://github.com/tensorflow/tensorflow/blob/b36436b087bd8e8701ef51718179037cccdfc26e/tensorflow/python/keras/engine/training.py#L2696
   def _aggregate_gradients(self, grads_and_vars):
-    
-    #if scaling factor is not 1.0, scaling all the grad
     grad,var = zip(*grads_and_vars)
     grad = list(grad)
     for i in range(len(grad)):

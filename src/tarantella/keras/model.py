@@ -193,7 +193,6 @@ class Model(tf.keras.models.Model):
       ##generate callback for scaling factor
       dataset_callback = distributed_x.generate_callback_if_have()
       if dataset_callback is not None:
-        print("dataset callback is generated")
         processed_callbacks.append(dataset_callback)
      
     else:

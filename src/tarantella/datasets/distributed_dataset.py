@@ -109,9 +109,6 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
       num_padded = num_samples - int(num_samples // real_batch_size)*real_batch_size
       self.special_global_batch_size = num_padded
       
-      print("dataset is padded, num_sample is ", num_samples)
-      print("the real final batch size is ",num_padded)
-      
       self.special_my_size = num_padded//self.num_ranks
       
       padded = False
@@ -123,13 +120,10 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
       if self.rank + 1 <= extra:
         self.special_my_size = self.special_my_size + 1
       
-      print("my micro in real size is", self.special_my_size)
       self.special_iteration = num_samples//real_batch_size
-      print("the special factor apply to iteration,", self.special_iteration)
         
       if padded:
         num_padded = self.num_ranks - num_padded
-        print("num of pad ",num_padded)
         rest_dataset = dataset.take(2*self.num_ranks - num_padded)
         logger.info("Dataset is padded with {} elements.".format(
                 num_padded))
@@ -167,9 +161,6 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
       self.normal_factor = self.micro_batch_size * self.num_ranks / batch_size
       if self.rank != 0:
         dataset = dataset.skip(self.rank)
-      print("data.window() is used, factor is ", self.normal_factor)
-      print("my micro_batch_size is ",self.micro_batch_size)
-      print("global batch size is ", batch_size)
       dataset = dataset.window(size = self.micro_batch_size,shift = batch_size,stride = self.num_ranks,drop_remainder = False)
       dataset = dataset.interleave(self.create_seqeunce_ds,
                                    cycle_length = 8,num_parallel_calls = 8)
