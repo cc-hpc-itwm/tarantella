@@ -80,7 +80,7 @@ def model_and_partitions(request):
   yield model, partition_generator, request.param['num_partitions'], \
         request.param['expected_pinfo'], request.param['core_models']
 
-@pytest.mark.tfversion(['2.2', '2.3', '2.4'])
+@pytest.mark.min_tfversion('2.2')
 class TestPartitionGenerator:
 
   def test_number_partitions(self, model_and_partitions):

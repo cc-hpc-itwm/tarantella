@@ -9,7 +9,7 @@ from tensorflow.keras import layers
 import numpy as np
 import pytest
 
-@pytest.mark.tfversion(['2.2', '2.3', '2.4'])
+@pytest.mark.min_tfversion('2.2')
 class TestPipelineLayers:
 
   test_case_list = [

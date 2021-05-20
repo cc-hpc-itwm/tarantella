@@ -60,7 +60,7 @@ def to_microbatched(model, micro_batch_size, num_micro_batches, num_batches, num
                                   num_batches, num_test_batches, partition_info)
   return microbatched_model_builder, ds
 
-@pytest.mark.tfversion(['2.2', '2.3', '2.4'])
+@pytest.mark.min_tfversion('2.2')
 class TestPipeline_SplitPartitions_AutoMicrobatching:
 
   @pytest.mark.parametrize("model_generator", [simple_model_generator])

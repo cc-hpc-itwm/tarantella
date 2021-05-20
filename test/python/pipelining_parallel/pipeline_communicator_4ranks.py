@@ -49,7 +49,7 @@ def get_other_rank(partition, conn_id):
   other_rank = ranks_in_conn[0] if ranks_in_conn[1] == tnt.get_rank() else ranks_in_conn[1]
   return other_rank
 
-@pytest.mark.tfversion(['2.2', '2.3', '2.4'])
+@pytest.mark.min_tfversion('2.2')
 class TestPipelineCommunicator:
 
   @pytest.mark.parametrize("partition", partition_test_cases)
