@@ -3,7 +3,6 @@ import tensorflow as tf
 from tensorflow import keras
 
 import tarantella as tnt
-tnt.init()
 
 def parse_args():
   parser = argparse.ArgumentParser()

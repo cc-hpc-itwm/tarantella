@@ -6,8 +6,10 @@ Installation
 Tarantella needs to be built `from source <https://github.com/cc-hpc-itwm/tarantella>`_.
 Since Tarantella is built on top of `TensorFlow 2 <https://www.tensorflow.org/>`_,
 you will require a recent version of it. Additionally, you will need an installation of
-the open-source communication library `GPI-2 <http://www.gpi-site.com/>`_, which Tarantella uses
-to communicate between processes.
+the open-source communication libraries `GaspiCxx <https://github.com/cc-hpc-itwm/GaspiCxx>`_
+and `GPI-2 <http://www.gpi-site.com/>`_,
+which Tarantella uses to implement distributed training.
+
 Lastly, you will need `pybind11 <https://github.com/pybind/pybind11>`_, which is required
 for Python and C++ inter-communication.
 
@@ -29,9 +31,13 @@ Installing GPI-2
 ^^^^^^^^^^^^^^^^
 
 Next, you will need to download, compile and install the GPI-2 library.
-The currently supported version is ``v1.4.0``, which needs to be built with
-position independent flags (``-fPIC``).
+GPI-2 is an API for high-performance, asynchronous communication for large scale
+applications, based on the
+`GASPI (Global Address Space Programming Interface) standard <http://www.gaspi.de>`_.
 
+
+The currently supported versions are ``v1.4-1.5``, which need to be built with
+position independent flags (``-fPIC``).
 To download the required version, clone the
 `git repository <https://github.com/cc-hpc-itwm/GPI-2.git>`_
 and checkout the correct ``tag``:
@@ -41,9 +47,9 @@ and checkout the correct ``tag``:
   git clone https://github.com/cc-hpc-itwm/GPI-2.git
   cd GPI-2
   git fetch --tags
-  git checkout -b v1.4.0 v1.4.0
+  git checkout -b v1.5.0 v1.5.0
 
-Now, use `autotools <https://www.gnu.org/software/automake/>`_ to configure and compile the code
+Now, use `autotools <https://www.gnu.org/software/automake/>`_ to configure and compile the code:
 
 .. code-block:: bash
 
@@ -59,7 +65,7 @@ This is the correct option for laptops and workstations.
 .. _gpi-build-infiniband-label:
 
 In case you want to use Infiniband, replace the above option with ``--with-infiniband``.
-Now you are ready to install GPI-2 with
+Now you are ready to install GPI-2 with:
 
 .. code-block:: bash
 
@@ -69,6 +75,44 @@ Now you are ready to install GPI-2 with
 
 where the last two commands make the library visible to your system.
 If required, GPI-2 can be removed from the target directory by using ``make uninstall``.
+
+.. _gaspicxx-install-label:
+
+Installing GaspiCxx
+^^^^^^^^^^^^^^^^^^^
+
+GaspiCxx is a C++ abstraction layer built on top of the GPI-2 library,
+which provides easy-to-use point-to-point and collective communication primitives.
+Tarantella's communication layer is based on GaspiCxx.
+Currently we support GaspiCxx version v1.0.0.
+
+To install GaspiCxx, first download the latest release from the
+`git repository <https://github.com/cc-hpc-itwm/GaspiCxx>`_:
+
+.. code-block:: bash
+
+  git clone https://github.com/cc-hpc-itwm/GaspiCxx.git
+  cd GaspiCxx
+  git fetch --tags
+  git checkout -b v1.0.0 v1.0.0
+
+GaspiCxx requires an already installed version of GPI-2, which should be detected at
+configuration time (as long as ``${GPI2_INSTALLATION_PATH}/bin`` is added to the current
+``${PATH}`` as shown :ref:`above <gpi2-install-label>`).
+
+Compile and install the library as follows:
+
+.. code-block:: bash
+
+  mkdir build && cd build
+  export GASPICXX_INSTALLATION_PATH=/your/installation/path
+  cmake -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=${GASPICXX_INSTALLATION_PATH} ../
+  make
+  make install
+
+where ``${GASPICXX_INSTALLATION_PATH}`` needs to be set to the path where you want to install
+the library.
+
 
 Installing TensorFlow 2
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -86,12 +130,12 @@ Then, create and activate an environment for Tarantella:
   conda create -n tarantella
   conda activate tarantella
 
-Now, you can install the latest supported TensorFlow version with
+Now, you can install the latest supported TensorFlow version with:
 
 .. code-block:: bash
 
   conda install python=3.8
-  pip install --upgrade tensorflow==2.4
+  pip install --upgrade tensorflow==2.4.*
 
 Tarantella requires at least Python ``3.7``. Make sure the selected version also matches
 the `TensorFlow requirements <https://www.tensorflow.org/install>`_.
@@ -138,46 +182,15 @@ in it:
   cd tarantella
   mkdir build && cd build
   export TARANTELLA_INSTALLATION_PATH=/your/installation/path
-  cmake -DCMAKE_INSTALL_PREFIX=${TARANTELLA_INSTALLATION_PATH} ../
+  cmake -DCMAKE_INSTALL_PREFIX=${TARANTELLA_INSTALLATION_PATH} \
+        -DCMAKE_PREFIX_PATH=${GASPICXX_INSTALLATION_PATH} ../
 
-This will configure your installation to use Ethernet as the underlying
-communication interconnect. To install Tarantella on a cluster equipped
-with Infiniband capabilities, follow the guidelines in the
-:ref:`next section <tnt-build-infiniband-label>`.
+This will configure your installation to use the previously installed GPI-2 and GaspiCxx
+libraries. To install Tarantella on a cluster equipped with Infiniband capabilities,
+make sure that GPI-2 is installed with Infiniband support as shown
+:ref:`here <gpi-build-infiniband-label>`.
 
 Now, we can compile and install Tarantella to ``TARANTELLA_INSTALLATION_PATH``:
-
-.. code-block:: bash
-
-  make
-  make install
-  export PATH=${TARANTELLA_INSTALLATION_PATH}/bin:${PATH}
-
-
-.. _tnt-build-infiniband-label:
-
-[Optional] Building Tarantella with Infiniband support
-------------------------------------------------------
-
-To install Tarantella with Infiniband communication backend, first
-download the code as in the previous section:
-
-.. code-block:: bash
-
-  git clone https://github.com/cc-hpc-itwm/tarantella.git
-
-Make sure that GPI-2 is installed with Infiniband support as shown
-:ref:`here <gpi-build-infiniband-label>`.
-Then, configure Tarantella using CMake in a separate ``build`` directory:
-
-.. code-block:: bash
-
-  cd tarantella
-  mkdir build && cd build
-  export TARANTELLA_INSTALLATION_PATH=/your/installation/path
-  cmake -DLINK_IB=ON -DCMAKE_INSTALL_PREFIX=${TARANTELLA_INSTALLATION_PATH} ../
-
-Finally, compile and install Tarantella as usual:
 
 .. code-block:: bash
 
@@ -220,7 +233,7 @@ After having installed these libraries, make sure to configure Tarantella with t
   export LD_LIBRARY_PATH=`pwd`:${LD_LIBRARY_PATH}
   cmake -DENABLE_TESTING=ON ../
 
-Now you can compile Tarantella and run its tests in the ``build`` directory.
+Now you can compile Tarantella and run its tests in the ``build`` directory:
 
 .. code-block:: bash
 

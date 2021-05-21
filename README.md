@@ -27,13 +27,13 @@ To run GPI programs on the local machine, make sure you can ssh to localhost wit
 
 ### Installing GPI-2
 
-Compile and install the GPI-2 library (supported version: `v1.4.0`) with position independent flags (`-fPIC`).
+Compile and install the GPI-2 library (supported versions: `v1.4.0`, `v1.5.0`) with position independent flags (`-fPIC`).
 
 ```bash
 git clone https://github.com/cc-hpc-itwm/GPI-2.git
 cd GPI-2
 git fetch --tags
-git checkout -b v1.4.0 v1.4.0
+git checkout -b v1.5.0 v1.5.0
 
 ./autogen.sh 
 CFLAGS="-fPIC" CPPFLAGS="-fPIC" ./configure --with-ethernet --prefix=${YOUR_INSTALLATION_PATH}
@@ -74,7 +74,7 @@ on the [TensorFlow website](https://www.tensorflow.org/install).
 ```bash
 conda activate tarantella
 conda install python=3.8
-pip install --upgrade tensorflow==2.4
+pip install --upgrade tensorflow==2.4.*
 ```
 
 ### Installing Pybind11
@@ -129,7 +129,7 @@ Finally, install Tarantella to `TARANTELLA_INSTALLATION_PATH`:
 make install
 export PATH=${TARANTELLA_INSTALLATION_PATH}/bin:${PATH}
 export LD_LIBRARY_PATH=${GPI2_INSTALLATION_PATH}/lib64:${LD_LIBRARY_PATH}
-export LD_LIBRARY_PATH=${GASPICXX_INSTALLATION_PATH}/lib64:${LD_LIBRARY_PATH}
+export LD_LIBRARY_PATH=${GASPICXX_INSTALLATION_PATH}/lib:${LD_LIBRARY_PATH}
 
 tarantella --version
 ```
@@ -154,17 +154,14 @@ ctest
 
 #### Infiniband clusters
 
-* Tarantella is compiled by default without Infiniband support.
+* Tarantella's Infiniband support depends on the `GPI-2` compile-time flags.
 * If Infiniband is available, the `GPI-2` library needs to be built with Infiniband support.
 ```bash
 ./autogen.sh
 CFLAGS="-fPIC" CPPFLAGS="-fPIC" ./configure --with-infiniband --prefix=${YOUR_INSTALLATION_PATH}
 make install
 ```
-* To build Tarantella, set the following `cmake` variable before compiling the code:
-```bash
-cmake -DLINK_IB=ON ../
-```
+* Rebuild `GaspiCxx` and Tarantella to make sure they are linked against the new `GPI-2` installation.
 
 
 ## Distributed Training with Tarantella
