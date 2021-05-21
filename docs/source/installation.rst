@@ -83,7 +83,8 @@ Installing GaspiCxx
 
 GaspiCxx is a C++ abstraction layer built on top of the GPI-2 library,
 which provides easy-to-use point-to-point and collective communication primitives.
-Tarantella's communication layer is based on GaspiCxx, starting with version ``v1.0.0``.
+Tarantella's communication layer is based on GaspiCxx.
+Currently we support GaspiCxx version v1.0.0.
 
 To install GaspiCxx, first download the latest release from the
 `git repository <https://github.com/cc-hpc-itwm/GaspiCxx>`_:
