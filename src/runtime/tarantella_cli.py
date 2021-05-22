@@ -4,6 +4,8 @@ import os
 import shutil
 import subprocess
 import sys
+import signal
+import re
 try:
   from version import tnt_version
 except:
@@ -159,6 +161,22 @@ def get_numa_prefix(npernode):
     command += f"numactl --cpunodebind=$socket --membind=$socket"
   return command
 
+def interrupt_tarantella(command_list):
+  # skip current proces id
+  skip_pid = [os.getpid()]
+  # search for all process ids
+  result = subprocess.run("ps aux".split(), stdout=subprocess.PIPE)
+  result = result.stdout.decode('utf-8')
+  # find tarantella pid
+  pids = re.findall(f"\\n\\w+\\s+(\\d+)\\s+.*python.*tarantella.*{command_list}.*\\n", result)
+  if pids != []:
+    pids = [int(pid) for pid in pids if int(pid) not in skip_pid]
+    logger.warn(f"Interrupting tarantella process with pids : {pids}")
+    for pid in pids:
+      os.kill(pid, signal.SIGINT)
+  else:
+    raise ValueError(f"Couldnt find the runnung instance of taratnella")
+
 class TarantellaCLI:
   def __init__(self, hostlist, num_gpus_per_node, num_cpus_per_node, args):
     self.args = args
@@ -221,12 +239,12 @@ class TarantellaCLI:
     return file_man.GPIScriptFile(header, environment, command, dir = os.getcwd())
 
   def run(self, dry_run = False):
-    with self.hostfile, self.executable_script:
-      try:
+    try:
+      with self.hostfile, self.executable_script:
         if self.args.clean_up:
           if self.args.hostfile is None:
             logger.warn("Hostfile not provided. Running cleanup only on master node. Provide --hostfile HOSTFILE to run cleanup on all the nodes")
-          raise KeyboardInterrupt
+          interrupt_tarantella(self.command_list)
         else:
           command_list = ["gaspi_run", "-n", str(self.nranks),
                           "-m", self.hostfile.name,
@@ -245,12 +263,12 @@ class TarantellaCLI:
                       check = True,
                       cwd = os.getcwd(),
                       stdout = None, stderr = None,)
-      except (subprocess.CalledProcessError) as e:
-        sys.exit(generate_run_error_message(e, self.hostfile.name,
-                                            self.executable_script.filename))
-      except (KeyboardInterrupt) as e:
-        logger.warn('Tarantella Interrupted : running cleanup')
-        self.clean_up_run()
+    except (subprocess.CalledProcessError) as e:
+      sys.exit(generate_run_error_message(e, self.hostfile.name,
+                                          self.executable_script.filename))
+    except (KeyboardInterrupt) as e:
+      logger.warn('Tarantella Interrupted : running cleanup')
+      self.clean_up_run()
   
   def clean_up_run(self):
     cleanup_script = self.generate_cleanup_script()
