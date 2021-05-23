@@ -169,13 +169,13 @@ def interrupt_tarantella(command_list):
   result = result.stdout.decode('utf-8')
   # find tarantella pid
   pids = re.findall(f"\\n\\w+\\s+(\\d+)\\s+.*python.*tarantella.*{command_list}.*\\n", result)
+  pids = [int(pid) for pid in pids if int(pid) not in skip_pid]
   if pids != []:
-    pids = [int(pid) for pid in pids if int(pid) not in skip_pid]
     logger.warn(f"Interrupting tarantella process with pids : {pids}")
     for pid in pids:
       os.kill(pid, signal.SIGINT)
   else:
-    raise ValueError(f"Couldnt find the runnung instance of taratnella")
+    logger.warn(f"Couldn't find the runnung instance of taratnella")
 
 class TarantellaCLI:
   def __init__(self, hostlist, num_gpus_per_node, num_cpus_per_node, args):
@@ -242,8 +242,6 @@ class TarantellaCLI:
     try:
       with self.hostfile, self.executable_script:
         if self.args.clean_up:
-          if self.args.hostfile is None:
-            logger.warn("Hostfile not provided. Running cleanup only on master node. Provide --hostfile HOSTFILE to run cleanup on all the nodes")
           interrupt_tarantella(self.command_list)
         else:
           command_list = ["gaspi_run", "-n", str(self.nranks),
