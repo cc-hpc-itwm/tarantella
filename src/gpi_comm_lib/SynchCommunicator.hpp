@@ -36,7 +36,7 @@ namespace tarantella
       void finish_allreduce_impl(GradID const&, void*);
 
     private:
-      static gaspi::collectives::ReductionOp const reduction_op = gaspi::collectives::ReductionOp::SUM;
+      static gaspi::collectives::ReductionOp const reduction_op;
 
       std::unordered_map<GradID, FusedID> fused_ids;
       std::unordered_map<FusedID, collectives::FusedTensorInfo> fused_tensor_infos;

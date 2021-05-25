@@ -6,6 +6,9 @@
 
 namespace tarantella
 {
+  gaspi::collectives::ReductionOp const SynchCommunicator::reduction_op =
+                                        gaspi::collectives::ReductionOp::SUM;
+
   void SynchCommunicator::create_fused_tensor_infos_and_ids(
     std::vector<collectives::TensorInfo> const& tensor_infos,
     std::size_t threshold_bytes)
