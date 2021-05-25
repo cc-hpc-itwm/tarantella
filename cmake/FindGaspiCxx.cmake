@@ -73,7 +73,9 @@ if(GaspiCxx_FOUND AND NOT TARGET GaspiCxx::GaspiCxx)
     find_package(GPI2 REQUIRED)
 
     add_library(GaspiCxx::GaspiCxx SHARED IMPORTED GLOBAL)
-    target_link_libraries(GaspiCxx::GaspiCxx INTERFACE GPI2::GPI2)
+    target_link_libraries(GaspiCxx::GaspiCxx
+                          INTERFACE optimized GPI2::GPI2
+                                    debug GPI2::GPI2dbg)
     target_include_directories(GaspiCxx::GaspiCxx INTERFACE ${GaspiCxx_INCLUDE_DIRS})
     set_property(TARGET GaspiCxx::GaspiCxx PROPERTY IMPORTED_LOCATION ${GaspiCxx_LIBRARIES})
 endif()
