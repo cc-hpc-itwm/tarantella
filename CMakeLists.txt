@@ -8,7 +8,7 @@ project(tarantella VERSION ${TNT_VERSION})
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_FLAGS "-O3 -Wall -Wextra -Werror")
+set(CMAKE_CXX_FLAGS "-Wall -Wextra -Werror")
 
 option(ENABLE_TESTING "Compile tests [default: disabled]" off)
 option(BUILD_DOCS "Build documentation [default: disabled]" off)
