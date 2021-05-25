@@ -1,25 +1,34 @@
 import tensorflow as tf
+import tarantella.strategy.pipelining.partition_info as pinfo
 
-def get_digraph_inputs(graph):
-  node_list = list()
-  for node_name, degree in graph.in_degree():
-    if degree == 0: # input nodes
-      node_list += [node_name]
-  return sorted(node_list)
+def get_digraph_endpoints(graph, endpoint_direction):
+  if endpoint_direction == pinfo.EndpointDirection.inp:
+    all_nodes_with_degree = graph.in_degree()
+    real_endpoint_key = 'original_input_id'
+  else:
+    all_nodes_with_degree = graph.out_degree()
+    real_endpoint_key = 'original_output_id'
 
-def get_digraph_outputs(graph):
-  node_list = list()
-  for node_name, degree in graph.out_degree():
-    if degree == 0: # output nodes
-      node_list += [node_name]
-  return sorted(node_list)
+  endpoint_nodes = [node_name for node_name, degree in all_nodes_with_degree \
+                              if degree == 0 ]
+  real_endpoints = dict()
+  conn_endpoints = dict()
+  for node_name in endpoint_nodes:
+    if real_endpoint_key in graph.nodes[node_name]:
+      real_endpoints[graph.nodes[node_name][real_endpoint_key]] = node_name
+    else:
+      conn_endpoints[graph.nodes[node_name]['connection_id']] = node_name
+
+  sorted_real_endpoints = [real_endpoints[key] for key in sorted(real_endpoints.keys())]
+  sorted_conn_endpoints = [conn_endpoints[key] for key in sorted(conn_endpoints.keys())]
+  return sorted_real_endpoints + sorted_conn_endpoints
 
 def formatted_inout_node(node_name):
   return [node_name, 0, 0]
 
 def formatted_inout(node_list):
   formatted_list = []
-  for node_name in sorted(node_list):
+  for node_name in node_list:
     formatted_list.append(formatted_inout_node(node_name))
   return formatted_list
 
@@ -28,7 +37,7 @@ def formatted_inbound_node(node_name):
 
 def formatted_inbound_nodes(inbound_nodes_list):
   inbound_nodes = []
-  for in_node in sorted(inbound_nodes_list):
+  for in_node in inbound_nodes_list:
     inbound_nodes.append(formatted_inbound_node(node_name = in_node))
   if len(inbound_nodes) == 0:
     return []
@@ -56,9 +65,11 @@ class CoreModelBuilder():
   def _to_model_config(self, partition_id, partition):
     model_config = {'layers' : [],
                     'name' : partition_id,
-                    'input_layers' : formatted_inout(get_digraph_inputs(partition)),
-                    'output_layers' : formatted_inout(get_digraph_outputs(partition)),
-                    }
+                    'input_layers' : formatted_inout(get_digraph_endpoints(
+                                                        partition, pinfo.EndpointDirection.inp)),
+                    'output_layers' : formatted_inout(get_digraph_endpoints(
+                                                        partition, pinfo.EndpointDirection.out)),
+                   }
 
     for node_name, node_info in partition.nodes.items():
       inbound_nodes = formatted_inbound_nodes(partition.predecessors(node_name))      

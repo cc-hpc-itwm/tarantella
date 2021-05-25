@@ -48,6 +48,16 @@ def formatted_inout_to_node_names(inout_list):
     node_names.append(elem[0])
   return node_names
 
+def _get_endpoint_names(model, endpoint_direction):
+  field_name = 'input_layers' if endpoint_direction == pinfo.EndpointDirection.inp \
+                              else 'output_layers'
+  endpoint_names = formatted_inout_to_node_names(model.get_config()[field_name])
+  return endpoint_names
+
+def _get_partition_endpoints(model, partition_nodes, endpoint_direction):
+  endpoint_names = _get_endpoint_names(model, endpoint_direction)
+  return [name for name in endpoint_names if name in partition_nodes]
+
 class GraphPartitionGenerator:
   def __init__(self, model):
     self.model = model
@@ -75,20 +85,16 @@ class GraphPartitionGenerator:
       for in_node in in_list:
         graph.add_edge(in_node, node)
 
-    self._add_input_ids(graph, model)
-    self._add_output_ids(graph, model)
+    self._add_endpoint_ids_by_direction(graph, model, pinfo.EndpointDirection.inp)
+    self._add_endpoint_ids_by_direction(graph, model, pinfo.EndpointDirection.out)
     return graph
 
-  def _add_input_ids(self, graph, model):
-    input_names = formatted_inout_to_node_names(model.get_config()['input_layers'])
-    for index, layer_name in enumerate(input_names):
-      graph.nodes[layer_name]['original_input_id'] = index
-      graph.nodes[layer_name]['shape'] = model.get_layer(layer_name).output.shape
-
-  def _add_output_ids(self, graph, model):
-    output_names = formatted_inout_to_node_names(model.get_config()['output_layers'])
-    for index, layer_name in enumerate(output_names):
-      graph.nodes[layer_name]['original_output_id'] = index
+  def _add_endpoint_ids_by_direction(self, graph, model, endpoint_direction):
+    endpoint_names = _get_endpoint_names(model, endpoint_direction)
+    field_name = 'original_input_id' if endpoint_direction == pinfo.EndpointDirection.inp \
+                                     else 'original_output_id'
+    for index, layer_name in enumerate(endpoint_names):
+      graph.nodes[layer_name][field_name] = index
       graph.nodes[layer_name]['shape'] = model.get_layer(layer_name).output.shape
 
   def _get_split_layers(self):
@@ -160,6 +166,8 @@ class GraphPartitionGenerator:
     for component in connected_components:
       name = f"{len(partitions)}"
       partitions[name] = self.graph.subgraph(component)
+      partitions[name].graph['input_layers'] = _get_partition_endpoints(self.model, component, pinfo.EndpointDirection.inp)
+      partitions[name].graph['output_layers'] = _get_partition_endpoints(self.model, component, pinfo.EndpointDirection.out)
     return partitions
 
   def _get_partition_with_node(self, node_name):
