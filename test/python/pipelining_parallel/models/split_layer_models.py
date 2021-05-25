@@ -203,7 +203,7 @@ def skip_connection_partitioned_core_model(rank):
   input2 = keras.Input(shape=(26,26,32,), name='split_layer1_output')
   input3 = keras.Input(shape=(26,26,32,), name='split_layer2_output')
 
-  x = keras.layers.Concatenate(name='concat')([input2, input3])
+  x = keras.layers.Concatenate(name='concat')([input3, input2])
   x = keras.layers.Flatten(name='flatten')(x)
   outputs = keras.layers.Dense(10, activation='softmax', name='dense_softmax')(x)
   core_model2 = keras.Model(inputs=[input2, input3], outputs=outputs)
@@ -281,7 +281,7 @@ def multi_input_partitioned_core_model(rank):
   input1 = keras.Input(shape=(26,26,32,), name='input1')
   input3 = keras.Input(shape=(26,26,32,), name='split_layer1_output')
   input4 = keras.Input(shape=(26,26,32,), name='split_layer2_output')
-  x = keras.layers.Concatenate(name='concat')([input1, input3, input4])
+  x = keras.layers.Concatenate(name='concat')([input1, input4, input3])
   x = keras.layers.Flatten(name='flatten')(x)
   outputs = keras.layers.Dense(10, activation='softmax', name='dense_softmax')(x)
   core_model2 = keras.Model(inputs=[input1, input3, input4], outputs=outputs)

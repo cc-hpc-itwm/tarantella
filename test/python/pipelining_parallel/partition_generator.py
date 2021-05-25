@@ -110,10 +110,37 @@ class TestPartitionGenerator:
       cm_builder = core_model_builder.CoreModelBuilder(model, partition_gen,
                                                        rank_mapper, rank)
       core_model = cm_builder.get_model()
-      reference_model = expected_model_gen(rank)
-      utils.check_model_configuration_identical(core_model, reference_model)
-      utils.compare_weights(core_model.get_weights(), reference_model.get_weights(), 1e-6)
+      reference_core_model = expected_model_gen(rank)
+      utils.check_model_configuration_identical(core_model, reference_core_model)
+      utils.compare_weights(core_model.get_weights(), reference_core_model.get_weights(), 1e-6)
 
+  def test_core_model_inputs(self, model_and_partitions):
+    model, partition_gen, expected_num_partitions, _, expected_model_gen = model_and_partitions
+    rank_mapper = rmapper.RankMapper(partition_gen.get_partition_graph(),
+                                     nranks = expected_num_partitions)
+
+    for rank in range(expected_num_partitions):
+      cm_builder = core_model_builder.CoreModelBuilder(model, partition_gen,
+                                                       rank_mapper, rank)
+      core_model = cm_builder.get_model()
+      reference_core_model = expected_model_gen(rank)
+      core_input_names = [i.name for i in core_model.inputs]
+      reference_input_names = [i.name for i in reference_core_model.inputs]
+      assert core_input_names == reference_input_names
+
+  def test_core_model_outputs(self, model_and_partitions):
+    model, partition_gen, expected_num_partitions, _, expected_model_gen = model_and_partitions
+    rank_mapper = rmapper.RankMapper(partition_gen.get_partition_graph(),
+                                     nranks = expected_num_partitions)
+
+    for rank in range(expected_num_partitions):
+      cm_builder = core_model_builder.CoreModelBuilder(model, partition_gen,
+                                                       rank_mapper, rank)
+      core_model = cm_builder.get_model()
+      reference_core_model = expected_model_gen(rank)
+      core_output_names = [i.name for i in core_model.outputs]
+      reference_output_names = [i.name for i in reference_core_model.outputs]
+      assert core_output_names == reference_output_names
 
   @pytest.mark.parametrize("model_generator", [models.incorrect_split_model])
   def test_incorrect_split(self, model_generator):
