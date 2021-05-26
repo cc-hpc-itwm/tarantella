@@ -175,7 +175,9 @@ def interrupt_tarantella(command_list):
     for pid in pids:
       os.kill(pid, signal.SIGINT)
   else:
-    logger.warn(f"Couldn't find the runnung instance of taratnella")
+    logger.warn(f"Couldn't find the runnung instance of taratnella. Trying to find running instances and cleanup.")
+    logger.warn(f"--hostfile option not provided. Finding running instances only on the current node.")
+    raise KeyboardInterrupt
 
 class TarantellaCLI:
   def __init__(self, hostlist, num_gpus_per_node, num_cpus_per_node, args):
@@ -239,8 +241,8 @@ class TarantellaCLI:
     return file_man.GPIScriptFile(header, environment, command, dir = os.getcwd())
 
   def run(self, dry_run = False):
-    try:
-      with self.hostfile, self.executable_script:
+    with self.hostfile, self.executable_script:
+      try:
         if self.args.clean_up:
           interrupt_tarantella(self.command_list)
         else:
@@ -261,12 +263,12 @@ class TarantellaCLI:
                       check = True,
                       cwd = os.getcwd(),
                       stdout = None, stderr = None,)
-    except (subprocess.CalledProcessError) as e:
-      sys.exit(generate_run_error_message(e, self.hostfile.name,
-                                          self.executable_script.filename))
-    except (KeyboardInterrupt) as e:
-      logger.warn('Tarantella Interrupted : running cleanup')
-      self.clean_up_run()
+      except (subprocess.CalledProcessError, KeyboardInterrupt) as e:
+        if isinstance(e, subprocess.CalledProcessError):
+          sys.exit(generate_run_error_message(e, self.hostfile.name,
+                                            self.executable_script.filename))
+        logger.warn('Tarantella Interrupted : running cleanup')
+        self.clean_up_run()
   
   def clean_up_run(self):
     cleanup_script = self.generate_cleanup_script()
