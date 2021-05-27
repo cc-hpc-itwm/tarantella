@@ -161,6 +161,13 @@ def get_numa_prefix(npernode):
     command += f"numactl --cpunodebind=$socket --membind=$socket"
   return command
 
+def path_to_gaspi_run():
+  path_to_gpi = shutil.which("gaspi_run")
+  if path_to_gpi is None:
+    sys.exit("[TNT_CLI] Cannot execute `gaspi_run`; make sure it is added to the current `PATH`.")
+  return path_to_gpi
+
+
 def interrupt_tarantella(command_list):
   # skip current proces id
   skip_pid = [os.getpid()]
@@ -171,13 +178,12 @@ def interrupt_tarantella(command_list):
   pids = re.findall(f"\\n\\w+\\s+(\\d+)\\s+.*python.*tarantella.*{command_list}.*\\n", result)
   pids = [int(pid) for pid in pids if int(pid) not in skip_pid]
   if pids != []:
-    logger.warn(f"Interrupting tarantella process with pids : {pids}")
+    logger.info(f"Interrupting tarantella process with pids : {pids}")
     for pid in pids:
       os.kill(pid, signal.SIGINT)
   else:
-    logger.warn(f"Couldn't find the runnung instance of taratnella. Trying to find running instances and cleanup.")
-    logger.warn(f"--hostfile option not provided. Finding running instances only on the current node.")
-    raise KeyboardInterrupt
+    logger.warn(f"Couldn't find the running instance of tarantella")
+  sys.exit(0)
 
 class TarantellaCLI:
   def __init__(self, hostlist, num_gpus_per_node, num_cpus_per_node, args):
@@ -235,57 +241,42 @@ class TarantellaCLI:
     environment = env_config.gen_exports_from_dict(env_config.collect_environment_variables())
 
     command = f"{self.generate_interpreter()} {self.get_absolute_path(tarantella_cleanup)} \
-                                              --proc_names {self.command_list[0].split('.')[0]} \
+                                              --proc_names {self.command_list[0]} \
                                               --skip_gaspi_pid {os.getpid()} \
                                               --gaspi_rank $GASPI_RANK"
     return file_man.GPIScriptFile(header, environment, command, dir = os.getcwd())
 
   def run(self, dry_run = False):
-    with self.hostfile, self.executable_script:
-      try:
-        if self.args.clean_up:
-          interrupt_tarantella(self.command_list)
-        else:
-          command_list = ["gaspi_run", "-n", str(self.nranks),
-                          "-m", self.hostfile.name,
-                          self.executable_script.filename]
+    if self.args.clean_up:
+      self.clean_up_run()
+      sys.exit(0)
+    self.execute_with_gaspi_run(self.nranks, self.hostfile, self.executable_script)
 
-          if dry_run:
-            print(generate_dry_run_message(command_list, self.hostfile.name,
-                                          self.executable_script.filename))
-            return
-
-          path_to_gpi = shutil.which("gaspi_run")
-          if path_to_gpi is None:
-            sys.exit("[TNT_CLI] Cannot execute `gaspi_run`; make sure it is added to the current `PATH`.")
-
-          result = subprocess.run(command_list,
-                      check = True,
-                      cwd = os.getcwd(),
-                      stdout = None, stderr = None,)
-      except (subprocess.CalledProcessError, KeyboardInterrupt) as e:
-        if isinstance(e, subprocess.CalledProcessError):
-          sys.exit(generate_run_error_message(e, self.hostfile.name,
-                                            self.executable_script.filename))
-        logger.warn('Tarantella Interrupted : running cleanup')
-        self.clean_up_run()
-  
   def clean_up_run(self):
     cleanup_script = self.generate_cleanup_script()
-    hostlist = file_man.HostFile(self.hostlist, 1)
-    with hostlist, cleanup_script:
-      command_list = ["gaspi_run",
-                      "-m", hostlist.name,
-                      cleanup_script.filename]
+    hostfile = file_man.HostFile(self.hostlist, 1)
+    self.execute_with_gaspi_run(len(self.hostlist), hostfile, cleanup_script)
 
-      path_to_gpi = shutil.which("gaspi_run")
-      if path_to_gpi is None:
-        sys.exit("[TNT_CLI] Cannot execute `gaspi_run`; make sure it is added to the current `PATH`.")
+  def execute_with_gaspi_run(self, nranks, hostfile, executable_script, dry_run = False):
+    with hostfile, executable_script:
+      command_list = [path_to_gaspi_run(),
+                      "-n", str(nranks),
+                      "-m", hostfile.name,
+                      executable_script.filename]
+      if dry_run:
+        print(generate_dry_run_message(command_list, hostfile.name,
+                                      executable_script.filename))
+        return
 
       try:
         subprocess.run(command_list,
-                    cwd = os.getcwd(),
-                    stdout = None, stderr = None,)
-      except (subprocess.CalledProcessError) as e:
-        sys.exit(generate_run_error_message(e, hostlist.name,
-                                            cleanup_script.filename))
+                      #check = True,
+                      cwd = os.getcwd(),
+                      stdout = None, stderr = None)
+
+      except KeyboardInterrupt:
+        logger.info('Execution interrupted: running cleanup')
+        self.clean_up_run()
+
+      except subprocess.CalledProcessError as e:
+        sys.exit(generate_run_error_message(e, hostfile.name, executable_script.filename))
