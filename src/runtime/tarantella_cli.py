@@ -22,70 +22,70 @@ def create_parser():
   parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter)
   singlenode_group = parser.add_argument_group('Single-node execution')
   singlenode_group.add_argument("-n",
-                    help="number of TensorFlow instances to start on the local node",
-                    dest = "npernode_single_node",
-                    metavar = "N",
-                    type = int,
-                    default = None)
+                                help="number of TensorFlow instances to start on the local node",
+                                dest = "npernode_single_node",
+                                metavar = "N",
+                                type = int,
+                                default = None)
   multinode_group = parser.add_argument_group('Multi-node execution')
   multinode_group.add_argument("--hostfile",
-                      dest = "hostfile",
-                      help="path to the list of nodes (hostnames) on which to execute the SCRIPT",
-                      default = None)
+                               dest = "hostfile",
+                               help="path to the list of nodes (hostnames) on which to execute the SCRIPT",
+                               default = None)
   multinode_group.add_argument("--n-per-node", "--devices-per-node",
-                    help="number of devices (i.e., either GPUs or processes on CPUs) to be used on each node",
-                    dest = "npernode",
-                    type = int,
-                    default = None)
+                               help="number of devices (i.e., either GPUs or processes on CPUs) to be used on each node",
+                               dest = "npernode",
+                               type = int,
+                               default = None)
   parser.add_argument("--no-gpu", "--no-gpus",
-                    help="disallow GPU usage",
-                    dest = "use_gpus",
-                    action='store_false',
-                    default = True)
+                      help="disallow GPU usage",
+                      dest = "use_gpus",
+                      action='store_false',
+                      default = True)
   parser.add_argument("--output-on-all-devices",
-                    help="enable output on all devices (e.g., training info)",
-                    dest = "output_all",
-                    action='store_true',
-                    default = False)
+                      help="enable output on all devices (e.g., training info)",
+                      dest = "output_all",
+                      action='store_true',
+                      default = False)
   parser.add_argument("--log-on-all-devices",
-                    help="enable library logging messages on all devices",
-                    dest = "log_all",
-                    action='store_true',
-                    default = False)
+                      help="enable library logging messages on all devices",
+                      dest = "log_all",
+                      action='store_true',
+                      default = False)
   log_levels = ('DEBUG', 'INFO', 'WARNING', 'ERROR')
   parser.add_argument('--log-level', default='WARNING', choices=log_levels,
                       help = "logging level for library messages")
   parser.add_argument("--fusion-threshold",
-                    help="tensor fusion threshold [kilobytes]",
-                    dest = "fusion_threshold_kb",
-                    type = int,
-                    default = None)
+                      help="tensor fusion threshold [kilobytes]",
+                      dest = "fusion_threshold_kb",
+                      type = int,
+                      default = None)
   parser.add_argument("--dry-run",
-                    help="print generated files and execution command",
-                    dest = "dry_run",
-                    action='store_true',
-                    default = False)
+                      help="print generated files and execution command",
+                      dest = "dry_run",
+                      action='store_true',
+                      default = False)
   parser.add_argument("-x",
-                    help = "list of space-separated KEY=VALUE environment variables to be " + \
-                           "set on all ranks. " + \
-                           "Example: `-x DATASET=/scratch/data TF_CPP_MIN_LOG_LEVEL=1`",
-                    dest = "setenv",
-                    type = str,
-                    nargs="+",
-                    default=[])
+                      help = "list of space-separated KEY=VALUE environment variables to be " + \
+                            "set on all ranks. " + \
+                            "Example: `-x DATASET=/scratch/data TF_CPP_MIN_LOG_LEVEL=1`",
+                      dest = "setenv",
+                      type = str,
+                      nargs="+",
+                      default=[])
   parser.add_argument("--pin-to-socket",
-                    help="pin each rank to a socket based on rank id using `numactl`",
-                    dest = "pin_to_socket",
-                    action='store_true',
-                    default=False)
-  parser.add_argument("--clean-up",
-                    help="automatically kill processes on abnormal termination",
-                    dest = "clean_up",
-                    action='store_true',
-                    default=False)
+                      help="pin each rank to a socket based on rank id using `numactl`",
+                      dest = "pin_to_socket",
+                      action='store_true',
+                      default=False)
+  parser.add_argument("--cleanup",
+                      help="clean up remaining processes after an abnormal termination",
+                      dest = "cleanup",
+                      action='store_true',
+                      default=False)
   parser.add_argument("--version",
-                    action='version',
-                    version=generate_version_message())
+                      action='version',
+                      version=generate_version_message())
   parser.add_argument('script', nargs='+', metavar='-- SCRIPT')
   return parser
 
@@ -98,7 +98,6 @@ def parse_args():
       sys.exit("[TNT_CLI] Use either `-n`, `--n-per-node`, or `--devices-per-node` argument.")
     else:
       args.npernode = args.npernode_single_node
-   
   return args
 
 def generate_version_message():
@@ -167,24 +166,6 @@ def path_to_gaspi_run():
     sys.exit("[TNT_CLI] Cannot execute `gaspi_run`; make sure it is added to the current `PATH`.")
   return path_to_gpi
 
-
-def interrupt_tarantella(command_list):
-  # skip current proces id
-  skip_pid = [os.getpid()]
-  # search for all process ids
-  result = subprocess.run("ps aux".split(), stdout=subprocess.PIPE)
-  result = result.stdout.decode('utf-8')
-  # find tarantella pid
-  pids = re.findall(f"\\n\\w+\\s+(\\d+)\\s+.*python.*tarantella.*{command_list}.*\\n", result)
-  pids = [int(pid) for pid in pids if int(pid) not in skip_pid]
-  if pids != []:
-    logger.info(f"Interrupting tarantella process with pids : {pids}")
-    for pid in pids:
-      os.kill(pid, signal.SIGINT)
-  else:
-    logger.warn(f"Couldn't find the running instance of tarantella")
-  sys.exit(0)
-
 class TarantellaCLI:
   def __init__(self, hostlist, num_gpus_per_node, num_cpus_per_node, args):
     self.args = args
@@ -237,25 +218,25 @@ class TarantellaCLI:
   
   def generate_cleanup_script(self):
     header = "#!/bin/bash\n"
-
     environment = env_config.gen_exports_from_dict(env_config.collect_environment_variables())
 
-    command = f"{self.generate_interpreter()} {self.get_absolute_path(tarantella_cleanup)} \
-                                              --proc_names {self.command_list[0]} \
-                                              --skip_gaspi_pid {os.getpid()} \
-                                              --gaspi_rank $GASPI_RANK"
+    command = f"{self.generate_interpreter()} {self.get_absolute_path(tarantella_cleanup)} " \
+                                              f"--proc_names {self.command_list[0]} " \
+                                              f"--skip_gaspi_pid {os.getpid()} " \
+                                              "--gaspi_rank $GASPI_RANK"
     return file_man.GPIScriptFile(header, environment, command, dir = os.getcwd())
 
-  def run(self, dry_run = False):
-    if self.args.clean_up:
-      self.clean_up_run()
-      sys.exit(0)
-    self.execute_with_gaspi_run(self.nranks, self.hostfile, self.executable_script)
+  def run(self, dry_run):
+    if self.args.cleanup:
+      self.clean_up_run(dry_run)
+    else:
+      self.execute_with_gaspi_run(self.nranks, self.hostfile, self.executable_script, dry_run)
 
-  def clean_up_run(self):
+  def clean_up_run(self, dry_run = False):
     cleanup_script = self.generate_cleanup_script()
     hostfile = file_man.HostFile(self.hostlist, 1)
-    self.execute_with_gaspi_run(len(self.hostlist), hostfile, cleanup_script)
+    self.execute_with_gaspi_run(len(self.hostlist), hostfile, cleanup_script, dry_run)
+    logger.debug(f'Cleanup executed on {len(self.hostlist)} nodes.')
 
   def execute_with_gaspi_run(self, nranks, hostfile, executable_script, dry_run = False):
     with hostfile, executable_script:
@@ -265,18 +246,16 @@ class TarantellaCLI:
                       executable_script.filename]
       if dry_run:
         print(generate_dry_run_message(command_list, hostfile.name,
-                                      executable_script.filename))
+                                       executable_script.filename))
         return
 
       try:
         subprocess.run(command_list,
-                      #check = True,
-                      cwd = os.getcwd(),
-                      stdout = None, stderr = None)
-
+                       check = True,
+                       cwd = os.getcwd(),
+                       stdout = None, stderr = None)
       except KeyboardInterrupt:
         logger.info('Execution interrupted: running cleanup')
         self.clean_up_run()
-
       except subprocess.CalledProcessError as e:
         sys.exit(generate_run_error_message(e, hostfile.name, executable_script.filename))
