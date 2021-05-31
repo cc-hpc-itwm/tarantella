@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+import atexit
 import os
 import stat
 import tempfile
@@ -13,6 +14,13 @@ class TemporaryFileWrapper(metaclass = ABCMeta):
 
   def __enter__(self):
     self.file_handle, self.filename = tempfile.mkstemp(dir = self.dir)
+
+    @atexit.register
+    def cleanup():
+      try:
+        os.remove(self.filename)
+      except FileNotFoundError:
+        pass
 
     with os.fdopen(self.file_handle, 'w') as f:
       contents = self.get_initial_contents()
