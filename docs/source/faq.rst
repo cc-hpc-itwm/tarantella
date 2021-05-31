@@ -52,7 +52,11 @@ Try to re-run your code after a short while so that the port becomes available a
 
    The execution seems to stall. What shall I do?
 
-Please kill any processes that might be still running from a previous (aborted) call to ``tarantella``.
+Please use the ``tarantella --cleanup`` command to kill any processes that
+might be still running from a previous (aborted) call to ``tarantella`` as shown
+:ref:`here <tnt-cleanup-label>`.
+Note that you can also interrupt a running ``tarantella`` instance (distributed on multiple nodes)
+by using ``Ctrl+c``.
 
 .. admonition:: Question
 
