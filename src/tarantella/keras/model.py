@@ -25,6 +25,7 @@ class Model(tf.keras.models.Model):
     self.done_broadcast = False
     self.compiled = False
     self.broadcaster = None
+    self.evaluate_reducer = None
     self.barrier = tnt.Barrier()
 
     self.dist_optimizer = None
@@ -158,7 +159,7 @@ class Model(tf.keras.models.Model):
                y = None,
                callbacks = None,
                tnt_micro_batch_size = None,
-               tnt_distribute_dataset = False,
+               tnt_distribute_dataset = True,
                **kwargs):
     self._setup_for_execution('evaluate', x, y, kwargs)
     processed_callbacks = self._preprocess_callbacks(callbacks)
@@ -184,9 +185,10 @@ class Model(tf.keras.models.Model):
   def distributed_evaluate(self, x, callbacks, factor = 1.0, **kwargs):
     loss_metric = self.model.evaluate(x, callbacks = callbacks, **kwargs)
     loss_metric = factor * loss_metric
-    evaluate_reducer = tarantella.TensorAllreducer(np.array(loss_metric, dtype=np.float64))
-    return evaluate_reducer.allreduce(np.array(loss_metric,dtype=np.float64))
-
+    if self.evaluate_reducer is None:
+      self.evaluate_reducer = tarantella.TensorAllreducer(np.array(loss_metric, dtype=np.float32))
+    return self.evaluate_reducer.allreduce(np.array(loss_metric,dtype=np.float32))
+    
   def fit(self,
           x = None,
           y = None,

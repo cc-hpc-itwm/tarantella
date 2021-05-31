@@ -17,7 +17,6 @@ class TrainingRunner:
     self.loss = keras.losses.SparseCategoricalCrossentropy()
     self.metric = keras.metrics.SparseCategoricalAccuracy()
     self.model = model
-
     self.compile_model(self.optimizer)
     self.initial_weights = model.get_weights()
 
@@ -45,13 +44,13 @@ class TrainingRunner:
   def reset_weights(self):
     self.model.set_weights(self.initial_weights)
 
-  def evaluate_model(self, val_dataset):
+  def evaluate_model(self, val_dataset, distribution = False):
     #return_dict to be added here (support only from tf 2.2)
-    results = self.model.evaluate(val_dataset, verbose=0)
-    return results
-
-  def distributed_evaluate_model(self, val_dataset):
-    #return_dict to be added here (support only from tf 2.2)
-    results = self.model.evaluate(val_dataset, tnt_distribute_dataset = True, verbose=0)
+    kwargs = {}
+    if isinstance(self.model, tnt.Model):
+      kwargs['tnt_distribute_dataset'] = False
+      if distribution:
+        kwargs = {}
+    results = self.model.evaluate(val_dataset, verbose=0, **kwargs)
     return results
 
