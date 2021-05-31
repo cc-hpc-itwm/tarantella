@@ -49,5 +49,5 @@ class TestsDistributedEvaluation:
     rank = tnt.get_rank()
     logging.getLogger().info(f"[Rank {rank}] Tarantella[loss, accuracy] = {tnt_loss_accuracy}")
     logging.getLogger().info(f"[Rank {rank}] Reference [loss, accuracy] = {reference_loss_accuracy}")
-    assert np.isclose(tnt_loss_accuracy[0], reference_loss_accuracy[0], atol=1e-4)
+    assert np.isclose(tnt_loss_accuracy[0], reference_loss_accuracy[0], atol=1e-2)
     assert np.isclose(tnt_loss_accuracy[1], reference_loss_accuracy[1], atol=1e-6)
