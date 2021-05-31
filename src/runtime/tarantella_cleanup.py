@@ -4,13 +4,21 @@ import signal
 import subprocess
 import sys
 
-parser = argparse.ArgumentParser(description='Tarantella cleanup')
-parser.add_argument('--proc_names', required=True, type=str, nargs='+',
-                    help='list of process names to be terminated')
-parser.add_argument('--skip_gaspi_pid', type=int, nargs='+', default=[],
-                    help='list of process IDs that should be skipped from termination')
-parser.add_argument('--gaspi_rank', type=int, default=0,
-                    help='current GASPI rank')
+
+def parse_arguments():
+  parser = argparse.ArgumentParser(description='Tarantella cleanup')
+  parser.add_argument('--proc_names', required=True, type=str, nargs='+',
+                      help='list of process names to be terminated')
+  parser.add_argument('--skip_gaspi_pid', type=int, nargs='+', default=[],
+                      help='list of process IDs that should be skipped from termination')
+  parser.add_argument('--gaspi_rank', type=int, default=0,
+                      help='current GASPI rank')
+  parser.add_argument("--force",
+                      help="force termination of cleaned up processes",
+                      dest = "force",
+                      action='store_true',
+                      default=False)
+  return parser.parse_args()
 
 def is_master_rank():
   return args.gaspi_rank == 0
@@ -34,12 +42,14 @@ def get_pids_by_name(process_name):
   pids = [int(pid) for pid in result.split('\n') if pid and int(pid) not in skip_pid]
   return pids
 
-def kill_processes(proc_names):
+def kill_processes(proc_names, force_kill = False):
+  signal_to_send = signal.SIGTERM if not force_kill else signal.SIGKILL
+
   for proc_name in proc_names:
     print(f"[TNT_CLI] Terminating processes with name : {proc_name}")
     for pid in get_pids_by_name(proc_name):
-      os.kill(pid, signal.SIGTERM)
+      os.kill(pid, signal_to_send)
 
 if __name__ == '__main__':
-  args = parser.parse_args()
-  kill_processes(args.proc_names)
+  args = parse_arguments()
+  kill_processes(args.proc_names, args.force)

@@ -33,7 +33,8 @@ def create_parser():
                                help="path to the list of nodes (hostnames) on which to execute the SCRIPT",
                                default = None)
   multinode_group.add_argument("--n-per-node", "--devices-per-node",
-                               help="number of devices (i.e., either GPUs or processes on CPUs) to be used on each node",
+                               help="number of devices (i.e., either GPUs or processes on CPUs) to be " \
+                                    "used on each node",
                                dest = "npernode",
                                type = int,
                                default = None)
@@ -66,8 +67,8 @@ def create_parser():
                       action='store_true',
                       default = False)
   parser.add_argument("-x",
-                      help = "list of space-separated KEY=VALUE environment variables to be " + \
-                            "set on all ranks. " + \
+                      help = "list of space-separated KEY=VALUE environment variables to be " \
+                            "set on all ranks. " \
                             "Example: `-x DATASET=/scratch/data TF_CPP_MIN_LOG_LEVEL=1`",
                       dest = "setenv",
                       type = str,
@@ -81,6 +82,11 @@ def create_parser():
   parser.add_argument("--cleanup",
                       help="clean up remaining processes after an abnormal termination",
                       dest = "cleanup",
+                      action='store_true',
+                      default=False)
+  parser.add_argument("--force",
+                      help="force termination of cleaned up processes",
+                      dest = "force",
                       action='store_true',
                       default=False)
   parser.add_argument("--version",
@@ -98,6 +104,11 @@ def parse_args():
       sys.exit("[TNT_CLI] Use either `-n`, `--n-per-node`, or `--devices-per-node` argument.")
     else:
       args.npernode = args.npernode_single_node
+
+  if args.force:
+    if not args.cleanup:
+      sys.exit("[TNT_CLI] Use `--force` only in conjunction with `--cleanup` " \
+               "to force termination of Tarantella processes.")
   return args
 
 def generate_version_message():
@@ -149,12 +160,12 @@ def get_numa_nodes_count():
 def get_numa_prefix(npernode):
   node_count = get_numa_nodes_count()
   if node_count == 0 or npernode == 0 or node_count < npernode:
-    raise ValueError(f"[TNT_CLI] Cannot pin {npernode} ranks to {node_count} NUMA nodes. " + \
-                     f"`-n`, `--n-per-node`, or `--devices-per-node` value should be less" + \
+    raise ValueError(f"[TNT_CLI] Cannot pin {npernode} ranks to {node_count} NUMA nodes. " \
+                     f"`-n`, `--n-per-node`, or `--devices-per-node` value should be less" \
                      f" than or equal to {node_count} (available NUMA nodes).")
   else:
     if node_count != npernode:
-      logger.warn(f"Pinning {npernode} ranks to NUMA nodes on each host " + \
+      logger.warn(f"Pinning {npernode} ranks to NUMA nodes on each host " \
                   f"(available NUMA nodes: {node_count}).")
     command = f"socket=$(( $GASPI_RANK % {npernode} ))\n"
     command += f"numactl --cpunodebind=$socket --membind=$socket"
@@ -193,8 +204,9 @@ class TarantellaCLI:
     if self.args.pin_to_socket:
       path_to_numa = shutil.which("numactl")
       if path_to_numa is None:
-        raise FileNotFoundError("[TNT_CLI] Cannot execute `numactl` as required by the `--pin-to-socket` flag; "+\
-                                "make sure that `numactl` is installed and has been added to the current `PATH`.")
+        raise FileNotFoundError("[TNT_CLI] Cannot execute `numactl` as required by " \
+                                "the `--pin-to-socket` flag; make sure that `numactl` " \
+                                "is installed and has been added to the current `PATH`.")
       interpreter = f"{get_numa_prefix(self.npernode)} {interpreter}"
 
     return interpreter
@@ -224,18 +236,21 @@ class TarantellaCLI:
                                               f"--proc_names {self.command_list[0]} " \
                                               f"--skip_gaspi_pid {os.getpid()} " \
                                               "--gaspi_rank $GASPI_RANK"
+    if self.args.force:
+      command = command + " --force"
     return file_man.GPIScriptFile(header, environment, command, dir = os.getcwd())
 
-  def run(self, dry_run):
+  def run(self):
     if self.args.cleanup:
-      self.clean_up_run(dry_run)
+      self.clean_up_run()
     else:
-      self.execute_with_gaspi_run(self.nranks, self.hostfile, self.executable_script, dry_run)
+      self.execute_with_gaspi_run(self.nranks, self.hostfile, self.executable_script,
+                                  self.args.dry_run)
 
-  def clean_up_run(self, dry_run = False):
+  def clean_up_run(self):
     cleanup_script = self.generate_cleanup_script()
     hostfile = file_man.HostFile(self.hostlist, 1)
-    self.execute_with_gaspi_run(len(self.hostlist), hostfile, cleanup_script, dry_run)
+    self.execute_with_gaspi_run(len(self.hostlist), hostfile, cleanup_script, self.args.dry_run)
     logger.debug(f'Cleanup executed on {len(self.hostlist)} nodes.')
 
   def execute_with_gaspi_run(self, nranks, hostfile, executable_script, dry_run = False):
