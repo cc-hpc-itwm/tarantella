@@ -29,6 +29,30 @@ def _is_num_samples_multiple_batch_size(num_samples, batch_size):
 def _get_last_incomplete_batch_size(num_samples, batch_size):
   return num_samples - int(num_samples // batch_size) * batch_size
 
+def _window_datasets_to_tuples(*datasets_in_window):
+  # Datasets in a window
+  # win0 = [ (i0_0, i1_0, label0_0),  # each sample is a tuple
+  #          (i0_1, i1_1, label0_1),
+  #          (i0_2, i1_2, label0_2),]
+  # Returns:
+  # batched_datasets = ( [i0_0, i0_1, i0_2],# each dataset in the tuple has `window_size` samples
+  #                      [i1_0, i1_1, i1_2],
+  #                      [label0_0, label0_1, label0_2] )
+  batched_datasets = list()
+
+  for datasets in datasets_in_window:  # one dataset tuple for each sample in the window
+    if not isinstance(datasets,tuple):
+      datasets = [datasets]
+
+    temp = []
+    for dataset in datasets:
+      temp.append(dataset)
+    batched_datasets.append(tuple(temp))
+
+  if len(batched_datasets) == 1:
+    return tf.data.Dataset.from_generator(batched_datasets[0])
+  return tf.data.Dataset.zip(tuple(batched_datasets))
+
 def _get_scaling_factor(micro_batch_size, batch_size, num_ranks):
   return micro_batch_size * num_ranks / batch_size
 
@@ -78,25 +102,6 @@ class DistributedDataset:
     self.batching_info = ds_helpers.get_batching_info(self.dataset_transformations)
 
 
-  def create_sequence_ds(self,*param):
-    #For case that param has only one dataset
-    if len(param) == 1 and not isinstance(param[0],tuple):
-      return self.batching_info.apply(param[0], new_batch_size = self.micro_batch_size)
-    result = []
-    #Param contain multiple element
-    for pa in param:
-      #if a element is a tuple, each element in tuple is a dataset
-      if isinstance(pa,tuple):
-        temp = []
-        for p in pa:
-          temp.append(self.batching_info.apply(p, new_batch_size = self.micro_batch_size))
-        result.append(tuple(temp))
-      ##otherwise, this is a dataset
-      else:
-        result.append(self.batching_info.apply(pa, new_batch_size = self.micro_batch_size))
-    #return result after zip.
-    return tf.data.Dataset.zip(tuple(result))
-
   def distribute_dataset_across_ranks(self, user_micro_batch_size = None, is_training = True):
     dataset = self.base_dataset
 
@@ -118,7 +123,6 @@ class DistributedDataset:
                              f"number of devices used ({num_ranks}).")
         else:
           micro_batch_size = _get_microbatch_size(self.rank, self.num_ranks, batch_size)
-          self.micro_batch_size = _get_microbatch_size(self.rank, self.num_ranks, batch_size)
 
         if is_training:
           dataset = self.distributed_batch(dataset,
@@ -211,23 +215,25 @@ class DistributedDataset:
         raise ValueError("[DistributedDataset] Infinite dataset provided; cannot count samples.")
       dataset = self.pad_dataset(dataset, batch_size, num_samples)
 
-    dataset = self._get_microbatched_dataset_per_rank(dataset, batch_size, micro_batch_size)
+    dataset = self._get_dataset_slice_per_rank(dataset, batch_size, micro_batch_size)
+    dataset = self.batching_info.apply(dataset, new_batch_size = micro_batch_size)
+
     logger.info("Using batch size = {batch_size}, micro batch size = {micro_batch_size}.")
     return dataset
 
-  def _get_microbatched_dataset_per_rank(self, dataset, batch_size, micro_batch_size):
+  def _get_dataset_slice_per_rank(self, dataset, batch_size, micro_batch_size):
     if _is_batch_multiple_num_ranks(self.num_ranks, batch_size):
       dataset = dataset.shard(num_shards = self.num_ranks, index = self.rank)
-      dataset = self.batching_info.apply(dataset, new_batch_size = micro_batch_size)
     else:
-      if self.rank != 0:
-        dataset = dataset.skip(self.rank)
+      dataset = dataset.skip(self.rank) # skip samples up to the starting point for `rank`
       dataset = dataset.window(size = micro_batch_size,
                                shift = batch_size,
                                stride = self.num_ranks,
                                drop_remainder = False)
-      dataset = dataset.interleave(self.create_sequence_ds,
-                                   cycle_length = 8, num_parallel_calls = 8)
+      dataset = dataset.interleave(_window_datasets_to_tuples,
+                                   num_parallel_calls = tf.data.AUTOTUNE,
+                                   block_length = micro_batch_size,
+                                   deterministic = True)
     return dataset
 
   def generate_callback_if_have(self):
