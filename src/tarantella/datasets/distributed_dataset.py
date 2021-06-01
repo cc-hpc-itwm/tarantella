@@ -3,6 +3,68 @@ from tensorflow.python.data.ops import dataset_ops as ds
 
 from tarantella import logger
 import tarantella.datasets.dataset_helpers as ds_helpers
+import tarantella.utilities.tf_version as version_utils
+
+def _get_microbatch_size(rank, num_ranks, batch_size):
+  if batch_size is None or batch_size == 0:
+    raise ValueError("[DistributedDataset]Incorrectly defined batch size")
+
+  microbatch_size = int(batch_size // num_ranks)
+  remaining_samples = batch_size % num_ranks
+
+  if remaining_samples != 0:
+    logger.debug(f"Batch size ({batch_size}) is a not multiple of the number of ranks {num_ranks}.")
+  if rank < remaining_samples:
+    microbatch_size = microbatch_size + 1
+
+  logger.debug(f"Rank {rank} has micro batch {microbatch_size}.")
+  return microbatch_size
+
+def _is_batch_multiple_num_ranks(num_ranks, batch_size):
+  return batch_size % num_ranks == 0
+
+def _is_num_samples_multiple_batch_size(num_samples, batch_size):
+  return num_samples % batch_size == 0
+
+def _get_last_incomplete_batch_size(num_samples, batch_size):
+  return num_samples - int(num_samples // batch_size) * batch_size
+
+def _get_scaling_factor(micro_batch_size, batch_size, num_ranks):
+  return micro_batch_size * num_ranks / batch_size
+
+def _get_scaling_factor_by_iteration(iteration_id, scaling_factor_table):
+  scaling_factor = 1.0
+  for min_iteration_id, value in sorted(scaling_factor_table.items()):
+    if iteration_id >= min_iteration_id:
+      scaling_factor = value
+  return scaling_factor
+
+def _build_scaling_factor_table(rank, num_ranks, num_samples, batch_size):
+  # Defines the gradient `scaling_factor` to be used for each iteration starting
+  # with `start_iteration_id`
+  # scaling_factor_table = { start_iteration_id: scaling_factor }
+
+  if _is_batch_multiple_num_ranks(num_ranks, batch_size) and \
+      _is_num_samples_multiple_batch_size(num_samples, batch_size):
+    return None
+
+  micro_batch_size = _get_microbatch_size(rank, num_ranks, batch_size)
+
+  # each iteration starting with id 0 will use a scaling factor defined by
+  # the rank's micro batch size
+  scaling_factor_table = { 0 : _get_scaling_factor(micro_batch_size, batch_size, num_ranks) }
+
+  # the last iteration (with an incomplete batch) uses a separate scaling factor
+  if not _is_num_samples_multiple_batch_size(num_samples, batch_size):
+    final_iteration_id = int(num_samples // batch_size)
+
+    last_batch_size = _get_last_incomplete_batch_size(num_samples, batch_size)
+    last_micro_batch_size = _get_microbatch_size(rank, num_ranks, last_batch_size)
+    last_iteration_scaling_factor = _get_scaling_factor(last_micro_batch_size,
+                                                        last_batch_size, num_ranks)
+
+    scaling_factor_table[final_iteration_id] = last_iteration_scaling_factor
+  return scaling_factor_table
 
 class DistributedDataset:
   def __init__(self, dataset, num_ranks, rank, shuffle_seed = 42):
@@ -14,15 +76,9 @@ class DistributedDataset:
     self.base_dataset, self.dataset_transformations = \
            ds_helpers.gen_dataset_transformations(dataset)
     self.batching_info = ds_helpers.get_batching_info(self.dataset_transformations)
-    self.diff_micro_batch = False
-    self.micro_batch_size = None
-    
-    self.special_global_batch_size = None
-    self.special_my_size = None
-    self.special_iteration = None
-    self.normal_factor = None
-    
-  def create_seqeunce_ds(self,*param):
+
+
+  def create_sequence_ds(self,*param):
     #For case that param has only one dataset
     if len(param) == 1 and not isinstance(param[0],tuple):
       return self.batching_info.apply(param[0], new_batch_size = self.micro_batch_size)
@@ -57,11 +113,13 @@ class DistributedDataset:
         if user_micro_batch_size:
           micro_batch_size = user_micro_batch_size
           if micro_batch_size * self.num_ranks != batch_size:
-            raise ValueError("[DistributedDataset] micro batch size ({}) is not consistent \
-with batch size ({}) on number of devices used ({}).".format(micro_batch_size, batch_size,
-                                                            self.num_ranks))
+            raise ValueError(f"[DistributedDataset] micro batch size ({micro_batch_size}) " \
+                             f"is not consistent with batch size ({batch_size}) on the " \
+                             f"number of devices used ({num_ranks}).")
         else:
-          micro_batch_size = self.get_microbatch_size(batch_size)
+          micro_batch_size = _get_microbatch_size(self.rank, self.num_ranks, batch_size)
+          self.micro_batch_size = _get_microbatch_size(self.rank, self.num_ranks, batch_size)
+
         if is_training:
           dataset = self.distributed_batch(dataset,
                                            batch_size = batch_size,
@@ -90,8 +148,8 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
                                           batch_size = batch_size,
                                           micro_batch_size = micro_batch_size)
         else:
-          raise ValueError("[DistributedDataset] Unbatched datasets without tnt_micro_batch_size are not supported")
-
+          raise ValueError("[DistributedDataset] Unbatched datasets without " \
+                           "tnt_micro_batch_size are not supported")
     return dataset
 
   def shuffle_with_seed(self, dataset, ds_kwargs):
@@ -102,40 +160,44 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
       logger.debug("Shuffling with shuffle seed {}.".format(ds_kwargs['seed']))
     return dataset.shuffle(**ds_kwargs)
 
-  def pad_dataset(self,dataset,batch_size,comm_size,num_samples):
+  def pad_dataset(self, dataset, batch_size, num_samples):
     real_batch_size = batch_size
     
-    if num_samples % real_batch_size != 0:
-      num_padded = num_samples - int(num_samples // real_batch_size)*real_batch_size
-      self.special_global_batch_size = num_padded
-      
-      self.special_my_size = num_padded//self.num_ranks
-      
-      padded = False
-      ##if is 0, need to be padded
-      if self.special_my_size == 0:
-        padded = True
+    last_batch_size = _get_last_incomplete_batch_size(num_samples, batch_size)
+    if last_batch_size == 0:
+      logger.debug(f"No padding required: number of samples {num_samples} is a multiple " \
+                   f"of the batch size {batch_size}.")
+      return dataset
     
-      extra = num_padded % self.num_ranks
-      if self.rank + 1 <= extra:
-        self.special_my_size = self.special_my_size + 1
-      
-      self.special_iteration = num_samples//real_batch_size
-        
-      if padded:
-        num_padded = self.num_ranks - num_padded
-        rest_dataset = dataset.take(2*self.num_ranks - num_padded)
-        logger.info("Dataset is padded with {} elements.".format(
-                num_padded))
-        rest_dataset = rest_dataset.batch(self.num_ranks,drop_remainder=False)
+    if version_utils.tf_version_below_equal('2.1'):
+      num_samples_multiple = num_samples - last_batch_size
+      logger.warn(f"Number of samples ({num_samples}) is not a multiple of batch size. " \
+                  f"Last batch padding not supported in TF v{version_utils.current_version()}. " \
+                  f"Dropping the last incomplete batch from the dataset. "\
+                  f"Now dataset has {num_samples_multiple} samples.")
+      return dataset.take(num_samples_multiple)
 
-        #If padded_shape is unset, all dimensions of all components are padded to the maximum size in the batch.
-        rest_dataset = rest_dataset.padded_batch(2)
-        rest_dataset = rest_dataset.unbatch()
-        rest_dataset = rest_dataset.unbatch()
+    logger.debug(f"Incomplete last batch in the dataset: number of samples is " \
+                 f"{last_batch_size} ( != batch size {batch_size}).")
 
-        rest_dataset = rest_dataset.skip(2*self.num_ranks - num_padded)
-        dataset = dataset.concatenate(rest_dataset)
+    if last_batch_size < self.num_ranks:
+      logger.debug(f"Padding required for the last batch: number of samples is " \
+                   f"{last_batch_size} ( < nranks {self.num_ranks}).")
+
+      num_padded = self.num_ranks - last_batch_size
+      rest_dataset = dataset.take(2*self.num_ranks - num_padded)
+      logger.info("Dataset is padded with {} elements.".format(
+              num_padded))
+      rest_dataset = rest_dataset.batch(self.num_ranks,drop_remainder=False)
+
+      # If padded_shape is unset, all dimensions of all components are padded to the maximum size
+      # in the batch.
+      rest_dataset = rest_dataset.padded_batch(2)
+      rest_dataset = rest_dataset.unbatch()
+      rest_dataset = rest_dataset.unbatch()
+
+      rest_dataset = rest_dataset.skip(2*self.num_ranks - num_padded)
+      dataset = dataset.concatenate(rest_dataset)
     return dataset
 
   def distributed_batch(self, dataset, batch_size, micro_batch_size):
@@ -144,71 +206,34 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
       dataset = dataset.unbatch()
     else:
       num_samples = ds_helpers.get_num_samples(dataset)
+      self.num_samples = num_samples
       if num_samples == tf.data.experimental.INFINITE_CARDINALITY:
-        raise ValueError("[DistributedDataset] Infinite dataset provided")
-    
-      if tf.version.VERSION >= "2.2.0":
-        dataset = self.pad_dataset(dataset,batch_size,self.num_ranks,num_samples)
-      else:
-        if num_samples % batch_size != 0:
-          num_samples_multiple = (num_samples // batch_size) * batch_size
-          logger.warn("Number of samples ({}) is not a multiple of batch size.\
- Removing the last incomplete batch from the dataset. Now dataset has {} samples.".format(num_samples,num_samples_multiple))
-          dataset = dataset.take(num_samples_multiple)
-    
-    #shard dataset
-    if self.diff_micro_batch:
-      self.normal_factor = self.micro_batch_size * self.num_ranks / batch_size
-      if self.rank != 0:
-        dataset = dataset.skip(self.rank)
-      dataset = dataset.window(size = self.micro_batch_size,shift = batch_size,stride = self.num_ranks,drop_remainder = False)
-      dataset = dataset.interleave(self.create_seqeunce_ds,
-                                   cycle_length = 8,num_parallel_calls = 8)
-    else:
-      dataset = dataset.shard(num_shards=self.num_ranks, index = self.rank)
-      dataset = self.batching_info.apply(dataset, new_batch_size = self.micro_batch_size)
-    
-    logger.info("Using batch size = {}, micro batch size = {}.".format(
-                batch_size, micro_batch_size))
+        raise ValueError("[DistributedDataset] Infinite dataset provided; cannot count samples.")
+      dataset = self.pad_dataset(dataset, batch_size, num_samples)
+
+    dataset = self._get_microbatched_dataset_per_rank(dataset, batch_size, micro_batch_size)
+    logger.info("Using batch size = {batch_size}, micro batch size = {micro_batch_size}.")
     return dataset
 
-  def get_microbatch_size(self, batch_size):
-    if batch_size is None or batch_size == 0:
-      raise ValueError("[DistributedDataset]Incorrectly defined batch size")
-    
-    self.micro_batch_size = int(batch_size // self.num_ranks)
-    
-    remain_element = batch_size % self.num_ranks
-    
-    if remain_element != 0:
-      logger.debug("Batch size ({}) is a not multiple of the number of ranks {}.".format(
-                 batch_size, self.num_ranks))
-      self.diff_micro_batch = True
-      if self.rank + 1 <= remain_element:
-        self.micro_batch_size = self.micro_batch_size + 1
-      
-    logger.debug("Rank {} has micro batch {}.".format(
-                 self.rank, self.micro_batch_size))
-    return self.micro_batch_size
+  def _get_microbatched_dataset_per_rank(self, dataset, batch_size, micro_batch_size):
+    if _is_batch_multiple_num_ranks(self.num_ranks, batch_size):
+      dataset = dataset.shard(num_shards = self.num_ranks, index = self.rank)
+      dataset = self.batching_info.apply(dataset, new_batch_size = micro_batch_size)
+    else:
+      if self.rank != 0:
+        dataset = dataset.skip(self.rank)
+      dataset = dataset.window(size = micro_batch_size,
+                               shift = batch_size,
+                               stride = self.num_ranks,
+                               drop_remainder = False)
+      dataset = dataset.interleave(self.create_sequence_ds,
+                                   cycle_length = 8, num_parallel_calls = 8)
+    return dataset
 
   def generate_callback_if_have(self):
-    if self.normal_factor is None and self.special_global_batch_size is None:
-      return None
-
-    def assign_factor(batch, normal_factor, special_factor, special_iteration):
-      if special_factor == None:
-        return normal_factor
-
-      if batch == special_iteration:
-        return special_factor
-      else:
-        return normal_factor
-    
-    if self.special_global_batch_size is None:
-      return ds_helpers.ScalingFactorScheduler(self.normal_factor,assign_factor)
-    else:
-      if self.normal_factor is None:
-        self.normal_factor = 1.0
-      return ds_helpers.ScalingFactorScheduler(self.normal_factor,assign_factor,
-                                     self.num_ranks * self.special_my_size / self.special_global_batch_size,
-                                     self.special_iteration)
+    batch_size = self.batching_info.batch_size
+    scaling_factor_table = _build_scaling_factor_table(self.rank, self.num_ranks,
+                                                       self.num_samples, batch_size)
+    if scaling_factor_table:
+      return ds_helpers.ScalingFactorScheduler(scaling_factor_table,
+                                               _get_scaling_factor_by_iteration)

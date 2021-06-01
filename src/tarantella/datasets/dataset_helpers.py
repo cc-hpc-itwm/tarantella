@@ -264,22 +264,15 @@ def get_num_samples(dataset):
 
 #scaling factor schedule callback
 class ScalingFactorScheduler(tf.keras.callbacks.Callback):
-  def __init__(self, normal_factor,assign_factor,special_factor = None,special_iteration = None):
-    super(ScalingFactorScheduler, self).__init__()
-    #factor for diff micro batch size
-    self.normal_factor = tf.dtypes.cast(normal_factor, tf.float32)
-    self.assign_factor = assign_factor
-    #factor for pad with 0
-    if special_factor is not None:
-      self.special_factor = tf.dtypes.cast(special_factor, tf.float32)
-      #the iteration with pad 0
-      self.special_iteration = special_iteration
-    else:
-      self.special_factor = None
-      self.special_iteration = None
-    
+  def __init__(self, scaling_factor_table, get_scaling_factor_by_iteration):
+    super().__init__()
+    self.get_scaling_factor_by_iteration = get_scaling_factor_by_iteration
+
+    self.scaling_factor_table = dict()
+    for iteration_id, scaling_factor in scaling_factor_table.items():
+      self.scaling_factor_table[iteration_id] = tf.dtypes.cast(scaling_factor, tf.float32)
 
   def on_train_batch_begin(self, batch, logs=None):
-    K.set_value(self.model.optimizer.scaling_factor,self.assign_factor(batch,self.normal_factor,self.special_factor,self.special_iteration))
-   
-    
+    K.set_value(self.model.optimizer.scaling_factor,
+                self.get_scaling_factor_by_iteration(batch,self.scaling_factor_table))
+
