@@ -53,6 +53,48 @@ def _window_datasets_to_tuples(*datasets_in_window):
     return tf.data.Dataset.from_generator(batched_datasets[0])
   return tf.data.Dataset.zip(tuple(batched_datasets))
 
+def _pad_dataset_if_necessary(dataset, num_samples, batch_size, min_batch_size):
+  last_batch_size = _get_last_incomplete_batch_size(num_samples, batch_size)
+  if last_batch_size == 0:
+    logger.debug(f"No padding required: number of samples {num_samples} is a multiple " \
+                  f"of the batch size {batch_size}.")
+    return dataset
+
+  logger.info(f"Incomplete last batch in the dataset: number of samples is " \
+              f"{last_batch_size} ( != batch size {batch_size}).")
+
+  if version_utils.tf_version_below_equal('2.1'):
+    num_samples_multiple = num_samples - last_batch_size
+    logger.warn(f"Number of samples ({num_samples}) is not a multiple of batch size. " \
+                f"This use case is not supported in TF v{version_utils.current_version()}. " \
+                f"Dropping the last incomplete batch from the dataset, "\
+                f"and proceeding with {num_samples_multiple} samples.")
+    return dataset.take(num_samples_multiple)
+
+  if last_batch_size < min_batch_size:
+    logger.debug(f"Padding required for the last batch: number of samples is " \
+                  f"{last_batch_size} ( < min_batch_size {min_batch_size}).")
+
+    # Create helper dataset that contains one full batch and one incomplete batch
+    helper_dataset = dataset.take(min_batch_size + last_batch_size)
+    helper_dataset = helper_dataset.batch(min_batch_size, drop_remainder=False)
+
+    # If `padded_shape` is unspecified, all dimensions of all components
+    # are padded to the maximum size in the batch.
+    # The second batch in `helper_dataset` will now contain `min_batch_size - last_batch_size`
+    # default-initialized samples.
+    helper_dataset = helper_dataset.padded_batch(2)
+
+    # Switch back to a list of samples instead of batches
+    helper_dataset = helper_dataset.unbatch().unbatch()
+
+    # Remaining samples in the dataset are those generated through padding
+    padding_samples = helper_dataset.skip(min_batch_size + last_batch_size)
+    dataset = dataset.concatenate(padding_samples)
+    logger.info(f"Dataset padded with {min_batch_size - last_batch_size} samples.")
+  return dataset
+
+
 def _get_scaling_factor(micro_batch_size, batch_size, num_ranks):
   return micro_batch_size * num_ranks / batch_size
 
@@ -164,46 +206,6 @@ class DistributedDataset:
       logger.debug("Shuffling with shuffle seed {}.".format(ds_kwargs['seed']))
     return dataset.shuffle(**ds_kwargs)
 
-  def pad_dataset(self, dataset, batch_size, num_samples):
-    real_batch_size = batch_size
-    
-    last_batch_size = _get_last_incomplete_batch_size(num_samples, batch_size)
-    if last_batch_size == 0:
-      logger.debug(f"No padding required: number of samples {num_samples} is a multiple " \
-                   f"of the batch size {batch_size}.")
-      return dataset
-    
-    if version_utils.tf_version_below_equal('2.1'):
-      num_samples_multiple = num_samples - last_batch_size
-      logger.warn(f"Number of samples ({num_samples}) is not a multiple of batch size. " \
-                  f"Last batch padding not supported in TF v{version_utils.current_version()}. " \
-                  f"Dropping the last incomplete batch from the dataset. "\
-                  f"Now dataset has {num_samples_multiple} samples.")
-      return dataset.take(num_samples_multiple)
-
-    logger.debug(f"Incomplete last batch in the dataset: number of samples is " \
-                 f"{last_batch_size} ( != batch size {batch_size}).")
-
-    if last_batch_size < self.num_ranks:
-      logger.debug(f"Padding required for the last batch: number of samples is " \
-                   f"{last_batch_size} ( < nranks {self.num_ranks}).")
-
-      num_padded = self.num_ranks - last_batch_size
-      rest_dataset = dataset.take(2*self.num_ranks - num_padded)
-      logger.info("Dataset is padded with {} elements.".format(
-              num_padded))
-      rest_dataset = rest_dataset.batch(self.num_ranks,drop_remainder=False)
-
-      # If padded_shape is unset, all dimensions of all components are padded to the maximum size
-      # in the batch.
-      rest_dataset = rest_dataset.padded_batch(2)
-      rest_dataset = rest_dataset.unbatch()
-      rest_dataset = rest_dataset.unbatch()
-
-      rest_dataset = rest_dataset.skip(2*self.num_ranks - num_padded)
-      dataset = dataset.concatenate(rest_dataset)
-    return dataset
-
   def distributed_batch(self, dataset, batch_size, micro_batch_size):
     if self.batching_info.drop_remainder == True:
       dataset = self.batching_info.apply(dataset, new_batch_size = batch_size)
@@ -213,7 +215,8 @@ class DistributedDataset:
       self.num_samples = num_samples
       if num_samples == tf.data.experimental.INFINITE_CARDINALITY:
         raise ValueError("[DistributedDataset] Infinite dataset provided; cannot count samples.")
-      dataset = self.pad_dataset(dataset, batch_size, num_samples)
+      dataset = _pad_dataset_if_necessary(dataset, num_samples, batch_size,
+                                          min_batch_size = self.num_ranks)
 
     dataset = self._get_dataset_slice_per_rank(dataset, batch_size, micro_batch_size)
     dataset = self.batching_info.apply(dataset, new_batch_size = micro_batch_size)
