@@ -54,20 +54,13 @@ def _window_datasets_to_tuples(*datasets_in_window):
   # batched_datasets = ( [i0_0, i0_1, i0_2],# each dataset in the tuple has `window_size` samples
   #                      [i1_0, i1_1, i1_2],
   #                      [label0_0, label0_1, label0_2] )
-  batched_datasets = list()
-
+  datasets_list = list()
   for datasets in datasets_in_window:  # one dataset tuple for each sample in the window
     if not isinstance(datasets,tuple):
       datasets = [datasets]
+    datasets_list.append(tuple(list(datasets)))
 
-    temp = []
-    for dataset in datasets:
-      temp.append(dataset)
-    batched_datasets.append(tuple(temp))
-
-  if len(batched_datasets) == 1:
-    return tf.data.Dataset.from_generator(batched_datasets[0])
-  return tf.data.Dataset.zip(tuple(batched_datasets))
+  return tf.data.Dataset.zip(tuple(datasets_list))
 
 def _pad_dataset_if_necessary(dataset, num_samples, batch_size, min_batch_size):
   last_batch_size = _get_last_incomplete_batch_size(num_samples, batch_size)
