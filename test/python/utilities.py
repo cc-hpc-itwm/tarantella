@@ -32,9 +32,11 @@ def load_dataset(dataset_loader,
 
 def train_test_mnist_datasets(nbatches = 1, test_nbatches = 0,
                               micro_batch_size = 64, shuffle = True, 
-                              extra_batch = 0, extra_sample = 0, drop_remainder = False):
-  batch_size = micro_batch_size * tnt.get_size() + extra_batch
-  nsamples = nbatches * batch_size + extra_sample
+                              remainder_samples_per_batch = 0,
+                              last_incomplete_batch_size = 0,
+                              drop_remainder = False):
+  batch_size = micro_batch_size * tnt.get_size() + remainder_samples_per_batch
+  nsamples = nbatches * batch_size + last_incomplete_batch_size
   test_nsamples = test_nbatches * batch_size
   return load_dataset(mnist.load_mnist_dataset,
                       train_size = nsamples, train_batch_size = batch_size,

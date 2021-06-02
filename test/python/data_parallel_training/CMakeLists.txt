@@ -15,8 +15,8 @@ tarantella_generate_python_gpi_test(NAME DataParallel_Training_Accuracy_Adam
                                     TIMEOUT 200)
 
 set(localranks_list 2)
-tarantella_generate_python_gpi_test(NAME DataParallel_Training_Accuracy_Adam_Extra_Sample
-                                    TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/accuracy_test_with_extra_sample.py
+tarantella_generate_python_gpi_test(NAME DataParallel_Training_Accuracy_Adam_Any_Batchsize
+                                    TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/accuracy_test_any_batch_size.py
                                     LOCALRANKS_LIST "${localranks_list}"
                                     LABELS integration gpu cluster
                                     TIMEOUT 400)
