@@ -52,20 +52,6 @@ def gen_dataset_filter(dataset, batch_size, drop_remainder,comm_size):
   dataset = dataset.batch(batch_size, drop_remainder)
   return dataset
 
-##filter after batch can be wrong in this case since it only concern the first element in the batch, but once the batch is shard, every rank see different first element in their first batch
-##for exampe the final batch can be padded to [14,0,0,0,0] rank 0 get 14,0,0, rank 1 get 0,0. if the condition of filter is x[0] > 5, the final batch of rank 0 is reserved however the final batch of rank1 will be removed. If we look to a whole batch, this whole batch should be reserved, but since we do shard before batch, one can't see other elements.
-def gen_dataset_filter_after_batch(dataset, batch_size, drop_remainder,comm_size):
-  def pred1(x,y):
-    return x > 5
-  dataset = dataset.filter(predicate = lambda x, y: pred1(x,y))
-  dataset = dataset.batch(batch_size, drop_remainder)
-
-  def pred2(x,y): # apply to batched dataset
-    return x[0] > 20
-  dataset = dataset.filter(predicate = lambda x, y: pred2(x,y))
-
-  return dataset
-
 def gen_dataset_flat_map(dataset, batch_size, drop_remainder,comm_size):
   dataset = dataset.batch(batch_size = 1, drop_remainder = False)
   # flat map works on batched datasets
@@ -332,7 +318,7 @@ transformation_test_cases = [ gen_dataset_batch,
                               gen_dataset_zip,
                               ]
 
-@pytest.mark.skipif(tf.version.VERSION < "2.2.0",reason="requires tf >= 2.2")
+@pytest.mark.min_tfversion('2.2')
 @pytest.mark.parametrize("apply_transformations", transformation_test_cases)
 @pytest.mark.parametrize("dataset_generator", [np_arrays_from_range])
 @pytest.mark.parametrize("comm_size", [1,3,4])
@@ -363,7 +349,7 @@ def test_batch_with_pad(apply_transformations, dataset_generator,
                                           num_ranks = comm_size,
                                           rank = rank)
     local_dataset = dist_dataset.distribute_dataset_across_ranks()
-    micro_batch_size = dist_dataset.micro_batch_size
+    micro_batch_size = ds_helpers._get_microbatch_size(rank, comm_size, batch_size)
 
     # rebuild reference dataset each time to prevent
     # shuffling effects for repeated iterations
@@ -374,7 +360,7 @@ def test_batch_with_pad(apply_transformations, dataset_generator,
 
     validate_local_dataset(ref_dataset, local_dataset, micro_batch_size, rank,comm_size = comm_size, padded = True)
 
-@pytest.mark.skipif(tf.version.VERSION >= "2.2.0",reason="requires tf < 2.2")
+@pytest.mark.max_tfversion('2.1')
 @pytest.mark.parametrize("apply_transformations", transformation_test_cases)
 @pytest.mark.parametrize("dataset_generator", [np_arrays_from_range])
 @pytest.mark.parametrize("comm_size", [1,3,4])
@@ -405,7 +391,7 @@ def test_batch_without_pad(apply_transformations, dataset_generator,
                                           num_ranks = comm_size,
                                           rank = rank)
     local_dataset = dist_dataset.distribute_dataset_across_ranks()
-    micro_batch_size = dist_dataset.micro_batch_size
+    micro_batch_size = ds_helpers._get_microbatch_size(rank, comm_size, batch_size)
 
     ##always set the drop_remainder to True
     ref_dataset = apply_transformations(reference_dataset,
