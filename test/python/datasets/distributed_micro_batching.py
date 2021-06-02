@@ -1,31 +1,12 @@
 import logging
-import numpy as np
 import pytest
 
 import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import layers
 
 from tarantella.datasets import distributed_dataset as ds
 from tarantella.datasets import dataset_helpers as ds_helpers
 import tarantella.utilities.tf_version as version_utils
-
-def mnist_as_np_arrays(training_samples):
-  mnist_train_size = 60000
-  assert(training_samples <= mnist_train_size)
-
-  # load given number of samples
-  (x_train_all, y_train_all), _ = keras.datasets.mnist.load_data()
-  x_train = x_train_all[:training_samples]
-  y_train = y_train_all[:training_samples]
-
-  # normalization and reshape
-  x_train = x_train.reshape(training_samples, 28, 28, 1).astype('float32') / 255.
-  y_train = y_train.astype('float32')
-  return (x_train, y_train)
-
-def np_arrays_from_range(training_samples):
-  return (tf.range(training_samples), tf.range(training_samples))
+import utilities as ds_utils
 
 def gen_dataset_batch(dataset, batch_size, drop_remainder):
   dataset = dataset.batch(batch_size, drop_remainder)
@@ -70,53 +51,15 @@ def gen_dataset_io_pipeline(dataset, batch_size, drop_remainder):
   dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
   return dataset
 
-def _pad(array, reference):
-  result = np.zeros(reference.shape)
-  insertHere = [slice(0, array.shape[dim]) for dim in range(array.ndim)]
-  result[tuple(insertHere)] = array
-  return result
-
-def _validate_local_dataset(ref_dataset, local_dataset, micro_batch_size,
-                            rank, comm_size, padded):
-  local_dataset_it = iter(local_dataset)
-  expected_dataset_it = iter(ref_dataset)
-
-  for local_batch, expected_batch in zip(local_dataset_it, expected_dataset_it):
-    # look at the first dataset when datasets are nested (e.g., after zip, or (samples, targets))
-    # TODO: check all elements of the tuples
-    while isinstance(local_batch, tuple):
-      local_batch = local_batch[0]
-
-    while isinstance(expected_batch, tuple):
-      expected_batch = expected_batch[0]
-    # extract the slice of the reference dataset that corresponds to `rank`
-    expected_micro_batch = expected_batch[rank::comm_size]
-
-    if padded: # pad the expected micro_batch to the shape of the `rank` micro_batch
-               # to enable comparison
-      shape_expect = np.shape(expected_micro_batch)
-      shape_local = np.shape(local_batch)
-
-      if shape_expect != shape_local:
-        expected_micro_batch = _pad(expected_micro_batch, local_batch)
-
-    assert np.array_equal(local_batch,expected_micro_batch)
-
-  # verify that the two datasets have the same length
-  with pytest.raises(StopIteration):
-    next(local_dataset_it)
-  with pytest.raises(StopIteration):
-    next(expected_dataset_it)
-
 def validate_local_dataset(ref_dataset, local_dataset, micro_batch_size,
                            rank, comm_size):
   if version_utils.tf_version_below_equal('2.1'):
     # padding implementation not supported in TF version <= 2.1
-    return _validate_local_dataset(ref_dataset, local_dataset, micro_batch_size,
-                                   rank, comm_size, padded = False)
+    return ds_utils.validate_local_dataset(ref_dataset, local_dataset, micro_batch_size,
+                                           rank, comm_size, padded = False)
   else:
-    return _validate_local_dataset(ref_dataset, local_dataset, micro_batch_size,
-                                   rank, comm_size, padded = True)
+    return ds_utils.validate_local_dataset(ref_dataset, local_dataset, micro_batch_size,
+                                           rank, comm_size, padded = True)
 
 transformation_test_cases = [gen_dataset_batch,
                              gen_dataset_shuffle_batch,
@@ -131,7 +74,7 @@ last_batch_sizes = [0, # number of samples is a multiple of batch size
                     5, # last batch is incomplete, last_batch_size >= number of ranks (no padding)
                     ]
 @pytest.mark.parametrize("apply_transformations", transformation_test_cases)
-@pytest.mark.parametrize("dataset_generator", [np_arrays_from_range])
+@pytest.mark.parametrize("dataset_generator", [ds_utils.np_arrays_from_range])
 @pytest.mark.parametrize("comm_size", [1,3,4])
 @pytest.mark.parametrize("micro_batch_size", [5])
 @pytest.mark.parametrize("num_batches", [6])
@@ -146,7 +89,6 @@ def test_micro_batching(apply_transformations, dataset_generator,
   (x_train, y_train) = dataset_generator(num_samples)
 
   reference_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train))
-
   tnt_dataset =  tf.data.Dataset.from_tensor_slices((x_train, y_train))
 
   tnt_dataset = apply_transformations(tnt_dataset,
