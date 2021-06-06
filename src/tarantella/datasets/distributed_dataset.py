@@ -5,7 +5,7 @@ from tarantella import logger
 import tarantella.datasets.dataset_helpers as ds_helpers
 import tarantella.datasets.ops_helpers as ops_helpers
 import tarantella.datasets.gradient_scaling_callback as grad_scaling
-
+import tarantella.utilities.tf_version as version_utils
 
 class DistributedDataset:
   def __init__(self, dataset, num_ranks, rank, shuffle_seed = 42):
@@ -107,10 +107,14 @@ class DistributedDataset:
                                shift = batch_size,
                                stride = self.num_ranks,
                                drop_remainder = False)
+
+      kwargs = {}
+      if version_utils.tf_version_above_equal('2.2'):
+        kwargs['deterministic'] = True
       dataset = dataset.interleave(ds_helpers._window_datasets_to_tuples,
                                    num_parallel_calls = ds_helpers.autotune_flag(),
                                    block_length = micro_batch_size,
-                                   deterministic = True)
+                                   **kwargs)
     return dataset
 
   def get_gradient_scaling_callback(self):
