@@ -2,8 +2,8 @@ import pytest
 
 import tensorflow as tf
 
-from tarantella.datasets import distributed_dataset as ds
-from tarantella.datasets import dataset_helpers as ds_helpers
+import tarantella.datasets.distributed_dataset as ds
+import tarantella.datasets.dataset_helpers as ds_helpers
 import utilities as ds_utils
 
 def gen_dataset_multiple_batch(dataset, batch_size, drop_remainder = True):
@@ -45,7 +45,7 @@ def gen_dataset_flat_map_after_batch(dataset, batch_size, drop_remainder = True)
 def gen_dataset_interleave(dataset, batch_size, drop_remainder = True):
   dataset = dataset.batch(batch_size = 3, drop_remainder = False)
   dataset = dataset.interleave(map_func = lambda x, y: tf.data.Dataset.from_tensor_slices((x+3, y)),
-                               cycle_length=tf.data.experimental.AUTOTUNE,
+                               cycle_length=ds_helpers.autotune_flag(),
                                block_length=2,
                                deterministic = True)
     
@@ -55,7 +55,7 @@ def gen_dataset_interleave(dataset, batch_size, drop_remainder = True):
 def gen_dataset_interleave_after_batch(dataset, batch_size, drop_remainder = True):
   dataset = dataset.batch(batch_size = 3, drop_remainder = False)
   dataset = dataset.interleave(map_func = lambda x, y: tf.data.Dataset.from_tensor_slices((x+3, y)),
-                               cycle_length=tf.data.experimental.AUTOTUNE,
+                               cycle_length=ds_helpers.autotune_flag(),
                                block_length=2,
                                deterministic = True)
     
@@ -68,7 +68,7 @@ def gen_dataset_interleave_after_batch(dataset, batch_size, drop_remainder = Tru
 def gen_dataset_interleave_v1(dataset, batch_size, drop_remainder = True):
   dataset = dataset.batch(batch_size = 1, drop_remainder = False)
   dataset = dataset.interleave(map_func = lambda x, y: tf.data.Dataset.from_tensor_slices((x+3, y)),
-                               cycle_length=tf.data.experimental.AUTOTUNE,
+                               cycle_length=ds_helpers.autotune_flag(),
                                block_length=2)
     
   dataset = dataset.batch(batch_size, drop_remainder)
@@ -104,7 +104,7 @@ def gen_dataset_map_v1(dataset, batch_size, drop_remainder = True):
 def gen_dataset_parallel_interleave(dataset, batch_size, drop_remainder = True):
   dataset = dataset.batch(batch_size = 1, drop_remainder = False)
   dataset = dataset.interleave(map_func = lambda x, y: tf.data.Dataset.from_tensor_slices((x+3, y)),
-                               cycle_length=tf.data.experimental.AUTOTUNE,
+                               cycle_length=ds_helpers.autotune_flag(),
                                block_length=2,
                                num_parallel_calls=4,
                                deterministic = True)
@@ -115,7 +115,7 @@ def gen_dataset_parallel_interleave_after_batch(dataset, batch_size, drop_remain
   dataset = dataset.batch(batch_size = 1, drop_remainder = False)
   dataset = dataset.batch(batch_size, drop_remainder)
   dataset = dataset.interleave(map_func = lambda x, y: tf.data.Dataset.from_tensors((2*x, y)),
-                               cycle_length=tf.data.experimental.AUTOTUNE,
+                               cycle_length=ds_helpers.autotune_flag(),
                                block_length=2,
                                num_parallel_calls=4,
                                deterministic = True)
@@ -124,7 +124,7 @@ def gen_dataset_parallel_interleave_after_batch(dataset, batch_size, drop_remain
 def gen_dataset_parallel_interleave_v1(dataset, batch_size, drop_remainder = True):
   dataset = dataset.batch(batch_size = 1, drop_remainder = False)
   dataset = dataset.interleave(map_func = lambda x, y: tf.data.Dataset.from_tensor_slices((x+3, y)),
-                               cycle_length=tf.data.experimental.AUTOTUNE,
+                               cycle_length=ds_helpers.autotune_flag(),
                                num_parallel_calls=4)
   dataset = dataset.batch(batch_size, drop_remainder)
   return dataset

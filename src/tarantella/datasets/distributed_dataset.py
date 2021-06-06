@@ -2,8 +2,8 @@ import tensorflow as tf
 from tensorflow.python.data.ops import dataset_ops as ds
 
 from tarantella import logger
-import tarantella.datasets.dataset_helpers as helpers
-import tarantella.datasets.ops_helpers as ds_helpers
+import tarantella.datasets.dataset_helpers as ds_helpers
+import tarantella.datasets.ops_helpers as ops_helpers
 import tarantella.datasets.gradient_scaling_callback as grad_scaling
 
 
@@ -15,8 +15,8 @@ class DistributedDataset:
 
     self.dataset = dataset
     self.base_dataset, self.dataset_transformations = \
-           ds_helpers.gen_dataset_transformations(dataset)
-    self.batching_info = ds_helpers.get_batching_info(self.dataset_transformations)
+           ops_helpers.gen_dataset_transformations(dataset)
+    self.batching_info = ops_helpers.get_batching_info(self.dataset_transformations)
 
 
   def distribute_dataset_across_ranks(self, user_micro_batch_size = None, is_training = True):
@@ -39,7 +39,7 @@ class DistributedDataset:
                              f"is not consistent with batch size ({batch_size}) on the " \
                              f"number of devices used ({num_ranks}).")
         else:
-          micro_batch_size = helpers._get_microbatch_size(self.rank, self.num_ranks, batch_size)
+          micro_batch_size = ds_helpers._get_microbatch_size(self.rank, self.num_ranks, batch_size)
 
         if is_training:
           dataset = self.distributed_batch(dataset,
@@ -86,10 +86,10 @@ class DistributedDataset:
       dataset = self.batching_info.apply(dataset, new_batch_size = batch_size)
       dataset = dataset.unbatch()
     else:
-      self.num_samples = helpers._get_num_samples(dataset)
+      self.num_samples = ds_helpers._get_num_samples(dataset)
       if self.num_samples == tf.data.experimental.INFINITE_CARDINALITY:
         raise ValueError("[DistributedDataset] Infinite dataset provided; cannot count samples.")
-      dataset = helpers._pad_dataset_if_necessary(dataset, self.num_samples, batch_size,
+      dataset = ds_helpers._pad_dataset_if_necessary(dataset, self.num_samples, batch_size,
                                           min_batch_size = self.num_ranks)
 
     dataset = self._get_dataset_slice_per_rank(dataset, batch_size, micro_batch_size)
@@ -99,7 +99,7 @@ class DistributedDataset:
     return dataset
 
   def _get_dataset_slice_per_rank(self, dataset, batch_size, micro_batch_size):
-    if helpers._is_batch_multiple_num_ranks(self.num_ranks, batch_size):
+    if ds_helpers._is_batch_multiple_num_ranks(self.num_ranks, batch_size):
       dataset = dataset.shard(num_shards = self.num_ranks, index = self.rank)
     else:
       dataset = dataset.skip(self.rank) # skip samples up to the starting point for `rank`
@@ -107,8 +107,8 @@ class DistributedDataset:
                                shift = batch_size,
                                stride = self.num_ranks,
                                drop_remainder = False)
-      dataset = dataset.interleave(helpers._window_datasets_to_tuples,
-                                   num_parallel_calls = tf.data.AUTOTUNE,
+      dataset = dataset.interleave(ds_helpers._window_datasets_to_tuples,
+                                   num_parallel_calls = ds_helpers.autotune_flag(),
                                    block_length = micro_batch_size,
                                    deterministic = True)
     return dataset

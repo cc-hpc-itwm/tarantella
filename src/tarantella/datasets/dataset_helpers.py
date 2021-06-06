@@ -102,3 +102,10 @@ def _pad_dataset_if_necessary(dataset, num_samples, batch_size, min_batch_size):
     dataset = dataset.concatenate(padding_samples)
     logger.info(f"Dataset padded with {min_batch_size - last_batch_size} samples.")
   return dataset
+
+def autotune_flag():
+  if version_utils.tf_version_below_equal('2.3'):
+    return tf.data.experimental.AUTOTUNE
+  else:
+    return tf.data.AUTOTUNE
+

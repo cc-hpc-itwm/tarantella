@@ -3,8 +3,8 @@ import pytest
 
 import tensorflow as tf
 
-from tarantella.datasets import distributed_dataset as ds
-from tarantella.datasets import dataset_helpers as ds_helpers
+import tarantella.datasets.distributed_dataset as ds
+import tarantella.datasets.dataset_helpers as ds_helpers
 import tarantella.utilities.tf_version as version_utils
 import utilities as ds_utils
 
@@ -45,10 +45,10 @@ def gen_dataset_io_pipeline(dataset, batch_size, drop_remainder):
 
   # Preprocess samples (in parallel)
   dataset = dataset.map(
-      parse_fn, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+      parse_fn, num_parallel_calls=ds_helpers.autotune_flag())
 
   dataset = dataset.batch(batch_size, drop_remainder = drop_remainder)
-  dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
+  dataset = dataset.prefetch(ds_helpers.autotune_flag())
   return dataset
 
 def validate_local_dataset(ref_dataset, local_dataset, micro_batch_size,
