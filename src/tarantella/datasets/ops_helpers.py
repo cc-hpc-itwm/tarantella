@@ -2,13 +2,9 @@ import copy
 
 import tensorflow as tf
 from tensorflow.python.data.ops import dataset_ops as ds
-from tensorflow.python.framework import ops
-from tensorflow.python.framework import dtypes
-from tensorflow.python.ops import gen_dataset_ops
 
 from tarantella import logger
 import tarantella.datasets.ops as tnt_ops
-import numpy as np
 
 def _get_transformation_info_batch(dataset):
   kwargs = {"batch_size": dataset._batch_size,
@@ -241,3 +237,4 @@ def get_batching_info(dataset_transformations):
                             transformation = transf,
                             params = copy.deepcopy(ds_kwargs))
   return BatchingOpInfo(is_batched = False)
+
