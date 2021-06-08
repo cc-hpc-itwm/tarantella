@@ -162,3 +162,16 @@ class TestsDataParallelCallbacks:
 
     for key in ref_history.history.keys():
       assert all(np.isclose(tnt_history.history[key], ref_history.history[key], atol=1e-6))
+
+  @pytest.mark.parametrize("number_epochs", [3])
+  def test_reduce_lr_on_plateau_callback(self, model_runners, number_epochs):
+    monitor_metric = 'val_loss'
+    callbacks = [tf.keras.callbacks.ReduceLROnPlateau(monitor=monitor_metric,
+                                                      factor=0.01,
+                                                      min_delta=0.01,
+                                                      patience=1)]
+    tnt_history, reference_history = self.train_tnt_and_ref_models_with_callbacks(
+                                       callbacks, model_runners, number_epochs)
+
+    for key in reference_history.history.keys():
+      assert all(np.isclose(tnt_history.history[key], reference_history.history[key], atol=1e-6))
