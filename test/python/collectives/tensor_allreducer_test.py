@@ -133,4 +133,20 @@ class TestTensorAllreducer:
     allreducer = tnt.TensorAllreducer(input)
     output = allreducer.allreduce(input)
 
-    assert tf.is_tensor(output) and output == expected_value
+    assert tf.is_tensor(output)
+    assert output == expected_value
+
+  def test_dict_of_tensors(self):
+    input_dict = dict()
+
+    value = 22.610077
+    expected_value = value * tnt.get_size()
+
+    input_dict["a"] = tf.constant(value, dtype=np.float32)
+    input_dict["b"] = tf.constant(value, dtype=np.float32)
+
+    allreducer = tnt.TensorAllreducer(input_dict)
+    output_dict = allreducer.allreduce(input_dict)
+
+    assert { k: tf.is_tensor(v) for k, v in output_dict.items() }
+    assert { k: v == expected_value for k, v in output_dict.items() }
