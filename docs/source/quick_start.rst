@@ -413,6 +413,7 @@ At the moment, Tarantella fully supports the following
 * ``tf.keras.callbacks.History``
 * ``tf.keras.callbacks.LearningRateScheduler``
 * ``tf.keras.callbacks.ModelCheckpoint``
+* ``tf.keras.callbacks.ReduceLROnPlateau``
 * ``tf.keras.callbacks.RemoteMonitor``
 * ``tf.keras.callbacks.TensorBoard``
 * ``tf.keras.callbacks.TerminateOnNaN``
@@ -443,6 +444,11 @@ This behavior can be changed by passing ``--output-on-all-devices`` to ``tarante
 during training. For an example look :ref:`here <checkpointing-via-callbacks-label>`,
 and into the
 `Keras documentation <https://www.tensorflow.org/api_docs/python/tf/keras/callbacks/ModelCheckpoint>`__.
+
+The ``ReduceLROnPlateau`` callback can be used to reduce learning rate when a monitored metric has
+stopped improving. The learning rate would be changed on each of the devices and the metrics are
+averaged over all devices after each epoch before checking if there is a necessity to change the
+learning rate.
 
 The ``RemoteMonitor`` callback can be used to stream events to a server. All metrics are
 averaged over all devices at the end of every epoch before streaming.
