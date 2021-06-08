@@ -80,7 +80,9 @@ last_batch_sizes = [0, # number of samples is a multiple of batch size
 @pytest.mark.parametrize("num_batches", [6])
 @pytest.mark.parametrize("size_final_batch", last_batch_sizes)
 @pytest.mark.parametrize("size_batch_remainder", remainder_samples_per_batch)
-@pytest.mark.parametrize("drop_remainder", [False, True])
+@pytest.mark.parametrize("drop_remainder", [pytest.param(False,
+                                                         marks=pytest.mark.min_tfversion('2.2')),
+                                            True])
 def test_micro_batching(apply_transformations, dataset_generator,
                         comm_size, micro_batch_size, num_batches,
                         size_final_batch, size_batch_remainder, drop_remainder):
