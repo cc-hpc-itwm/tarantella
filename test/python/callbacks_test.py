@@ -158,7 +158,7 @@ class TestsDataParallelCallbacks:
   def test_base_logger_callback(self, model_runners, number_epochs):
     callbacks = [tf.keras.callbacks.BaseLogger()]
     tnt_history, ref_history = self.train_tnt_and_ref_models_with_callbacks(
-                                       callbacks, model_runners, number_epochs, verbose=1)
+                                       callbacks, model_runners, number_epochs)
 
     for key in ref_history.history.keys():
       assert all(np.isclose(tnt_history.history[key], ref_history.history[key], atol=1e-6))
