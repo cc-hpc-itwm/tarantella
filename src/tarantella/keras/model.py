@@ -476,6 +476,10 @@ class Model(tf.keras.models.Model):
         base_logger_callback = tnt_callbacks.BaseLogger(keras_callback = callback)
         callbacks[index] = base_logger_callback
       
+      elif isinstance(callback, tf_callbacks.ReduceLROnPlateau):
+        reducelr_callback = tnt_callbacks.ReduceLROnPlateau(keras_callback = callback)
+        callbacks[index] = reducelr_callback
+
     if remove_tensorboard_index is not None:
       del callbacks[remove_tensorboard_index]
 

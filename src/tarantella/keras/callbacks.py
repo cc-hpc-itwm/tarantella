@@ -194,3 +194,22 @@ class BaseLogger(tf.keras.callbacks.BaseLogger, LogsAverager):
     LogsAverager.__init__(self)
     averaged_logs = self.average_logs(logs)
     super().on_epoch_end(epoch, averaged_logs)
+
+class ReduceLROnPlateau(tf.keras.callbacks.ReduceLROnPlateau, LogsAverager):
+  def __init__(self, keras_callback):
+    self._construct_from_keras_object(keras_callback)
+    LogsAverager.__init__(self)
+
+    # only master rank should print messages
+    self.verbose = keras_callback.verbose if tnt.is_master_rank() else 0
+
+  def _construct_from_keras_object(self, keras_callback):
+    implemented_methods = ['on_epoch_end']
+    super().__init__()
+    for k, v in keras_callback.__dict__.items():
+      if k not in implemented_methods:
+        setattr(self, k, copy.deepcopy(v))
+
+  def on_epoch_end(self, epoch, logs=None):
+    averaged_logs = self.average_logs(logs)
+    super().on_epoch_end(epoch, averaged_logs)
