@@ -21,7 +21,8 @@ remainder_samples_per_batch_list = [0, # batch size is a multiple of the number 
                                     7, # some ranks have one additional sample in their micro-batch
                                     ]
 last_incomplete_batch_size_list = [0, # number of samples is a multiple of batch size
-                                   23,# last_batch_size >= number of ranks (no padding)
+                                   pytest.param(23, # last_batch_size >= number of ranks (no padding)
+                                                marks=pytest.mark.min_tfversion('2.2')),
                                    pytest.param(1, # last_batch_size < number of ranks
                                                    # (i.e., padding is required)
                                                 marks=pytest.mark.min_tfversion('2.2')),
