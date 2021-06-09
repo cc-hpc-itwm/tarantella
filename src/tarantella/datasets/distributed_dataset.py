@@ -90,12 +90,12 @@ class DistributedDataset:
       if self.num_samples == tf.data.experimental.INFINITE_CARDINALITY:
         raise ValueError("[DistributedDataset] Infinite dataset provided; cannot count samples.")
       dataset = ds_helpers._pad_dataset_if_necessary(dataset, self.num_samples, batch_size,
-                                          min_batch_size = self.num_ranks)
+                                                     min_batch_size = self.num_ranks)
 
     dataset = self._get_dataset_slice_per_rank(dataset, batch_size, micro_batch_size)
     dataset = self.batching_info.apply(dataset, new_batch_size = micro_batch_size)
 
-    logger.info("Using batch size = {batch_size}, micro batch size = {micro_batch_size}.")
+    logger.info(f"Using batch size = {batch_size}, micro batch size = {micro_batch_size}.")
     return dataset
 
   def _get_dataset_slice_per_rank(self, dataset, batch_size, micro_batch_size):
@@ -122,5 +122,4 @@ class DistributedDataset:
     scaling_factor_table = grad_scaling.build_scaling_factor_table(self.rank, self.num_ranks,
                                                                    self.num_samples, batch_size)
     if scaling_factor_table:
-      return grad_scaling.ScalingFactorScheduler(scaling_factor_table,
-                                                 grad_scaling.get_scaling_factor_by_iteration)
+      return grad_scaling.ScalingFactorScheduler(scaling_factor_table)

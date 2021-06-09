@@ -53,7 +53,7 @@ class ScalingFactorScheduler(tf.keras.callbacks.Callback):
   def on_train_batch_begin(self, batch, logs=None):
     scaling_factor = get_scaling_factor_by_iteration(batch, self.scaling_factor_table)
     if scaling_factor != self.model.optimizer.scaling_factor:
-      logger.debug(f"[rank {tnt.get_rank()}] Setting scaling factor to {scaling_factor}")
+      logger.debug(f"[Rank {tnt.get_rank()}] Setting scaling factor to {scaling_factor}")
       K.set_value(self.model.optimizer.scaling_factor, scaling_factor)
 
 

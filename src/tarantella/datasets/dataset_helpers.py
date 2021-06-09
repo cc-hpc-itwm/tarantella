@@ -1,5 +1,6 @@
 import tensorflow as tf
 
+import tarantella as tnt
 from tarantella import logger
 import tarantella.utilities.tf_version as version_utils
 
@@ -29,11 +30,11 @@ def _get_microbatch_size(rank, num_ranks, batch_size):
   remaining_samples = batch_size % num_ranks
 
   if remaining_samples != 0:
-    logger.debug(f"Batch size ({batch_size}) is a not multiple of the number of ranks {num_ranks}.")
+    logger.debug(f"[Rank {tnt.get_rank()}] Batch size ({batch_size}) is a not multiple of the number of ranks {num_ranks}.")
   if rank < remaining_samples:
     microbatch_size = microbatch_size + 1
 
-  logger.debug(f"Rank {rank} has micro batch {microbatch_size}.")
+  logger.debug(f"[Rank {tnt.get_rank()}] Micro batch size {microbatch_size}.")
   return microbatch_size
 
 def _is_batch_multiple_num_ranks(num_ranks, batch_size):
@@ -66,7 +67,7 @@ def _pad_dataset_if_necessary(dataset, num_samples, batch_size, min_batch_size):
   last_batch_size = _get_last_incomplete_batch_size(num_samples, batch_size)
   if last_batch_size == 0:
     logger.debug(f"No padding required: number of samples {num_samples} is a multiple " \
-                  f"of the batch size {batch_size}.")
+                 f"of the batch size {batch_size}.")
     return dataset
 
   logger.info(f"Incomplete last batch in the dataset: number of samples is " \
@@ -82,7 +83,7 @@ def _pad_dataset_if_necessary(dataset, num_samples, batch_size, min_batch_size):
 
   if last_batch_size < min_batch_size:
     logger.debug(f"Padding required for the last batch: number of samples is " \
-                  f"{last_batch_size} ( < min_batch_size {min_batch_size}).")
+                 f"{last_batch_size} ( < min_batch_size {min_batch_size}).")
 
     # Create helper dataset that contains one full batch and one incomplete batch
     helper_dataset = dataset.take(min_batch_size + last_batch_size)
@@ -100,7 +101,8 @@ def _pad_dataset_if_necessary(dataset, num_samples, batch_size, min_batch_size):
     # Remaining samples in the dataset are those generated through padding
     padding_samples = helper_dataset.skip(min_batch_size + last_batch_size)
     dataset = dataset.concatenate(padding_samples)
-    logger.info(f"Dataset padded with {min_batch_size - last_batch_size} samples.")
+    logger.info(f"[Rank {tnt.get_rank()}] Dataset padded with " \
+                f"{min_batch_size - last_batch_size} samples.")
   return dataset
 
 def autotune_flag():
