@@ -8,12 +8,13 @@ import tarantella.datasets.dataset_helpers as helpers
 def _get_scaling_factor(micro_batch_size, batch_size, num_ranks):
   return micro_batch_size * num_ranks / batch_size
 
-def build_scaling_factor_table(rank, num_ranks, num_samples, batch_size):
+def build_scaling_factor_table(rank, num_ranks, batch_size, num_samples = None):
   # Defines the gradient `scaling_factor` to be used for each iteration starting
   # with `start_iteration_id`
   # scaling_factor_table = { start_iteration_id: scaling_factor }
 
   if helpers._is_batch_multiple_num_ranks(num_ranks, batch_size) and \
+     num_samples and \
      helpers._is_num_samples_multiple_batch_size(num_samples, batch_size):
     return None
 
@@ -24,7 +25,8 @@ def build_scaling_factor_table(rank, num_ranks, num_samples, batch_size):
   scaling_factor_table = { 0 : _get_scaling_factor(micro_batch_size, batch_size, num_ranks) }
 
   # the last iteration (with an incomplete batch) uses a separate scaling factor
-  if not helpers._is_num_samples_multiple_batch_size(num_samples, batch_size):
+  if num_samples and \
+     not helpers._is_num_samples_multiple_batch_size(num_samples, batch_size):
     final_iteration_id = int(num_samples // batch_size)
 
     last_batch_size = helpers._get_last_incomplete_batch_size(num_samples, batch_size)

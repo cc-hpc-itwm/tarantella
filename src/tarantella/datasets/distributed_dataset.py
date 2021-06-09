@@ -12,6 +12,7 @@ class DistributedDataset:
     self.num_ranks = num_ranks
     self.rank = rank
     self.shuffle_seed = shuffle_seed
+    self.num_samples = None
 
     self.dataset = dataset
     self.base_dataset, self.dataset_transformations = \
@@ -120,6 +121,6 @@ class DistributedDataset:
   def get_gradient_scaling_callback(self):
     batch_size = self.batching_info.batch_size
     scaling_factor_table = grad_scaling.build_scaling_factor_table(self.rank, self.num_ranks,
-                                                                   self.num_samples, batch_size)
+                                                                   batch_size, self.num_samples)
     if scaling_factor_table:
       return grad_scaling.ScalingFactorScheduler(scaling_factor_table)
