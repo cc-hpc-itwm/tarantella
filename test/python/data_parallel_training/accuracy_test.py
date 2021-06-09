@@ -27,9 +27,11 @@ class TestsDataParallelCompareAccuracy:
   def test_compare_accuracy_against_reference(self, model_runners, micro_batch_size,
                                               number_epochs, nbatches, test_nbatches):
     (train_dataset, test_dataset) = util.train_test_mnist_datasets(nbatches, test_nbatches,
-                                                                   micro_batch_size)
+                                                                   micro_batch_size,
+                                                                   drop_remainder = True)
     (ref_train_dataset, ref_test_dataset) = util.train_test_mnist_datasets(nbatches, test_nbatches,
-                                                                           micro_batch_size)
+                                                                           micro_batch_size,
+                                                                           drop_remainder = True)
 
     tnt_model_runner, reference_model_runner = model_runners
     tnt_model_runner.train_model(train_dataset, number_epochs)
