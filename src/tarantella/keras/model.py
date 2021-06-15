@@ -112,6 +112,44 @@ class Model(tf.keras.models.Model):
   
   def add_metric(self, value, *args, **kwargs):
     self.model.add_metric(value, *args, **kwargs)
+
+  def train_step(self, data):
+    return self.model.train_step(data)
+  
+  def make_train_function(self):
+    return self.model.make_train_function()
+  
+  def train_on_batch(self,
+                     x,
+                     y=None,
+                     sample_weight=None,
+                     class_weight=None,
+                     reset_metrics=True,
+                     return_dict=False):
+    return self.model.train_on_batch(x, y, sample_weight, class_weight, reset_metrics, return_dict)
+
+  def test_step(self, data):
+    return self.model.test_step(data)
+  
+  def make_test_function(self):
+    return self.model.make_test_function()
+  
+  def test_on_batch(self,
+                     x,
+                     y=None,
+                     sample_weight=None,
+                     reset_metrics=True,
+                     return_dict=False):
+    return self.model.test_on_batch(x, y, sample_weight, reset_metrics, return_dict)
+
+  def predict_step(self, data):
+    return self.model.predict_step(data)
+  
+  def make_predict_function(self):
+    return self.model.make_predict_function()
+  
+  def predict_on_batch(self, x):
+    return self.model.predict_on_batch(x)
   
   def build(self, input_shape):
     return self.model.build(input_shape)
