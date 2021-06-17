@@ -8,10 +8,21 @@ project(tarantella VERSION ${TNT_VERSION})
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_FLAGS "-O3 -Wall -Wextra -Werror")
+set(CMAKE_CXX_FLAGS "-Wall -Wextra -Werror")
 
 option(ENABLE_TESTING "Compile tests [default: disabled]" off)
 option(BUILD_DOCS "Build documentation [default: disabled]" off)
+
+# Set a default build type if none was specified
+set(default_build_type "Release")
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  message(STATUS "Setting default build type to '${default_build_type}'.")
+  set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE
+      STRING "Define build type." FORCE)
+  # Set the possible values of build type for cmake-gui
+  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
+    "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+endif()
 
 set(SRC_DIR "${CMAKE_SOURCE_DIR}/src")
 set(CMAKE_BUILD_DIR "${CMAKE_SOURCE_DIR}/build")
