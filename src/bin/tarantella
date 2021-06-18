@@ -1,7 +1,13 @@
 #!/usr/bin/env python
 import logging
 import os
+import signal
 import sys
+
+def signal_handler(signal, frame):
+  print(f"Cleaning up and exiting Tarantella process on {os.uname().nodename}")
+  sys.exit(0)
+signal.signal(signal.SIGTERM, signal_handler)
 
 TNT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LIB_DIR = os.path.join(TNT_DIR, "lib/tarantella")
@@ -31,4 +37,4 @@ if __name__ == "__main__":
   env_config.update_environment_paths(LIB_DIR)
 
   tarantella = TarantellaCLI(nodes_list, num_gpus, num_cpus, args)
-  tarantella.run(args.dry_run)
+  tarantella.run()

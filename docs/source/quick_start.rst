@@ -193,12 +193,30 @@ is exported on all ranks before executing the code. An example is shown below:
 Both ``DATASET`` and ``TF_CPP_MIN_LOG_LEVEL`` will be exported as environment variables 
 before executing ``model.py``, in the same order they were specified to the command line.
 
-Lastly, you can overwrite the *Tensor Fusion* threshold ``tarantella`` uses 
+Additionally, you can overwrite the *Tensor Fusion* threshold ``tarantella`` uses
 with ``--fusion-threshold FUSION_THRESHOLD_KB``
 (cf. :ref:`here <tensor-fusion-label>` and :ref:`here <tensor-fusion-threshold-label>`),
 and set and number of environment variables, most notably
 ``TNT_TENSORBOARD_ON_ALL_DEVICES``, as explained
 :ref:`here <callbacks-label>`.
+
+.. _tnt-cleanup-label:
+
+To terminate a running ``tarantella`` instance, execute another ``tarantella`` command that
+specifies the ``--cleanup`` option in addition to the name of the program you want to interrupt.
+
+.. code-block:: bash
+
+   tarantella --hostfile hostfile --cleanup -- model.py
+
+The above command will stop the ``model.py`` execution on all the nodes provided in ``hostfile``.
+You can also enable the ``--force`` flag to immediately terminate unresponsive processes.
+
+.. note::
+
+  Any running ``tarantella`` execution can be terminated by using ``Ctrl+c``, regardless of
+  whether it was started on a single node or on multiple hosts.
+
 
 Save and load Tarantella models
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
