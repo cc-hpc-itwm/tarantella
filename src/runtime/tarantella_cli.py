@@ -244,8 +244,11 @@ class TarantellaCLI:
     if self.args.cleanup:
       self.clean_up_run()
     else:
-      self.execute_with_gaspi_run(self.nranks, self.hostfile, self.executable_script,
-                                  self.args.dry_run)
+      self.normal_run()
+
+  def normal_run(self):
+    self.execute_with_gaspi_run(self.nranks, self.hostfile, self.executable_script,
+                              self.args.dry_run)
 
   def clean_up_run(self):
     cleanup_script = self.generate_cleanup_script()
