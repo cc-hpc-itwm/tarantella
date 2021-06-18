@@ -191,7 +191,7 @@ class Model(tf.keras.models.Model):
             user_micro_batch_size = tnt_micro_batch_size,
             is_training = True)
 
-      # training may also require a special callback that adjusts gradients
+      # if different ranks have different micro-batch sizes, the gradients need rescaling
       dataset_callback = distributed_x.get_gradient_scaling_callback()
       if dataset_callback:
         processed_callbacks.append(dataset_callback)
