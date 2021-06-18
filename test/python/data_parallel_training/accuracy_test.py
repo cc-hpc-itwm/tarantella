@@ -22,7 +22,7 @@ def model_runners(request):
 class TestsDataParallelCompareAccuracy:
   @pytest.mark.parametrize("micro_batch_size", [32])
   @pytest.mark.parametrize("number_epochs", [3])
-  @pytest.mark.parametrize("nbatches", [20])
+  @pytest.mark.parametrize("nbatches", [40])
   @pytest.mark.parametrize("test_nbatches", [10])
   def test_compare_accuracy_against_reference(self, model_runners, micro_batch_size,
                                               number_epochs, nbatches, test_nbatches):
