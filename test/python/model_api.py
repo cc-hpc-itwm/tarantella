@@ -143,7 +143,7 @@ class TestsModelAPI:
         tnt_model.reset_states()
     except Exception as exc:
         assert False, f"`tnt_model.reset_states()` raised an exception {exc}"
-  
+
   @pytest.mark.parametrize("optimizer_name, optimizer_type", [
                                                               ("sgd", tf.keras.optimizers.SGD),
                                                               ("rmsprop", tf.keras.optimizers.RMSprop)
@@ -156,3 +156,20 @@ class TestsModelAPI:
     tnt_optimizer = tnt_model.dist_optimizer
     assert isinstance(tnt_optimizer, tnt.distributed_optimizers.SynchDistributedOptimizer)
     assert isinstance(tnt_optimizer.underlying_optimizer, optimizer_type)
+
+  @pytest.mark.min_tfversion('2.2')
+  def test_on_batch_functions(self):
+    tnt_model = tnt.Model(mnist.lenet5_model_generator())
+    tnt_model.compile(optimizer=tf.keras.optimizers.Adam(), loss="mse", metrics=["mae"])
+
+    train_dataset, test_dataset = util.load_dataset(mnist.load_mnist_dataset,
+                                         train_size = 60,
+                                         train_batch_size = 60,
+                                         test_size = 1,
+                                         test_batch_size = 1)
+
+    train_x, train_y = next(train_dataset.as_numpy_iterator())
+    test_x, test_y = next(test_dataset.as_numpy_iterator())
+    tnt_model.train_on_batch(train_x, train_y)
+    tnt_model.test_on_batch(test_x, test_y)
+    tnt_model.predict_on_batch(test_x)

@@ -33,3 +33,9 @@ tarantella_generate_python_gpi_test(NAME DataParallel_Custom_Training_Loop
                                     TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/custom_training_test.py
                                     LOCALRANKS_LIST "${localranks_list}"
                                     TIMEOUT 40)
+
+set(localranks_list 2)
+tarantella_generate_python_gpi_test(NAME DataParallel_Step_Training_Accuracy
+                                    TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/step_training_test.py
+                                    LOCALRANKS_LIST "${localranks_list}"
+                                    TIMEOUT 40)
