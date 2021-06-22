@@ -1,5 +1,6 @@
 import tarantella as tnt
 
+import tensorflow as tf
 import numpy as np
 import pytest
 
@@ -123,3 +124,13 @@ class TestTensorAllreducer:
 
     with pytest.raises(TypeError):
       tnt.TensorAllreducer(string)
+
+  def test_tensor(self):
+    value = 4.67
+    expected_value = value * tnt.get_size()
+    input = tf.constant(value, dtype=np.float32)
+
+    allreducer = tnt.TensorAllreducer(input)
+    output = allreducer.allreduce(input)
+
+    assert tf.is_tensor(output) and output == expected_value
