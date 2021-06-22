@@ -27,13 +27,14 @@ def setup_save_path(request):
   # save logs in a shared directory accessible to all ranks
   save_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                           "test_callbacks")
+  if tnt.is_master_rank():
+    os.makedirs(save_dir, exist_ok=True)
   yield save_dir
 
   # clean up
   barrier.synchronize()
   if tnt.is_master_rank():
     shutil.rmtree(save_dir, ignore_errors=True)
-
 
 
 def train_val_dataset_generator():
@@ -63,8 +64,8 @@ class TestsDataParallelCallbacks:
                                              validation_data=val_dataset,
                                              **param_dict)
     ref_history = reference_model_runner.model.fit(ref_train_dataset,
-                                                         validation_data=ref_val_dataset,
-                                                        **param_dict)
+                                                   validation_data=ref_val_dataset,
+                                                   **param_dict)
     return (tnt_history, ref_history)
   
   @pytest.mark.parametrize("number_epochs", [5])
@@ -113,3 +114,31 @@ class TestsDataParallelCallbacks:
 
     # Expect both models to run same number of epochs
     assert len(tnt_history.history[monitor_metric]) == len(reference_history.history[monitor_metric])
+
+  @pytest.mark.parametrize("number_epochs", [2])
+  def test_csv_logger_callback(self, setup_save_path, model_runners, number_epochs):
+    (train_dataset, val_dataset) = train_val_dataset_generator()
+    (ref_train_dataset, ref_val_dataset) = train_val_dataset_generator()
+
+    filename = os.path.join(setup_save_path, "training")
+    tnt_model_runner, reference_model_runner = model_runners
+    param_dict = { 'epochs' : number_epochs,
+                   'verbose' : 0,
+                   'shuffle' : False }
+
+    tnt_filename = filename + '_tnt.csv'
+    tnt_model_runner.model.fit(train_dataset,
+                               validation_data=val_dataset,
+                               callbacks = [tf.keras.callbacks.CSVLogger(tnt_filename)],
+                               **param_dict)
+
+    if tnt.is_master_rank():
+      ref_filename = filename + '_ref.csv'
+      reference_model_runner.model.fit(ref_train_dataset,
+                                      validation_data=ref_val_dataset,
+                                      callbacks = [tf.keras.callbacks.CSVLogger(ref_filename)],
+                                      **param_dict)
+
+      tnt_metrics = util.get_metric_values_from_file(tnt_filename)
+      ref_metrics = util.get_metric_values_from_file(ref_filename)
+      assert np.allclose(tnt_metrics, ref_metrics, atol = 1e-6)

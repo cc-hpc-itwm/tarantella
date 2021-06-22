@@ -8,6 +8,7 @@ import datetime
 import logging
 import os
 import random
+import csv
 
 def current_date():
   date = datetime.datetime.now()
@@ -87,3 +88,11 @@ def check_model_configuration_identical_legacy(model1, model2):
   config1 = update_configuration(config1)
   config2 = update_configuration(config2)
   assert config1 == config2
+
+def get_metric_values_from_file(filename):
+  metrics = []
+  with open(filename) as f:
+    reader = csv.DictReader(f)
+    for row in reader:
+      metrics += [float(value) for value in row.values()]
+  return metrics
