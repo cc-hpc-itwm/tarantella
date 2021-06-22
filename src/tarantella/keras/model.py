@@ -428,6 +428,14 @@ class Model(tf.keras.models.Model):
         early_stopping_callback = tnt_callbacks.EarlyStopping(keras_callback = callback)
         callbacks[index] = early_stopping_callback
       
+      elif isinstance(callback, tf_callbacks.RemoteMonitor):
+        remote_monitor_callback = tnt_callbacks.RemoteMonitor(keras_callback = callback)
+        callbacks[index] = remote_monitor_callback
+
+      elif isinstance(callback, tf_callbacks.CSVLogger):
+        csv_logger_callback = tnt_callbacks.CSVLogger(keras_callback = callback)
+        callbacks[index] = csv_logger_callback
+
     if remove_tensorboard_index is not None:
       del callbacks[remove_tensorboard_index]
 

@@ -91,3 +91,48 @@ class EarlyStopping(tf.keras.callbacks.EarlyStopping, LogsAverager):
   def get_monitor_value(self, logs):
     averaged_logs = self.average_logs(logs)
     return super().get_monitor_value(averaged_logs)
+
+class RemoteMonitor(tf.keras.callbacks.RemoteMonitor, LogsAverager):
+  def __init__(self, keras_callback):
+    self._construct_from_keras_object(keras_callback)
+    LogsAverager.__init__(self)
+
+  def _construct_from_keras_object(self, keras_callback):
+    implemented_methods = ['on_epoch_end']
+    super().__init__()
+    for k, v in keras_callback.__dict__.items():
+      if k not in implemented_methods:
+        setattr(self, k, copy.deepcopy(v))
+
+  def on_epoch_end(self, epoch, logs=None):
+    averaged_logs = self.average_logs(logs)
+    if tnt.is_master_rank():
+      super().on_epoch_end(epoch, averaged_logs)
+
+class CSVLogger(tf.keras.callbacks.CSVLogger, LogsAverager):
+  def __init__(self, keras_callback):
+    self._construct_from_keras_object(keras_callback)
+    LogsAverager.__init__(self)
+
+  def _construct_from_keras_object(self, keras_callback):
+    implemented_methods = ['on_train_begin',
+                           'on_epoch_end',
+                           'on_train_end']
+    super().__init__(keras_callback.filename)
+    for k, v in keras_callback.__dict__.items():
+      if k not in implemented_methods:
+        setattr(self, k, copy.deepcopy(v))
+
+  def on_train_begin(self, logs):
+    if tnt.is_master_rank():
+      super().on_train_begin(logs)
+
+  def on_epoch_end(self, epoch, logs):
+    averaged_logs = self.average_logs(logs)
+    if tnt.is_master_rank():
+      super().on_epoch_end(epoch, averaged_logs)
+
+  def on_train_end(self, logs):
+    if tnt.is_master_rank():
+      super().on_train_end(logs)
+

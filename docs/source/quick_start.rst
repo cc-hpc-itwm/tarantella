@@ -419,11 +419,16 @@ Callbacks
 At the moment, Tarantella fully supports the following
 `Keras callbacks <https://www.tensorflow.org/api_docs/python/tf/keras/callbacks>`__:
 
+* ``tf.keras.callbacks.CSVLogger``
 * ``tf.keras.callbacks.EarlyStopping``
 * ``tf.keras.callbacks.History``
 * ``tf.keras.callbacks.LearningRateScheduler``
 * ``tf.keras.callbacks.ModelCheckpoint``
+* ``tf.keras.callbacks.RemoteMonitor``
 * ``tf.keras.callbacks.TensorBoard``
+
+The ``CSVLogger`` callback can be used to stream epoch results to a CSV file. All metrics are
+averaged over all devices after each epoch.
 
 The ``EarlyStopping`` callback can be used to stop training when a monitored metric has stopped improving.
 The monitored metric is averaged over all devices, so that the callback behaves in the same way as it would
@@ -445,6 +450,9 @@ This behavior can be changed by passing ``--output-on-all-devices`` to ``tarante
 during training. For an example look :ref:`here <checkpointing-via-callbacks-label>`,
 and into the
 `Keras documentation <https://www.tensorflow.org/api_docs/python/tf/keras/callbacks/ModelCheckpoint>`__.
+
+The ``RemoteMonitor`` callback can be used to stream events to a server. All metrics are
+averaged over all devices at the end of every epoch before streaming.
 
 The ``TensorBoard`` callback can be used to collect training information for visualization
 in `TensorBoard <https://www.tensorflow.org/tensorboard>`__. By default, Tarantella
