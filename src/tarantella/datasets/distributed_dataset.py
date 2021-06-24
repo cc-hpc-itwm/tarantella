@@ -32,12 +32,16 @@ class DistributedDataset:
       # batch operation (i.e., `batch` or `padded_batch`)
       elif self.batching_info.is_last_batching_transformation(index):
         batch_size = self.batching_info.batch_size
+        if batch_size < self.num_ranks:
+          raise ValueError(f"[DistributedDataset] batch size ({batch_size}) is too small " \
+                           f"to be distributed to all available devices ({self.num_ranks}).")
+
         if user_micro_batch_size:
           micro_batch_size = user_micro_batch_size
           if micro_batch_size * self.num_ranks != batch_size:
             raise ValueError(f"[DistributedDataset] micro batch size ({micro_batch_size}) " \
                              f"is not consistent with batch size ({batch_size}) on the " \
-                             f"number of devices used ({num_ranks}).")
+                             f"number of devices used ({self.num_ranks}).")
         else:
           micro_batch_size = ds_helpers._get_microbatch_size(self.rank, self.num_ranks, batch_size)
 
