@@ -67,8 +67,8 @@ class DistributedDataset:
           micro_batch_size = user_micro_batch_size
           batch_size = micro_batch_size * self.num_ranks
           dataset = self.distributed_batch(dataset,
-                                          batch_size = batch_size,
-                                          micro_batch_size = micro_batch_size)
+                                           batch_size = batch_size,
+                                           micro_batch_size = micro_batch_size)
         else:
           raise ValueError("[DistributedDataset] Unbatched datasets without " \
                            "tnt_micro_batch_size are not supported")
@@ -90,8 +90,11 @@ class DistributedDataset:
       self.num_samples = ds_helpers._get_num_samples(dataset)
       if self.num_samples == tf.data.experimental.INFINITE_CARDINALITY:
         raise ValueError("[DistributedDataset] Infinite dataset provided; cannot count samples.")
+
+      # pad final incomplete batch to have at least `num_ranks` samples, such that
+      # each rank will have the same number of iterations within one epoch
       dataset = ds_helpers._pad_dataset_if_necessary(dataset, self.num_samples, batch_size,
-                                                     min_batch_size = self.num_ranks)
+                                                     min_last_batch_size = self.num_ranks)
 
     dataset = self._get_dataset_slice_per_rank(dataset, batch_size, micro_batch_size)
     dataset = self.batching_info.apply(dataset, new_batch_size = micro_batch_size)

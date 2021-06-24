@@ -63,7 +63,7 @@ def _window_datasets_to_tuples(*datasets_in_window):
 
   return tf.data.Dataset.zip(tuple(datasets_list))
 
-def _pad_dataset_if_necessary(dataset, num_samples, batch_size, min_batch_size):
+def _pad_dataset_if_necessary(dataset, num_samples, batch_size, min_last_batch_size):
   last_batch_size = _get_last_incomplete_batch_size(num_samples, batch_size)
   if last_batch_size == 0:
     logger.debug(f"No padding required: number of samples {num_samples} is a multiple " \
@@ -81,17 +81,17 @@ def _pad_dataset_if_necessary(dataset, num_samples, batch_size, min_batch_size):
                 f"and proceeding with {num_samples_multiple} samples.")
     return dataset.take(num_samples_multiple)
 
-  if last_batch_size < min_batch_size:
+  if last_batch_size < min_last_batch_size:
     logger.debug(f"Padding required for the last batch: number of samples is " \
-                 f"{last_batch_size} ( < min_batch_size {min_batch_size}).")
+                 f"{last_batch_size} ( < min_batch_size {min_last_batch_size}).")
 
     # Create helper dataset that contains one full batch and one incomplete batch
-    helper_dataset = dataset.take(min_batch_size + last_batch_size)
-    helper_dataset = helper_dataset.batch(min_batch_size, drop_remainder=False)
+    helper_dataset = dataset.take(min_last_batch_size + last_batch_size)
+    helper_dataset = helper_dataset.batch(min_last_batch_size, drop_remainder=False)
 
     # If `padded_shape` is unspecified, all dimensions of all components
     # are padded to the maximum size in the batch.
-    # The second batch in `helper_dataset` will now contain `min_batch_size - last_batch_size`
+    # The second batch in `helper_dataset` will now contain `min_last_batch_size - last_batch_size`
     # default-initialized samples.
     helper_dataset = helper_dataset.padded_batch(2)
 
@@ -99,10 +99,10 @@ def _pad_dataset_if_necessary(dataset, num_samples, batch_size, min_batch_size):
     helper_dataset = helper_dataset.unbatch().unbatch()
 
     # Remaining samples in the dataset are those generated through padding
-    padding_samples = helper_dataset.skip(min_batch_size + last_batch_size)
+    padding_samples = helper_dataset.skip(min_last_batch_size + last_batch_size)
     dataset = dataset.concatenate(padding_samples)
     logger.info(f"[Rank {tnt.get_rank()}] Dataset padded with " \
-                f"{min_batch_size - last_batch_size} samples.")
+                f"{min_last_batch_size - last_batch_size} samples.")
   return dataset
 
 def autotune_flag():
