@@ -210,30 +210,27 @@ transformation_test_cases = [ gen_dataset_multiple_batch,
 @pytest.mark.parametrize("comm_size", [1,3,4])
 @pytest.mark.parametrize("micro_batch_size", [7])
 @pytest.mark.parametrize("num_batches", [5])
-def test_batch_with_pad(apply_transformations, dataset_generator,
-                        comm_size, micro_batch_size, num_batches):
+def test_dataset_transformations(apply_transformations, dataset_generator,
+                                 comm_size, micro_batch_size, num_batches):
   batch_size = comm_size * micro_batch_size
   num_samples = num_batches * batch_size
   (x_train, y_train) = dataset_generator(num_samples)
   
-  reference_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train))
-  tnt_dataset =  tf.data.Dataset.from_tensor_slices((x_train, y_train))
-
-  tnt_dataset = apply_transformations(tnt_dataset,
-                                      batch_size = batch_size)
-
   for rank in range(comm_size):   # verify each rank separately
+    reference_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train))
+    tf_dataset =  tf.data.Dataset.from_tensor_slices((x_train, y_train))
+
+    reference_dataset = apply_transformations(reference_dataset,
+                                              batch_size = batch_size)
+    tf_dataset = apply_transformations(tf_dataset,
+                                       batch_size = batch_size)
+
     # load local dataset for `rank`
-    dist_dataset = ds.DistributedDataset(tnt_dataset,
-                                          num_ranks = comm_size,
-                                          rank = rank)
-    local_dataset = dist_dataset.distribute_dataset_across_ranks()
+    tnt_dataset = ds.DistributedDataset(tf_dataset,
+                                        num_ranks = comm_size,
+                                        rank = rank)
+    local_dataset = tnt_dataset.distribute_dataset_across_ranks()
     micro_batch_size = ds_helpers._get_microbatch_size(rank, comm_size, batch_size)
 
-    # rebuild reference dataset each time to prevent
-    # shuffling effects for repeated iterations
-    ref_dataset = apply_transformations(reference_dataset,
-                                        batch_size = batch_size)
-
-    ds_utils.validate_local_dataset(ref_dataset, local_dataset, micro_batch_size,
-                                    rank, comm_size = comm_size)
+    ds_utils.validate_local_dataset(reference_dataset, local_dataset, micro_batch_size,
+                                    rank, comm_size)
