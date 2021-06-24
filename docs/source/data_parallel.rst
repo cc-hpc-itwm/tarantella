@@ -76,7 +76,7 @@ among all devices.
 Tarantella automatically takes care of this through the use of distributed datasets.
 The user simply provides Tarantella with a ``tf.data.Dataset`` that is batched
 with the mini-batch size. Tarantella will then automatically distribute the input data
-by sharding the mini-batch into individual micro-batches. Sharding is done at the level
+by splitting the mini-batch into individual micro-batches. Splitting is done at the level
 of samples (as opposed to e.g., files) to ensure :ref:`reproducibility <reproducibility-label>`
 of serial results.
 
