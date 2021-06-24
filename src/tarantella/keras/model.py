@@ -183,6 +183,32 @@ class Model(tf.keras.models.Model):
     processed_callbacks = self._preprocess_callbacks(callbacks)
 
     if tnt_distribute_dataset:
+      # Distribute dataset into micro-batches among ranks by taking into account
+      # all possible cases of splitting the dataset:
+      #
+      # 1. Batch size
+      # a. `batch_size` is a multiple of the number of ranks
+      #     => identical `micro_batch_size` for all ranks
+      # b. `batch_size` is not a multiple of the number of ranks
+      #     => different ranks have different `micro_batch_size`s and
+      #        locally computed gradients need to be scaled by a factor to
+      #        account for the differences
+      # c. `batch_size` < number of ranks
+      #     => raise Error
+      #
+      # 2. Last batch within epoch
+      # a. the last batch in the dataset is incomplete, but dataset is batched
+      #    with `drop_remainder = True`
+      #     => the last batch is dropped
+      # b. the last batch in the dataset is incomplete with `drop_remainder = False`
+      #     - number of samples in the last batch is smaller than `num_ranks`,
+      #         => pad the dataset with a number of zeroed samples to ensure that each rank
+      #            has one sample, so that they all see the same number of iterations in an epoch;
+      #            the fake samples will be filtered out from the final gradient computation by
+      #            assigning them `micro_batch_size = 0`
+      #     - number of samples in the last batch is >= `num_ranks`
+      #         => last batch can be considered a new `batch_size`, which will be handled as above (in 1.),
+      #            both for computing the `micro_batch_size` and the `scaling_factor`
       distributed_x = ds.DistributedDataset(dataset = x,
                                             num_ranks = self.comm_size,
                                             rank = self.rank,

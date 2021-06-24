@@ -6,6 +6,25 @@ from tarantella import logger
 import tarantella.datasets.dataset_helpers as helpers
 
 def _get_scaling_factor(micro_batch_size, batch_size, num_ranks):
+  # Compute a scaling factor to be applied locally to weight gradients before
+  # summing them up over all the ranks in a data-parallel training run.
+  #
+  # Assumptions:
+  #   - p : number of ranks
+  #   - global weight gradient for batch size B is
+  #       \frac{\partial{L}}{\partial{w}} = \frac{1}{B} \sum_{i=0}^B g(i)    (1)
+  #   - local weight gradients (per rank) are computed by TF over the local
+  #     `micro_batch_size` b_j (which may be different on different ranks)
+  #       \frac{\partial{L_j}}{\partial{w}} = \frac{1}{b_j} \sum_{i=0}^{b_j} g(i,j)
+  #
+  # Global gradients can be split into a weighted sum of local gradients (per rank) as follows:
+  #
+  # \frac{\partial{L}}{\partial{w}} = \frac{1}{B} \sum_{i=0}^B g(i)
+  #                                 = \frac{1}{B} \sum_{j=0}^{p} \sum_{i=0}^{b_j} g(i,j)
+  #                                 = \frac{1}{B} \frac{p}{p} \sum_{j=0}^{p} \frac{b_j}{b_j} \sum_{i=0}^{b_j} g(i,j)
+  #                                 = \frac{1}{p} \sum_{j=0}^{p} s_j \frac{\partial{L_j}}{\partial{w}},
+  #
+  # where the scaling factor for rank j is s_j := \frac{b_j * p}{B}
   return micro_batch_size * num_ranks / batch_size
 
 def build_scaling_factor_table(rank, num_ranks, batch_size, num_samples = None):
