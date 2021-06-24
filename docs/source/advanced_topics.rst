@@ -145,6 +145,54 @@ socket.
    tarantella --hostfile hostfile --npernode 2 --pin-to-socket -- model.py
 
 
+Writing a Tarantella training loop from scratch
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Keras provides low-level mechanisms to control training and evaluation behavior.
+Custom training loops in Tarantella follow the typical TensorFlow approach
+covered in this `guide <https://www.tensorflow.org/guide/keras/writing_a_training_loop_from_scratch>`_.
+
+Let us take a look at the example provided in the TensorFlow documentation and adapt it
+for Tarantella.
+
+.. literalinclude:: quick_start_custom_train_loop.py
+   :language: Python
+   :linenos:
+   :emphasize-lines: 4,10,13,22-23,38-39
+
+The above code snippet highlights the changes required to execute a custom training loop distributedly
+using Tarantella.
+As with regular Keras training, first we need to enable the Tarantella library and to wrap the model
+with a call to `tnt.Model`, as explained in the :ref:`Quick Start <quick-start-code-example-label>`.
+
+A few more changes are additionally needed to switch to distributed training.
+First, the optimizer has to be wrapped into a `tnt.Optimizer` object that makes sure gradients
+are averaged over the available devices during training.
+Second, the datasets used in training and evaluation also need to be split into micro-batches and
+distributed as shown below:
+
+.. code-block:: python
+
+   distributed_train = tnt.data.Dataset(dataset = train_dataset)
+   train_dataset = distributed_train.distribute_dataset_across_ranks(is_training = True)
+
+.. todo::
+
+  Explain (distributed) metrics
+
+Finally, the training loop can be simply written down as usual, as all distributed processing is
+automatically handled in the background by the `tnt.*` wrappers.
+If you need to print out results, don't forget to limit the output to the master rank as described
+:ref:`here <ranks-label>`.
+
+.. note::
+
+   Tarantella only supports custom training loops starting from TensorFlow version 2.2.
+
+The full version of the custom training script using Tarantella can be found
+`here <https://github.com/cc-hpc-itwm/tarantella/blob/master/docs/source/custom_train_loop.py>`_.
+
+
 .. _reproducibility-label:
 
 Reproducibility
@@ -173,3 +221,4 @@ Additionally, Python-specific random generators might need to be seeded, in part
 
 For more details, take a look at a more in-depth study of
 `non-determinism sources in TensorFlow <https://github.com/NVIDIA/framework-determinism>`_.
+

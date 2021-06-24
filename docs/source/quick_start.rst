@@ -22,6 +22,8 @@ copy-paste the code snippets and try them out, even on your laptop.
   
 **Let's get started!**
 
+.. _quick-start-code-example-label:
+
 .. literalinclude:: quick_start_model.py
    :language: Python
    :linenos:
@@ -474,26 +476,14 @@ Lambda callback provides the functionality to create simple custom callbacks usi
 First, create a Keras lambda callback, as explained in 
 `Lambda Callback <https://www.tensorflow.org/api_docs/python/tf/keras/callbacks/LambdaCallback>`__
 
-Then, wrap the ``keras.callbacks.Callback`` object into a ``tnt.keras.callbacks.Callback`` object as explained in the previous section.
+Then, wrap the ``keras.callbacks.Callback`` object into a ``tnt.keras.callbacks.Callback`` object
+as explained in the previous section.
 
-Important points
-^^^^^^^^^^^^^^^^
+Optimizers
+^^^^^^^^^^
 
-There is a number of points you should be aware of when using Tarantella.
-
-.. note::
-
-   Tarantella does not support custom training loops.
-
-Instead of using custom training loops, please use ``Model.fit(...)``.
-
-.. note::
-
-   Tarantella supports all
-   `TensorFlow optimizers <https://www.tensorflow.org/api_docs/python/tf/keras/optimizers>`_
-   with the exception of ``tf.keras.optimizers.Ftrl``.
-
-Since the ``Ftrl`` optimizer does not use batches, it is not supported in Tarantella.
+Tarantella supports all `TensorFlow optimizers <https://www.tensorflow.org/api_docs/python/tf/keras/optimizers>`_
+with the exception of ``tf.keras.optimizers.Ftrl`` (which does not use batches).
 
 
 .. rubric:: Footnotes
