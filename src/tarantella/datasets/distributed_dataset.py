@@ -14,7 +14,6 @@ class DistributedDataset:
     self.shuffle_seed = shuffle_seed
     self.num_samples = None
 
-    self.dataset = dataset
     self.base_dataset, self.dataset_transformations = \
            ops_helpers.gen_dataset_transformations(dataset)
     self.batching_info = ops_helpers.get_batching_info(self.dataset_transformations)
@@ -87,7 +86,8 @@ class DistributedDataset:
       dataset = self.batching_info.apply(dataset, new_batch_size = batch_size)
       dataset = dataset.unbatch()
     else:
-      self.num_samples = ds_helpers._get_num_samples(dataset)
+      if self.num_samples is None:
+        self.num_samples = ds_helpers._get_num_samples(dataset)
       if self.num_samples == tf.data.experimental.INFINITE_CARDINALITY:
         raise ValueError("[DistributedDataset] Infinite dataset provided; cannot count samples.")
 
