@@ -2,6 +2,7 @@ from models import mnist_models as mnist
 import training_runner as base_runner
 import utilities as util
 import tarantella as tnt
+import tensorflow as tf
 
 import numpy as np
 
@@ -21,14 +22,16 @@ def model_runners(request):
 class TestsDataParallelCompareAccuracy:
   @pytest.mark.parametrize("micro_batch_size", [32])
   @pytest.mark.parametrize("number_epochs", [3])
-  @pytest.mark.parametrize("nbatches", [20])
+  @pytest.mark.parametrize("nbatches", [40])
   @pytest.mark.parametrize("test_nbatches", [10])
   def test_compare_accuracy_against_reference(self, model_runners, micro_batch_size,
                                               number_epochs, nbatches, test_nbatches):
     (train_dataset, test_dataset) = util.train_test_mnist_datasets(nbatches, test_nbatches,
-                                                                   micro_batch_size)
+                                                                   micro_batch_size,
+                                                                   drop_remainder = True)
     (ref_train_dataset, ref_test_dataset) = util.train_test_mnist_datasets(nbatches, test_nbatches,
-                                                                           micro_batch_size)
+                                                                           micro_batch_size,
+                                                                           drop_remainder = True)
 
     tnt_model_runner, reference_model_runner = model_runners
     tnt_model_runner.train_model(train_dataset, number_epochs)

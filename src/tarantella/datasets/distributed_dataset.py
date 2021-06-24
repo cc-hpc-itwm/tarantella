@@ -3,17 +3,21 @@ from tensorflow.python.data.ops import dataset_ops as ds
 
 from tarantella import logger
 import tarantella.datasets.dataset_helpers as ds_helpers
+import tarantella.datasets.ops_helpers as ops_helpers
+import tarantella.datasets.gradient_scaling_callback as grad_scaling
+import tarantella.utilities.tf_version as version_utils
 
 class DistributedDataset:
   def __init__(self, dataset, num_ranks, rank, shuffle_seed = 42):
     self.num_ranks = num_ranks
     self.rank = rank
     self.shuffle_seed = shuffle_seed
+    self.num_samples = None
 
-    self.dataset = dataset
     self.base_dataset, self.dataset_transformations = \
-           ds_helpers.gen_dataset_transformations(dataset)
-    self.batching_info = ds_helpers.get_batching_info(self.dataset_transformations)
+           ops_helpers.gen_dataset_transformations(dataset)
+    self.batching_info = ops_helpers.get_batching_info(self.dataset_transformations)
+
 
   def distribute_dataset_across_ranks(self, user_micro_batch_size = None, is_training = True):
     dataset = self.base_dataset
@@ -28,14 +32,19 @@ class DistributedDataset:
       # batch operation (i.e., `batch` or `padded_batch`)
       elif self.batching_info.is_last_batching_transformation(index):
         batch_size = self.batching_info.batch_size
+        if batch_size < self.num_ranks:
+          raise ValueError(f"[DistributedDataset] batch size ({batch_size}) is too small " \
+                           f"to be distributed to all available devices ({self.num_ranks}).")
+
         if user_micro_batch_size:
           micro_batch_size = user_micro_batch_size
           if micro_batch_size * self.num_ranks != batch_size:
-            raise ValueError("[DistributedDataset] micro batch size ({}) is not consistent \
-with batch size ({}) on number of devices used ({}).".format(micro_batch_size, batch_size,
-                                                            self.num_ranks))
+            raise ValueError(f"[DistributedDataset] micro batch size ({micro_batch_size}) " \
+                             f"is not consistent with batch size ({batch_size}) on the " \
+                             f"number of devices used ({self.num_ranks}).")
         else:
-          micro_batch_size = self.get_microbatch_size(batch_size)
+          micro_batch_size = ds_helpers._get_microbatch_size(self.rank, self.num_ranks, batch_size)
+
         if is_training:
           dataset = self.distributed_batch(dataset,
                                            batch_size = batch_size,
@@ -61,11 +70,11 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
           micro_batch_size = user_micro_batch_size
           batch_size = micro_batch_size * self.num_ranks
           dataset = self.distributed_batch(dataset,
-                                          batch_size = batch_size,
-                                          micro_batch_size = micro_batch_size)
+                                           batch_size = batch_size,
+                                           micro_batch_size = micro_batch_size)
         else:
-          raise ValueError("[DistributedDataset] Unbatched datasets without tnt_micro_batch_size are not supported")
-
+          raise ValueError("[DistributedDataset] Unbatched datasets without " \
+                           "tnt_micro_batch_size are not supported")
     return dataset
 
   def shuffle_with_seed(self, dataset, ds_kwargs):
@@ -80,34 +89,45 @@ with batch size ({}) on number of devices used ({}).".format(micro_batch_size, b
     if self.batching_info.drop_remainder == True:
       dataset = self.batching_info.apply(dataset, new_batch_size = batch_size)
       dataset = dataset.unbatch()
+    else:
+      if self.num_samples is None:
+        self.num_samples = ds_helpers._get_num_samples(dataset)
+      if self.num_samples == tf.data.experimental.INFINITE_CARDINALITY:
+        raise ValueError("[DistributedDataset] Infinite dataset provided; cannot count samples.")
 
-    else: # no drop remainder
-      num_samples = ds_helpers.get_num_samples(dataset)
-      if num_samples == tf.data.experimental.INFINITE_CARDINALITY:
-        raise ValueError("[DistributedDataset] Infinite dataset provided")
+      # pad final incomplete batch to have at least `num_ranks` samples, such that
+      # each rank will have the same number of iterations within one epoch
+      dataset = ds_helpers._pad_dataset_if_necessary(dataset, self.num_samples, batch_size,
+                                                     min_last_batch_size = self.num_ranks)
 
-      # Total number of samples is not multiple of the batch size
-      if num_samples % batch_size != 0:
-        logger.warn("Number of samples ({}) is not a multiple of batch size.\
- Removing the last incomplete batch from the dataset.".format(num_samples))
-        num_samples_multiple = (num_samples // batch_size) * batch_size
-        dataset = dataset.take(num_samples_multiple)
-
+    dataset = self._get_dataset_slice_per_rank(dataset, batch_size, micro_batch_size)
     dataset = self.batching_info.apply(dataset, new_batch_size = micro_batch_size)
 
-    dataset = dataset.shard(num_shards=self.num_ranks, index = self.rank)
-    logger.info("Using batch size = {}, micro batch size = {}.".format(
-                batch_size, micro_batch_size))
+    logger.info(f"Using batch size = {batch_size}, micro batch size = {micro_batch_size}.")
     return dataset
 
-  def get_microbatch_size(self, batch_size):
-    if batch_size is None or batch_size == 0:
-      raise ValueError("[DistributedDataset]Incorrectly defined batch size")
+  def _get_dataset_slice_per_rank(self, dataset, batch_size, micro_batch_size):
+    if ds_helpers._is_batch_multiple_num_ranks(self.num_ranks, batch_size):
+      dataset = dataset.shard(num_shards = self.num_ranks, index = self.rank)
+    else:
+      dataset = dataset.skip(self.rank) # skip samples up to the starting point for `rank`
+      dataset = dataset.window(size = micro_batch_size,
+                               shift = batch_size,
+                               stride = self.num_ranks,
+                               drop_remainder = False)
 
-    if batch_size % self.num_ranks != 0:
-      raise ValueError("[DistributedDataset] Batch size ({}) is not a multiple".format(batch_size) +
-                       "of the number of ranks {}".format(self.num_ranks))
+      kwargs = {}
+      if version_utils.tf_version_above_equal('2.2'):
+        kwargs['deterministic'] = True
+      dataset = dataset.interleave(ds_helpers._window_datasets_to_tuples,
+                                   num_parallel_calls = ds_helpers.autotune_flag(),
+                                   block_length = micro_batch_size,
+                                   **kwargs)
+    return dataset
 
-    logger.debug("Batch size ({}) is a multiple of the number of ranks {}.".format(
-                 batch_size, self.num_ranks))
-    return int(batch_size // self.num_ranks)
+  def get_gradient_scaling_callback(self):
+    batch_size = self.batching_info.batch_size
+    scaling_factor_table = grad_scaling.build_scaling_factor_table(self.rank, self.num_ranks,
+                                                                   batch_size, self.num_samples)
+    if scaling_factor_table:
+      return grad_scaling.ScalingFactorScheduler(scaling_factor_table)

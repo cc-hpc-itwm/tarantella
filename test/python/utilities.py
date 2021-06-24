@@ -10,24 +10,20 @@ import os
 import random
 import csv
 
-def current_date():
-  date = datetime.datetime.now()
-  return int(date.strftime("%Y%m%d"))
-
-def create_dataset_from_arrays(samples, labels, batch_size):
+def create_dataset_from_arrays(samples, labels, batch_size,drop_remainder = False):
   assert(len(samples) == len(labels))
   ds = tf.data.Dataset.from_tensor_slices((samples, labels))
-  return ds.batch(batch_size)
+  return ds.batch(batch_size,drop_remainder = drop_remainder)
 
 def load_dataset(dataset_loader,
                  train_size, train_batch_size,
                  test_size = 0, test_batch_size = 1,
-                 shuffle = True):
+                 shuffle = True, drop_remainder = False):
   set_tf_random_seed()
   shuffle_seed = 1234
 
   (x_train, y_train), (x_val, y_val), (x_test, y_test) = dataset_loader(train_size, 0, test_size)
-  train_dataset = create_dataset_from_arrays(x_train, y_train, train_batch_size)
+  train_dataset = create_dataset_from_arrays(x_train, y_train, train_batch_size, drop_remainder = drop_remainder)
   test_dataset = create_dataset_from_arrays(x_test, y_test, test_batch_size)
 
   if shuffle:
@@ -36,14 +32,17 @@ def load_dataset(dataset_loader,
   return (train_dataset, test_dataset)
 
 def train_test_mnist_datasets(nbatches = 1, test_nbatches = 0,
-                              micro_batch_size = 64, shuffle = True):
-  batch_size = micro_batch_size * tnt.get_size()
-  nsamples = nbatches * batch_size
+                              micro_batch_size = 64, shuffle = True, 
+                              remainder_samples_per_batch = 0,
+                              last_incomplete_batch_size = 0,
+                              drop_remainder = False):
+  batch_size = micro_batch_size * tnt.get_size() + remainder_samples_per_batch
+  nsamples = nbatches * batch_size + last_incomplete_batch_size
   test_nsamples = test_nbatches * batch_size
   return load_dataset(mnist.load_mnist_dataset,
                       train_size = nsamples, train_batch_size = batch_size,
                       test_size = test_nsamples, test_batch_size = batch_size,
-                      shuffle = shuffle)
+                      shuffle = shuffle, drop_remainder = drop_remainder)
 
 def set_tf_random_seed(seed = 42):
   np.random.seed(seed)

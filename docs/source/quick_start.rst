@@ -368,6 +368,18 @@ using the (global) batch size to it. However, do not provide a value to ``batch_
 in ``tnt.Model.fit``, which would lead to double batching, and thus modified shapes
 for the input data.
 
+Tarantella can distribute any ``tf.data.Dataset``, regardless of the number and type of
+transformations that have been applied to it.
+
+.. note::
+
+     When using the ``dataset.shuffle`` transformation without a ``seed``, Tarantella
+     will use a fixed default ``seed``.
+
+This guarantees that the input data is shuffled the same way on all devices,
+when no ``seed`` is given, which is necessary for consistency.
+However, when a random ``seed`` is provided by the user, Tarantella will use that one instead.
+
 Tarantella also supports batched and unbatched ``Dataset`` s in ``tnt.Model.fit``
 when setting the ``tnt_micro_batch_size`` argument. This can be useful to obtain
 maximal performance in multi-node execution, as explained
@@ -386,30 +398,6 @@ will issue an ``INFO`` message.
 If a validation dataset is passed to ``tnt.Model.fit``, it should also be batched
 with the global batch size. You can similarly switch off its automatic 
 micro-batching mechanism by setting ``tnt_distribute_validation_dataset=False``.
-
-There are a few important points when using distributed datasets in Tarantella:
-
-.. note::
-
-   Batch size must be a multiple of the number of devices used.
-
-This issue will be fixed in the next release.
-
-.. note::
-
-   The last incomplete batch is always dropped.
-
-We recommend to use ``drop_remainder=True`` when generating a ``Dataset``.
-If ``drop_remainder`` is set to ``False``, Tarantella will ignore it
-and issue a ``WARNING`` message. This behavior will be fixed in the next release.
-
-.. note::
-
-     When using ``shuffle`` without a ``seed``, Tarantella will use a fixed default ``seed``.
-
-This guarantees that the input data is shuffled the same way on all devices,
-when no ``seed`` is given, which is necessary for consistency.
-However, when a random ``seed`` is provided by the user, Tarantella will use that one instead.
 
 .. _callbacks-label:
 

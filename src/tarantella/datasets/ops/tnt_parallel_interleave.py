@@ -3,6 +3,8 @@ from tensorflow.python.framework import ops
 from tensorflow.python.framework import dtypes
 from tensorflow.python.ops import gen_dataset_ops
 
+import tarantella.datasets.dataset_helpers as ds_helpers
+
 class TntParallelInterleaveDataset(ds.UnaryDataset):
   """A `Dataset` that maps a function over its input and interleaves the result."""
   def __init__(self,
@@ -26,8 +28,8 @@ class TntParallelInterleaveDataset(ds.UnaryDataset):
     self._num_parallel_calls = num_parallel_calls
     self._deterministic = deterministic
 
-    if (buffer_output_elements and buffer_output_elements != ds.AUTOTUNE) or \
-       (prefetch_input_elements and prefetch_input_elements != ds.AUTOTUNE):
+    if (buffer_output_elements and buffer_output_elements != ds_helpers.autotune_flag()) or \
+       (prefetch_input_elements and prefetch_input_elements != ds_helpers.autotune_flag()):
       variant_tensor = gen_dataset_ops.parallel_interleave_dataset_v4(
           input_dataset._variant_tensor,  # pylint: disable=protected-access
           self._map_func.function.captured_inputs,  # pylint: disable=protected-access

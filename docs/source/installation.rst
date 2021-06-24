@@ -39,7 +39,7 @@ applications, based on the
 The currently supported versions are ``v1.4-1.5``, which need to be built with
 position independent flags (``-fPIC``).
 To download the required version, clone the
-`git repository <https://github.com/cc-hpc-itwm/GPI-2.git>`_
+`GPI-2 git repository <https://github.com/cc-hpc-itwm/GPI-2.git>`_
 and checkout the correct ``tag``:
 
 .. code-block:: bash

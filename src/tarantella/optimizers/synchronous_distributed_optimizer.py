@@ -13,10 +13,11 @@ class SynchDistributedOptimizer(wrapper.OptimizerWrapper):
     if name is None:
       name = "SynchDistributedOptimizer"
     super(self.__class__, self).__init__(optimizer, name = name)
-
     # add new attributes after the base object has been initialized
     self.comm = tarantella.SynchCommunicator()
     self.initialized = False
+    #scaling factor to scale gradients
+    self._set_hyper("scaling_factor",1.0)
 
   @property
   def underlying_optimizer(self):
@@ -25,8 +26,13 @@ class SynchDistributedOptimizer(wrapper.OptimizerWrapper):
   # customized gradient reduction method used by `keras.model.fit`
   # cf. https://github.com/tensorflow/tensorflow/blob/b36436b087bd8e8701ef51718179037cccdfc26e/tensorflow/python/keras/engine/training.py#L2696
   def _aggregate_gradients(self, grads_and_vars):
+    grad,var = zip(*grads_and_vars)
+    grad = list(grad)
+    for i in range(len(grad)):
+      grad[i] = self.scaling_factor * grad[i]
+    grads_and_vars = zip(grad,var)
+    
     grads_and_vars = list(grads_and_vars)
-
     # initialize the SynchCommunicator with gradient tensors
     if not self.initialized:
       self.comm.setup_infrastructure(grads_and_vars)
@@ -36,10 +42,8 @@ class SynchDistributedOptimizer(wrapper.OptimizerWrapper):
     return reduced_gradients
 
   # override gradient computation method used in TF2.0/2.1
-  # to enable gradient reduction
   def get_gradients(self, loss, params):
     gradients_to_reduce = self.optimizer.get_gradients(loss, params)
-
     grads_and_vars = zip(gradients_to_reduce, params)
     reduced_gradients = self._aggregate_gradients(grads_and_vars)
     return reduced_gradients
