@@ -473,8 +473,11 @@ class Model(tf.keras.models.Model):
         callbacks[index] = terminate_callback
 
       elif isinstance(callback, tf_callbacks.BaseLogger):
-        base_logger_callback = tnt_callbacks.BaseLogger(keras_callback = callback)
-        callbacks[index] = base_logger_callback
+        # Do not support user-added `BaseLogger`s,
+        # b/c they do not provide any use
+        # and b/c of this issue (https://github.com/tensorflow/tensorflow/issues/46344)
+        raise ValueError("[tnt.Model] Tarantella does not support "
+                         "`tf.keras.callbacks.BaseLogger`")
       
       elif isinstance(callback, tf_callbacks.ReduceLROnPlateau):
         reducelr_callback = tnt_callbacks.ReduceLROnPlateau(keras_callback = callback)

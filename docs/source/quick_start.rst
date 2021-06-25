@@ -407,7 +407,6 @@ Callbacks
 At the moment, Tarantella fully supports the following
 `Keras callbacks <https://www.tensorflow.org/api_docs/python/tf/keras/callbacks>`__:
 
-* ``tf.keras.callbacks.BaseLogger``
 * ``tf.keras.callbacks.CSVLogger``
 * ``tf.keras.callbacks.EarlyStopping``
 * ``tf.keras.callbacks.History``
@@ -417,9 +416,6 @@ At the moment, Tarantella fully supports the following
 * ``tf.keras.callbacks.RemoteMonitor``
 * ``tf.keras.callbacks.TensorBoard``
 * ``tf.keras.callbacks.TerminateOnNaN``
-
-The ``BaseLogger`` callback accumulates epoch averages of metrices. The metrices are averaged over all
-devices after every batch and epoch.
 
 The ``CSVLogger`` callback can be used to stream epoch results to a CSV file. All metrics are
 averaged over all devices after each epoch.
@@ -470,6 +466,11 @@ training is terminated.
 
    At the moment, custom Keras callbacks (Callback, CallbackList, LambdaCallback) will be executed
    on all devices with local information only.
+
+.. note::
+
+   The explicit addition of ``BaseLogger`` callbacks is not supported in Tarantella.
+
 
 Important points
 ^^^^^^^^^^^^^^^^

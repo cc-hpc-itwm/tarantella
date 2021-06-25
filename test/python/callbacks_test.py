@@ -152,16 +152,12 @@ class TestsDataParallelCallbacks:
     for key in ref_history.history.keys():
       assert all(np.isclose(tnt_history.history[key], ref_history.history[key], atol=1e-6))
 
-  #FIXME: Remove version tag when BaseLogger is fixed on Tensorflow
-  @pytest.mark.max_tfversion('2.1')
   @pytest.mark.parametrize("number_epochs", [1])
   def test_base_logger_callback(self, model_runners, number_epochs):
     callbacks = [tf.keras.callbacks.BaseLogger()]
-    tnt_history, ref_history = self.train_tnt_and_ref_models_with_callbacks(
+    with pytest.raises(ValueError):
+      tnt_history, ref_history = self.train_tnt_and_ref_models_with_callbacks(
                                        callbacks, model_runners, number_epochs)
-
-    for key in ref_history.history.keys():
-      assert all(np.isclose(tnt_history.history[key], ref_history.history[key], atol=1e-6))
 
   @pytest.mark.parametrize("number_epochs", [3])
   def test_reduce_lr_on_plateau_callback(self, model_runners, number_epochs):
