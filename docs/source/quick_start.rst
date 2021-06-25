@@ -412,8 +412,10 @@ At the moment, Tarantella fully supports the following
 * ``tf.keras.callbacks.History``
 * ``tf.keras.callbacks.LearningRateScheduler``
 * ``tf.keras.callbacks.ModelCheckpoint``
+* ``tf.keras.callbacks.ReduceLROnPlateau``
 * ``tf.keras.callbacks.RemoteMonitor``
 * ``tf.keras.callbacks.TensorBoard``
+* ``tf.keras.callbacks.TerminateOnNaN``
 
 The ``CSVLogger`` callback can be used to stream epoch results to a CSV file. All metrics are
 averaged over all devices after each epoch.
@@ -439,6 +441,11 @@ during training. For an example look :ref:`here <checkpointing-via-callbacks-lab
 and into the
 `Keras documentation <https://www.tensorflow.org/api_docs/python/tf/keras/callbacks/ModelCheckpoint>`__.
 
+The ``ReduceLROnPlateau`` callback can be used to reduce learning rate when a monitored metric has
+stopped improving. The learning rate would be changed on each of the devices and the metrics are
+averaged over all devices after each epoch before checking if there is a necessity to change the
+learning rate.
+
 The ``RemoteMonitor`` callback can be used to stream events to a server. All metrics are
 averaged over all devices at the end of every epoch before streaming.
 
@@ -451,13 +458,19 @@ the local information on all devices use the environment variable ``TNT_TENSORBO
 
    TNT_TENSORBOARD_ON_ALL_DEVICES=true tarantella -- model.py
 
+The ``TerminateOnNaN`` callback can be used to terminate training when a NaN loss is encountered. 
+When loss on one or more devices returns NaN value, then average value is also NaN and thus, 
+training is terminated.
+
 .. note::
 
-   At the moment, all of the other Keras callbacks will be executed on all devices with
-   local information only.
+   At the moment, custom Keras callbacks (Callback, CallbackList, LambdaCallback) will be executed
+   on all devices with local information only.
 
-For instance, the ``BaseLogger`` callback will be executed on each and every rank,
-and will log the acculumated metric averages for the local (micro-batch) information.
+.. note::
+
+   The explicit addition of ``BaseLogger`` callbacks is not supported in Tarantella.
+
 
 Important points
 ^^^^^^^^^^^^^^^^

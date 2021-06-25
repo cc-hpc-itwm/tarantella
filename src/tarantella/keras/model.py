@@ -468,6 +468,21 @@ class Model(tf.keras.models.Model):
         csv_logger_callback = tnt_callbacks.CSVLogger(keras_callback = callback)
         callbacks[index] = csv_logger_callback
 
+      elif isinstance(callback, tf_callbacks.TerminateOnNaN):
+        terminate_callback = tnt_callbacks.TerminateOnNaN(keras_callback = callback)
+        callbacks[index] = terminate_callback
+
+      elif isinstance(callback, tf_callbacks.BaseLogger):
+        # Do not support user-added `BaseLogger`s,
+        # b/c they do not provide any use
+        # and b/c of this issue (https://github.com/tensorflow/tensorflow/issues/46344)
+        raise ValueError("[tnt.Model] Tarantella does not support "
+                         "`tf.keras.callbacks.BaseLogger`")
+      
+      elif isinstance(callback, tf_callbacks.ReduceLROnPlateau):
+        reducelr_callback = tnt_callbacks.ReduceLROnPlateau(keras_callback = callback)
+        callbacks[index] = reducelr_callback
+
     if remove_tensorboard_index is not None:
       del callbacks[remove_tensorboard_index]
 

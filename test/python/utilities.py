@@ -52,6 +52,10 @@ def set_tf_random_seed(seed = 42):
   os.environ['TF_DETERMINISTIC_OPS']='1'
   os.environ['TF_CUDNN_DETERMINISTIC']='1'
 
+def same_random_int_all_ranks(low, high):
+  set_tf_random_seed()
+  return random.randint(low, high)
+
 def check_accuracy_greater(accuracy, acc_value):
   logging.getLogger().info("Test accuracy: {}".format(accuracy))
   assert accuracy > acc_value

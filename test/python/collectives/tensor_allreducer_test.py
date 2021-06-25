@@ -1,7 +1,10 @@
 import tarantella as tnt
+import utilities as util
 
 import tensorflow as tf
 import numpy as np
+import math
+
 import pytest
 
 class TestTensorAllreducer:
@@ -133,4 +136,46 @@ class TestTensorAllreducer:
     allreducer = tnt.TensorAllreducer(input)
     output = allreducer.allreduce(input)
 
-    assert tf.is_tensor(output) and output == expected_value
+    assert tf.is_tensor(output)
+    assert output == expected_value
+
+  def test_dict_of_tensors(self):
+    input_dict = dict()
+
+    value = 22.610077
+    expected_value = value * tnt.get_size()
+
+    input_dict["a"] = tf.constant(value, dtype=np.float32)
+    input_dict["b"] = tf.constant(value, dtype=np.float32)
+
+    allreducer = tnt.TensorAllreducer(input_dict)
+    output_dict = allreducer.allreduce(input_dict)
+
+    assert { k: tf.is_tensor(v) for k, v in output_dict.items() }
+    assert { k: v == expected_value for k, v in output_dict.items() }
+
+  @pytest.mark.parametrize("array_length", [35])
+  @pytest.mark.parametrize("index", [12])
+  def test_array_nan(self, array_length, index):
+    injection_rank = util.same_random_int_all_ranks(0, tnt.get_size())
+    input_array = np.ones(shape=(array_length, 1), dtype=np.float32)
+    if tnt.get_rank() == injection_rank:
+      input_array[index] = math.nan
+
+    allreducer = tnt.TensorAllreducer(input_array)
+    output_array = allreducer.allreduce(input_array)
+
+    assert np.isnan(output_array[index])
+
+  @pytest.mark.parametrize("array_length", [12, 78])
+  @pytest.mark.parametrize("index", [7, 3])
+  def test_array_inf(self, array_length, index):
+    injection_rank = util.same_random_int_all_ranks(0, tnt.get_size())
+    input_array = np.ones(shape=(array_length, 1), dtype=np.float32)
+    if tnt.get_rank() == injection_rank:
+      input_array[index] = math.inf
+
+    allreducer = tnt.TensorAllreducer(input_array)
+    output_array = allreducer.allreduce(input_array)
+
+    assert np.isinf(output_array[index])
