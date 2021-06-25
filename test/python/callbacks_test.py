@@ -143,6 +143,7 @@ class TestsDataParallelCallbacks:
       ref_metrics = util.get_metric_values_from_file(ref_filename)
       assert np.allclose(tnt_metrics, ref_metrics, atol = 1e-6)
 
+  # FIXME: This does not seem to even trigger a `NaN`
   @pytest.mark.parametrize("number_epochs", [1])
   def test_terminate_callback(self, model_runners, number_epochs):
     callbacks = [tf.keras.callbacks.TerminateOnNaN()]
