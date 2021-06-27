@@ -41,12 +41,12 @@ class TestsDistributedEvaluation:
                                                                            remainder_samples_per_batch = extra_batch,
                                                                            last_incomplete_batch_size = extra_sample)
     
-    reference_model_runner = model_runners
-    reference_model_runner.train_model(ref_train_dataset, number_epochs)
-    tnt_cloned_model = base_runner.generate_tnt_model_runner(reference_model_runner.model)
+    tnt_model = model_runners
+    tnt_model.train_model(ref_train_dataset, number_epochs)
+    reference_model_runner = base_runner.generate_tnt_model_runner(tnt_model.model)
+    reference_loss_accuracy = reference_model_runner.evaluate_model(test_dataset)
     
-    reference_loss_accuracy = reference_model_runner.evaluate_model(ref_test_dataset)
-    tnt_loss_accuracy = tnt_cloned_model.evaluate_model(test_dataset, distribution = True)
+    tnt_loss_accuracy = tnt_model.evaluate_model(ref_test_dataset, distribution = True)
     
     rank = tnt.get_rank()
     logging.getLogger().info(f"[Rank {rank}] Tarantella[loss, accuracy] = {tnt_loss_accuracy}")
