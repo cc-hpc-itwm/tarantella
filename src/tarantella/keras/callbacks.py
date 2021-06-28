@@ -42,7 +42,7 @@ class ModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
 
     self.tnt_model = tnt_model
     # only master rank should save and thus print messages
-    self.verbose = keras_callback.verbose if tnt.is_master_rank() else 0
+    self.verbose = keras_callback.verbose if tnt.is_master_rank() else utilities.TF_verbose.SILENT.value
 
   def set_model(self, model):
     # Overriding this method ensures that `ModelCheckpoint` is called on the
@@ -88,7 +88,7 @@ class EarlyStopping(LogsAverager, tf.keras.callbacks.EarlyStopping):
     _construct_from_keras_object(self, keras_callback)
 
     # only master rank should print messages
-    self.verbose = keras_callback.verbose if tnt.is_master_rank() else 0
+    self.verbose = keras_callback.verbose if tnt.is_master_rank() else utilities.TF_verbose.SILENT.value
 
   def get_monitor_value(self, logs):
     averaged_logs = self.average_logs(logs)
@@ -142,7 +142,7 @@ class ReduceLROnPlateau(LogsAverager, tf.keras.callbacks.ReduceLROnPlateau):
     _construct_from_keras_object(self, keras_callback)
 
     # only master rank should print messages
-    self.verbose = keras_callback.verbose if tnt.is_master_rank() else 0
+    self.verbose = keras_callback.verbose if tnt.is_master_rank() else utilities.TF_verbose.SILENT.value
 
   def on_epoch_end(self, epoch, logs=None):
     averaged_logs = self.average_logs(logs)

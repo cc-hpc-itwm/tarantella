@@ -30,9 +30,9 @@ class Model(tf.keras.models.Model):
     self.default_shuffle_seed = 42
 
     # support for TF 2.0 -- 2.3
-    self.tf_default_verbose = {'fit' : 1,
-                               'evaluate' : 1,
-                               'predict' : 0,
+    self.tf_default_verbose = {'fit' : utilities.TF_verbose.ALL.value,
+                               'evaluate' : utilities.TF_verbose.ALL.value,
+                               'predict' : utilities.TF_verbose.SILENT.value,
                               }
 
   ##############

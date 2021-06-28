@@ -1,4 +1,12 @@
 
+from enum import Enum
+
+
+class TF_verbose(Enum):
+  SILENT = 0
+  ALL = 1
+  LESS = 2
+
 def _set_model_optimizer(model, optimizer):
   if hasattr(model, '_get_optimizer'):
     # wrap optimizer in an internal `keras` data structure
