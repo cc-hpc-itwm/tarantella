@@ -2,13 +2,16 @@ import tensorflow as tf
 from tensorflow.python.data.ops import dataset_ops as ds
 
 from tarantella import logger
-import tarantella.datasets.dataset_helpers as ds_helpers
-import tarantella.datasets.ops_helpers as ops_helpers
-import tarantella.datasets.gradient_scaling_callback as grad_scaling
+import tarantella as tnt
+import tarantella.data.dataset_helpers as ds_helpers
+import tarantella.data.ops_helpers as ops_helpers
+import tarantella.data.gradient_scaling_callback as grad_scaling
 import tarantella.utilities.tf_version as version_utils
 
 class DistributedDataset:
-  def __init__(self, dataset, num_ranks, rank, shuffle_seed = 42):
+  def __init__(self, dataset,
+               num_ranks = tnt.get_size(), rank = tnt.get_rank(),
+               shuffle_seed = 42):
     self.num_ranks = num_ranks
     self.rank = rank
     self.shuffle_seed = shuffle_seed

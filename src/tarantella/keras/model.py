@@ -3,9 +3,8 @@ from tensorflow.python.data.ops import iterator_ops
 from tensorflow.python.keras.engine import training_utils
 import tensorflow.keras.callbacks as tf_callbacks
 
-import tarantella
+import tarantella as tnt
 import tarantella.optimizers.synchronous_distributed_optimizer as distributed_optimizers
-import tarantella.datasets.distributed_dataset as ds
 import tarantella.keras.callbacks as tnt_callbacks
 import tarantella.keras.utilities as utilities
 import tarantella.utilities.tf_version as version_utils
@@ -15,15 +14,15 @@ from tarantella import logger
 class Model(tf.keras.models.Model):
   def __init__(self, model):
     super().__init__()
-    self.rank = tarantella.get_rank()
-    self.comm_size = tarantella.get_size()
+    self.rank = tnt.get_rank()
+    self.comm_size = tnt.get_size()
 
     self.model = model
     self.input_shapes = None
     self.done_broadcast = False
     self.compiled = False
     self.broadcaster = None
-    self.barrier = tarantella.Barrier()
+    self.barrier = tnt.Barrier()
 
     self.dist_optimizer = None
     self.default_shuffle_seed = 42
@@ -128,8 +127,7 @@ class Model(tf.keras.models.Model):
     self.done_broadcast = False
     self.compiled = True
 
-    self.dist_optimizer = tarantella.distributed_optimizers.SynchDistributedOptimizer(
-                                                            optimizer)
+    self.dist_optimizer = tnt.distributed_optimizers.SynchDistributedOptimizer(optimizer)
 
     kwargs = self._preprocess_compile_kwargs(kwargs)
     return self.model.compile(optimizer = self.dist_optimizer,
@@ -157,10 +155,10 @@ class Model(tf.keras.models.Model):
     processed_callbacks = self._preprocess_callbacks(callbacks)
 
     if tnt_distribute_dataset:
-      test_dataset = ds.DistributedDataset(dataset = x,
-                                          num_ranks = self.comm_size,
-                                          rank = self.rank,
-                                          shuffle_seed = self.default_shuffle_seed)
+      test_dataset = tnt.data.Dataset(dataset = x,
+                                      num_ranks = self.comm_size,
+                                      rank = self.rank,
+                                      shuffle_seed = self.default_shuffle_seed)
       x = test_dataset.distribute_dataset_across_ranks(
               user_micro_batch_size = tnt_micro_batch_size,
               is_training = False)
@@ -209,10 +207,10 @@ class Model(tf.keras.models.Model):
       #     - number of samples in the last batch is >= `num_ranks`
       #         => last batch can be considered a new `batch_size`, which will be handled as above (in 1.),
       #            both for computing the `micro_batch_size` and the `scaling_factor`
-      distributed_x = ds.DistributedDataset(dataset = x,
-                                            num_ranks = self.comm_size,
-                                            rank = self.rank,
-                                            shuffle_seed = self.default_shuffle_seed)
+      distributed_x = tnt.data.Dataset(dataset = x,
+                                       num_ranks = self.comm_size,
+                                       rank = self.rank,
+                                       shuffle_seed = self.default_shuffle_seed)
       x = distributed_x.distribute_dataset_across_ranks(
             user_micro_batch_size = tnt_micro_batch_size,
             is_training = True)
@@ -231,10 +229,10 @@ class Model(tf.keras.models.Model):
 
     if validation_data:
       if tnt_distribute_validation_dataset:
-        distributed_validation_data = ds.DistributedDataset(dataset = validation_data,
-                                                            num_ranks = self.comm_size,
-                                                            rank = self.rank,
-                                                            shuffle_seed = self.default_shuffle_seed)
+        distributed_validation_data = tnt.data.Dataset(dataset = validation_data,
+                                                       num_ranks = self.comm_size,
+                                                       rank = self.rank,
+                                                       shuffle_seed = self.default_shuffle_seed)
         validation_data = distributed_validation_data.distribute_dataset_across_ranks(
               user_micro_batch_size = tnt_validation_micro_batch_size,
               is_training = False)
@@ -289,10 +287,10 @@ class Model(tf.keras.models.Model):
     processed_callbacks = self._preprocess_callbacks(callbacks)
 
     if tnt_distribute_dataset:
-      test_dataset = ds.DistributedDataset(dataset = x,
-                                           num_ranks = self.comm_size,
-                                           rank = self.rank,
-                                           shuffle_seed = self.default_shuffle_seed)
+      test_dataset = tnt.data.Dataset(dataset = x,
+                                      num_ranks = self.comm_size,
+                                      rank = self.rank,
+                                      shuffle_seed = self.default_shuffle_seed)
       x = test_dataset.distribute_dataset_across_ranks(
                user_micro_batch_size = tnt_micro_batch_size,
                is_training = False)
@@ -320,10 +318,10 @@ class Model(tf.keras.models.Model):
     self.done_broadcast = True
     
   def summary(self, *args, **kwargs):
-    if tarantella.global_tnt_config.output_on_all_devices:
+    if tnt.global_tnt_config.output_on_all_devices:
       self.model.summary(*args, **kwargs)
     else:
-      if tarantella.is_master_rank():
+      if tnt.is_master_rank():
         self.model.summary(*args, **kwargs)
 
   def to_json(self, **kwargs):
@@ -340,7 +338,7 @@ class Model(tf.keras.models.Model):
     if tnt_save_all_devices:
       save_function(filepath, kwargs)
     else:
-      if tarantella.is_master_rank():
+      if tnt.is_master_rank():
         save_function(filepath, kwargs)
     # make sure that every rank can load the model after function exit
     self.barrier.synchronize()
@@ -372,8 +370,8 @@ class Model(tf.keras.models.Model):
   def _set_verbose_all_ranks(self, exec_type, args_dict):
     if not 'verbose' in args_dict:
       args_dict['verbose'] = self.tf_default_verbose[exec_type]
-    if not tarantella.global_tnt_config.output_on_all_devices:
-      if not tarantella.is_master_rank():
+    if not tnt.global_tnt_config.output_on_all_devices:
+      if not tnt.is_master_rank():
         args_dict['verbose'] = 0
 
   def _validate_datasets(self, x, y):
@@ -401,10 +399,10 @@ class Model(tf.keras.models.Model):
       self._broadcast_weights()
 
   def _broadcast_weights(self):
-    root_rank = tarantella.get_master_rank()
+    root_rank = tnt.get_master_rank()
     if not self.broadcaster:
       weights = self.get_weights()
-      self.broadcaster = tarantella.TensorBroadcaster(weights, root_rank)
+      self.broadcaster = tnt.TensorBroadcaster(weights, root_rank)
 
     if self.rank == root_rank:
       weights = self.get_weights()
@@ -446,10 +444,10 @@ class Model(tf.keras.models.Model):
         callbacks[index] = tnt_callback
 
       elif isinstance(callback, tf_callbacks.TensorBoard):
-        if tarantella.global_tnt_config.tensorboard_on_all_devices:
+        if tnt.global_tnt_config.tensorboard_on_all_devices:
           callback.log_dir += '/rank_{}'.format(self.rank)
         else:
-          if not tarantella.is_master_rank():
+          if not tnt.is_master_rank():
             remove_tensorboard_index = index
 
       elif isinstance(callback, tf_callbacks.History):

@@ -4,7 +4,7 @@ import tensorflow as tf
 from tensorflow.python.data.ops import dataset_ops as ds
 
 from tarantella import logger
-import tarantella.datasets.ops as tnt_ops
+import tarantella.data.ops as tnt_ops
 
 def _get_transformation_info_batch(dataset):
   kwargs = {"batch_size": dataset._batch_size,

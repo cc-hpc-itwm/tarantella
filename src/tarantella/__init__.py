@@ -20,6 +20,8 @@ def is_master_rank():
 from tarantella import tnt_initializer
 tnt_initializer.init()
 
+from tarantella import data
+
 from tarantella.keras import models
 from tarantella.keras.model import Model
 from tarantella.keras.sequential import Sequential
@@ -32,4 +34,5 @@ from tarantella.strategy.SynchCommunicator import SynchCommunicator
 from tarantella.strategy.PipelineCommunicator import PipelineCommunicator
 
 import tarantella.optimizers as optimizers
+from tarantella.optimizers.synchronous_distributed_optimizer import SynchDistributedOptimizer as Optimizer
 import tarantella.optimizers.synchronous_distributed_optimizer as distributed_optimizers
