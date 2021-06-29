@@ -172,3 +172,53 @@ class TestsDataParallelCallbacks:
 
     for key in reference_history.history.keys():
       assert all(np.isclose(tnt_history.history[key], reference_history.history[key], atol=1e-6))
+
+  @pytest.mark.min_tfversion('2.3')
+  @pytest.mark.parametrize("number_epochs", [2])
+  @pytest.mark.parametrize("use_explicit_progbarlogger", [True, False])
+  @pytest.mark.parametrize("verbose", [2])
+  @pytest.mark.parametrize("exec_type", ['fit_with_validation', 'fit_without_validation',
+                                         'evaluate', 'predict'])
+  def test_progbar_logger_callback_inference(self, model_runners, number_epochs,
+                                             use_explicit_progbarlogger, verbose, exec_type, capsys):
+    (train_dataset, test_dataset) = train_val_dataset_generator()
+    (ref_train_dataset, ref_test_dataset) = train_val_dataset_generator()
+
+    tnt_callbacks = [ tf.keras.callbacks.ProgbarLogger(count_mode = 'steps') ] if use_explicit_progbarlogger else []
+    ref_callbacks = [ tf.keras.callbacks.ProgbarLogger(count_mode = 'steps') ] if use_explicit_progbarlogger else []
+
+    tnt_model_runner, ref_model_runner = model_runners
+
+    if exec_type in ['fit_with_validation', 'fit_without_validation']:
+      if exec_type == 'fit_without_validation':
+        test_dataset = None
+      tnt_model_runner.model.fit(train_dataset, validation_data = test_dataset,
+                                 epochs = number_epochs, callbacks = tnt_callbacks,
+                                 verbose = verbose)
+    elif exec_type == 'evaluate':
+      tnt_model_runner.model.evaluate(test_dataset, callbacks = tnt_callbacks, verbose = verbose)
+    elif exec_type == 'predict':
+      tnt_model_runner.model.predict(test_dataset, callbacks = tnt_callbacks, verbose = verbose)
+
+    tnt_captured = capsys.readouterr()
+    tnt_metrics = util.get_metrics_from_stdout(tnt_captured.out, tnt_model_runner.model.metrics_names)
+
+    if exec_type in ['fit_with_validation', 'fit_without_validation']:
+      if exec_type == 'fit_without_validation':
+        ref_test_dataset = None
+      ref_model_runner.model.fit(ref_train_dataset, validation_data = ref_test_dataset,
+                                 epochs = number_epochs, callbacks = ref_callbacks,
+                                 verbose = verbose)
+    elif exec_type == 'evaluate':
+      ref_model_runner.model.evaluate(ref_test_dataset, callbacks = ref_callbacks, verbose = verbose)
+    elif exec_type == 'predict':
+      ref_model_runner.model.predict(ref_test_dataset, callbacks = ref_callbacks, verbose = verbose)
+
+    ref_captured = capsys.readouterr()
+    ref_metrics = util.get_metrics_from_stdout(ref_captured.out, ref_model_runner.model.metrics_names)
+
+    if tnt.is_master_rank():
+      assert all(np.isclose(tnt_metrics, ref_metrics, atol=1e-6))
+    else:
+      assert tnt_captured.out == ""
+      assert tnt_captured.err == ""

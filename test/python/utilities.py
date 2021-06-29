@@ -9,6 +9,7 @@ import logging
 import os
 import random
 import csv
+import re
 
 def create_dataset_from_arrays(samples, labels, batch_size,drop_remainder = False):
   assert(len(samples) == len(labels))
@@ -99,3 +100,13 @@ def get_metric_values_from_file(filename):
     for row in reader:
       metrics += [float(value) for value in row.values()]
   return metrics
+
+def get_metrics_from_stdout(captured_text, metric_names):
+  metrics = []
+  for name in metric_names:
+    search_string = " " + name + ": (\d+(?:\.\d+)?)"
+
+    # Returns an array of values for particular metric
+    metrics += re.findall(search_string, captured_text, re.IGNORECASE)
+
+  return [float(m) for m in metrics]
