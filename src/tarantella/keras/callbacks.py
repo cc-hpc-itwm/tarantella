@@ -12,9 +12,12 @@ class LogsAverager(object):
     self.num_ranks = num_ranks
     self.allreducer = None
 
+  def create_allreducer(self, logs):
+    self.allreducer = tnt.TensorAllreducer(logs)
+
   def average_logs(self, logs):
     if self.allreducer is None:
-      self.allreducer = tnt.TensorAllreducer(logs)
+      self.create_allreducer(logs)
     sum_logs = self.allreducer.allreduce(logs)
     average_logs = { k : v / self.num_ranks for k, v in sum_logs.items() }
     return average_logs
