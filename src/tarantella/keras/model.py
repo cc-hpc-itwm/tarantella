@@ -34,6 +34,7 @@ class Model(tf.keras.models.Model):
                                'evaluate' : utilities.TF_verbose.ALL.value,
                                'predict' : utilities.TF_verbose.SILENT.value,
                               }
+    self.progbar_necessary = False
 
   ##############
   # Attributes #
@@ -363,7 +364,7 @@ class Model(tf.keras.models.Model):
 
   def _setup_for_execution(self, exec_type, x, y, args_dict):
     self._assert_compile_has_been_called()
-    self._set_verbose_all_ranks(exec_type, args_dict)
+    self._set_whether_progbar_is_necessary(exec_type, args_dict)
     self._validate_datasets(x, y)
     self._validate_batch_size_argument(exec_type, args_dict)
     self._set_input_shapes(x)
@@ -374,9 +375,11 @@ class Model(tf.keras.models.Model):
       raise RuntimeError("`tnt.Model` has to be compiled first "
                          "using `tnt.Model.compile`")
 
-  def _set_verbose_all_ranks(self, exec_type, args_dict):
+  def _set_whether_progbar_is_necessary(self, exec_type, args_dict):
     if not 'verbose' in args_dict:
-      args_dict['verbose'] = self.tf_default_verbose[exec_type]
+      self.progbar_necessary = (self.tf_default_verbose[exec_type] != utilities.TF_verbose.SILENT.value)
+    else:
+      self.progbar_necessary = (args_dict['verbose'] != utilities.TF_verbose.SILENT.value)
 
   def _validate_datasets(self, x, y):
     if not isinstance(x, tf.data.Dataset) or not y is None:
@@ -419,20 +422,31 @@ class Model(tf.keras.models.Model):
 
   def _preprocess_callbacks(self, callbacks):
     callbacks = callbacks or []
-
-    self._add_default_callbacks(callbacks)
+    self._add_default_History_callback_if_necessary(callbacks)
+    self._add_default_ProgbarLogger_callback_if_necessary(callbacks)
     self._to_tnt_callbacks(callbacks)
-
     return callbacks
 
-  def _add_default_callbacks(self, callbacks):
-    history_obj_exists = False
+  def _add_default_History_callback_if_necessary(self, callbacks):
+    callback_exists = False
+
     for callback in callbacks:
       if isinstance(callback, tf_callbacks.History):
-        history_obj_exists = True
+        callback_exists = True
 
-    if history_obj_exists is False:
+    if not callback_exists:
       callbacks.append(tf_callbacks.History())
+
+  def _add_default_ProgbarLogger_callback_if_necessary(self, callbacks):
+    callback_exists = False
+
+    for callback in callbacks:
+      if isinstance(callback, tf_callbacks.ProgbarLogger):
+        callback_exists = True
+
+    if not callback_exists and self.progbar_necessary:
+      # Always need to use `count_mode` to `steps`
+      callbacks.append(tf_callbacks.ProgbarLogger(count_mode='steps'))
 
   def _to_tnt_callbacks(self, callbacks):
     remove_tensorboard_index = None
@@ -484,6 +498,10 @@ class Model(tf.keras.models.Model):
       elif isinstance(callback, tf_callbacks.ReduceLROnPlateau):
         reducelr_callback = tnt_callbacks.ReduceLROnPlateau(keras_callback = callback)
         callbacks[index] = reducelr_callback
+
+      elif isinstance(callback, tf_callbacks.ProgbarLogger):
+        progbar_callback = tnt_callbacks.ProgbarLogger(keras_callback = callback)
+        callbacks[index] = progbar_callback
 
     if remove_tensorboard_index is not None:
       del callbacks[remove_tensorboard_index]
