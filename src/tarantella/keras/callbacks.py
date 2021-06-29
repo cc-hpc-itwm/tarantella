@@ -150,3 +150,62 @@ class ReduceLROnPlateau(LogsAverager, tf.keras.callbacks.ReduceLROnPlateau):
   def on_epoch_end(self, epoch, logs=None):
     averaged_logs = self.average_logs(logs)
     super().on_epoch_end(epoch, averaged_logs)
+
+class ProgbarLogger(tf.keras.callbacks.ProgbarLogger, LogsAverager):
+  def __init__(self, keras_callback):
+    if version_utils.tf_version_below_equal('2.2'):
+      raise EnvironmentError("[tnt.callbacks.ProgbarLogger] "
+                             "`ProgbarLogger` support from TF 2.3")
+
+    self._construct_from_keras_object(keras_callback)
+    self.verbose = keras_callback.verbose if tnt.is_master_rank() \
+                                          else utilities.TF_verbose.SILENT.value
+    LogsAverager.__init__(self)
+
+  def _construct_from_keras_object(self, keras_callback):
+    implemented_methods = ['on_train_batch_end', 'on_test_batch_end', 'on_predict_batch_end',
+                           'on_epoch_end', 'on_test_end', 'on_predict_end']
+    super().__init__()
+    for k, v in keras_callback.__dict__.items():
+      if k not in implemented_methods:
+        setattr(self, k, copy.deepcopy(v))
+
+  def _logs_as_tensors(self, logs):
+    logs_as_tensors = copy.deepcopy(logs)
+    for key in logs_as_tensors.keys():
+      logs_as_tensors[key] = tf.constant(logs_as_tensors[key])
+    return logs_as_tensors
+
+  def _setup_logs_averager_for_training(self, logs):
+    full_logs = copy.deepcopy(logs)
+    for key in list(logs):
+      new_key = 'val_' + key
+      full_logs[new_key] = np.double(0)
+    self.create_allreducer(full_logs)
+
+  def on_train_batch_end(self, batch, logs=None):
+    if batch == 0:
+      self._setup_logs_averager_for_training(logs)
+
+    averaged_logs = self.average_specific_metrics(logs, list(logs.keys()))
+    super().on_train_batch_end(batch, averaged_logs)
+
+  def on_test_batch_end(self, batch, logs=None):
+    if not self._called_in_fit:
+      averaged_logs = self.average_logs(logs)
+      super().on_test_batch_end(batch, averaged_logs)
+
+  def on_predict_batch_end(self, batch, logs=None):
+    super().on_predict_batch_end(batch, logs)
+
+  def on_epoch_end(self, epoch, logs=None):
+    averaged_logs = self.average_logs(logs)
+    super().on_epoch_end(epoch, averaged_logs)
+
+  def on_test_end(self, logs=None):
+    logs_as_tensors = self._logs_as_tensors(logs)
+    averaged_logs = self.average_logs(logs_as_tensors)
+    super().on_test_end(averaged_logs)
+
+  def on_predict_end(self, logs=None):
+    super().on_predict_end(logs)
