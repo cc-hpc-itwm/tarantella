@@ -1,6 +1,8 @@
+import six
 import tensorflow as tf
 from tensorflow.python.data.ops import iterator_ops
 from tensorflow.python.keras.engine import training_utils
+from tensorflow.keras.optimizers import deserialize
 import tensorflow.keras.callbacks as tf_callbacks
 
 import tarantella as tnt
@@ -127,6 +129,11 @@ class Model(tf.keras.models.Model):
     self.done_broadcast = False
     self.compiled = True
 
+    if isinstance(optimizer, dict):
+      optimizer = deserialize(optimizer)
+    elif isinstance(optimizer, six.string_types):
+      config = {'class_name': str(optimizer), 'config': {}}
+      optimizer = deserialize(config)
     self.dist_optimizer = tnt.distributed_optimizers.SynchDistributedOptimizer(optimizer)
 
     kwargs = self._preprocess_compile_kwargs(kwargs)

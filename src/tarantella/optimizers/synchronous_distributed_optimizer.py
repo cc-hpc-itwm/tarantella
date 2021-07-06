@@ -9,6 +9,8 @@ class SynchDistributedOptimizer(wrapper.OptimizerWrapper):
   _HAS_AGGREGATE_GRAD = True
 
   def __init__(self, optimizer, name = None):
+    if not isinstance(optimizer, tf.keras.optimizers.Optimizer):
+      raise ValueError("Optimizer must be of type `tf.keras.optimizers.Optimizer`")
     self.optimizer = optimizer
     if name is None:
       name = "SynchDistributedOptimizer"
