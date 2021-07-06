@@ -143,3 +143,16 @@ class TestsModelAPI:
         tnt_model.reset_states()
     except Exception as exc:
         assert False, f"`tnt_model.reset_states()` raised an exception {exc}"
+  
+  @pytest.mark.parametrize("optimizer_name, optimizer_type", [
+                                                              ("sgd", tf.keras.optimizers.SGD),
+                                                              ("rmsprop", tf.keras.optimizers.RMSprop)
+                                                             ])
+  def test_optimizer_with_name(self, optimizer_name, optimizer_type):
+    tnt_model = tnt.Model(mnist.lenet5_model_generator())
+    tnt_model.compile(optimizer=optimizer_name,
+                      loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+                      metrics=['accuracy'])
+    tnt_optimizer = tnt_model.dist_optimizer
+    assert isinstance(tnt_optimizer, tnt.distributed_optimizers.SynchDistributedOptimizer)
+    assert isinstance(tnt_optimizer.underlying_optimizer, optimizer_type)
