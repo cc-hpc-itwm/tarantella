@@ -12,7 +12,7 @@ def __is_nonEmptyArray__(input):
 def __is_floatOrDouble__(input):
   return isinstance(input, (np.float, np.double, np.float32, np.float64))
 
-def __is_singleTensor__(input):
+def __is_tensor__(input):
   return tf.is_tensor(input)
 
 def __is_nonEmptyDict__(input):

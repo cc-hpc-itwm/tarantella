@@ -128,7 +128,7 @@ class TestTensorAllreducer:
     with pytest.raises(TypeError):
       tnt.TensorAllreducer(string)
 
-  def test_tensor(self):
+  def test_tensor_numeric(self):
     value = 4.67
     expected_value = value * tnt.get_size()
     input = tf.constant(value, dtype=np.float32)
@@ -138,6 +138,19 @@ class TestTensorAllreducer:
 
     assert tf.is_tensor(output)
     assert output == expected_value
+
+  @pytest.mark.parametrize("input_shape", [(6,), (11, 12), (4, 5, 6)])
+  def test_nd_tensor(self, input_shape):
+    input_array = np.ones(shape=input_shape, dtype=np.float32)
+    expected_output_array = input_array * tnt.get_size()
+
+    input = tf.constant(input_array)
+
+    allreducer = tnt.TensorAllreducer(input)
+    output = allreducer.allreduce(input)
+
+    assert tf.is_tensor(output)
+    assert np.array_equal(output.numpy(), expected_output_array)
 
   def test_dict_of_tensors(self):
     input_dict = dict()
