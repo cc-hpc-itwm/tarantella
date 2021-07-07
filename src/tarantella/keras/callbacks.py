@@ -6,8 +6,9 @@ import tarantella as tnt
 import tarantella.keras.utilities as utilities
 import tarantella.utilities.tf_version as version_utils
 
-class LogsAverager():
+class LogsAverager(object):
   def __init__(self, num_ranks = tnt.get_size()):
+    super().__init__()
     self.num_ranks = num_ranks
     self.allreducer = None
 
@@ -30,22 +31,18 @@ class LogsAverager():
 
     return logs
 
+def _construct_from_keras_object(obj, keras_callback):
+  for k, v in keras_callback.__dict__.items():
+    setattr(obj, k, copy.deepcopy(v))
+
 class ModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
   def __init__(self, keras_callback, tnt_model):
-    self._construct_from_keras_object(keras_callback)
+    super().__init__(filepath = keras_callback.filepath)
+    _construct_from_keras_object(self, keras_callback)
+
     self.tnt_model = tnt_model
     # only master rank should save and thus print messages
     self.verbose = keras_callback.verbose if tnt.is_master_rank() else 0
-
-  def _construct_from_keras_object(self, keras_callback):
-    implemented_methods = ['set_model',
-                           'on_epoch_end',
-                           'on_train_begin',
-                           'on_train_batch_end' ]
-    super().__init__(keras_callback.filepath)
-    for k, v in keras_callback.__dict__.items():
-      if k not in implemented_methods:
-        setattr(self, k, copy.deepcopy(v))
 
   def set_model(self, model):
     # Overriding this method ensures that `ModelCheckpoint` is called on the
@@ -65,16 +62,16 @@ class ModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
 class LearningRateScheduler(tf.keras.callbacks.LearningRateScheduler):
   def __init__(self, keras_callback):
     super().__init__(schedule=keras_callback.schedule, verbose=keras_callback.verbose)
+    _construct_from_keras_object(self, keras_callback)
 
     if not tnt.global_tnt_config.output_on_all_devices:
       if not tnt.is_master_rank():
         self.verbose = 0
 
-
-class History(tf.keras.callbacks.History, LogsAverager):
+class History(LogsAverager, tf.keras.callbacks.History):
   def __init__(self, keras_callback):
-    tf.keras.callbacks.History.__init__(self)
-    LogsAverager.__init__(self)
+    super().__init__()
+    _construct_from_keras_object(self, keras_callback)
 
   def on_epoch_end(self, epoch, logs = None):
     averaged_logs = self.average_logs(logs)
@@ -85,36 +82,22 @@ class History(tf.keras.callbacks.History, LogsAverager):
       # to this callback
       self.model.history = self
 
-class EarlyStopping(tf.keras.callbacks.EarlyStopping, LogsAverager):
+class EarlyStopping(LogsAverager, tf.keras.callbacks.EarlyStopping):
   def __init__(self, keras_callback):
-    self._construct_from_keras_object(keras_callback)
-    LogsAverager.__init__(self)
+    super().__init__()
+    _construct_from_keras_object(self, keras_callback)
 
     # only master rank should print messages
     self.verbose = keras_callback.verbose if tnt.is_master_rank() else 0
-
-  def _construct_from_keras_object(self, keras_callback):
-    implemented_methods = ['get_monitor_value']
-    super().__init__()
-    for k, v in keras_callback.__dict__.items():
-      if k not in implemented_methods:
-        setattr(self, k, copy.deepcopy(v))
 
   def get_monitor_value(self, logs):
     averaged_logs = self.average_logs(logs)
     return super().get_monitor_value(averaged_logs)
 
-class RemoteMonitor(tf.keras.callbacks.RemoteMonitor, LogsAverager):
+class RemoteMonitor(LogsAverager, tf.keras.callbacks.RemoteMonitor):
   def __init__(self, keras_callback):
-    self._construct_from_keras_object(keras_callback)
-    LogsAverager.__init__(self)
-
-  def _construct_from_keras_object(self, keras_callback):
-    implemented_methods = ['on_epoch_end']
     super().__init__()
-    for k, v in keras_callback.__dict__.items():
-      if k not in implemented_methods:
-        setattr(self, k, copy.deepcopy(v))
+    _construct_from_keras_object(self, keras_callback)
 
   def on_epoch_end(self, epoch, logs=None):
     averaged_logs = self.average_logs(logs)
@@ -123,17 +106,9 @@ class RemoteMonitor(tf.keras.callbacks.RemoteMonitor, LogsAverager):
 
 class CSVLogger(tf.keras.callbacks.CSVLogger, LogsAverager):
   def __init__(self, keras_callback):
-    self._construct_from_keras_object(keras_callback)
+    tf.keras.callbacks.CSVLogger.__init__(self, keras_callback.filename)
     LogsAverager.__init__(self)
-
-  def _construct_from_keras_object(self, keras_callback):
-    implemented_methods = ['on_train_begin',
-                           'on_epoch_end',
-                           'on_train_end']
-    super().__init__(keras_callback.filename)
-    for k, v in keras_callback.__dict__.items():
-      if k not in implemented_methods:
-        setattr(self, k, copy.deepcopy(v))
+    _construct_from_keras_object(self, keras_callback)
 
   def on_train_begin(self, logs):
     if tnt.is_master_rank():
@@ -148,18 +123,10 @@ class CSVLogger(tf.keras.callbacks.CSVLogger, LogsAverager):
     if tnt.is_master_rank():
       super().on_train_end(logs)
 
-
-class TerminateOnNaN(tf.keras.callbacks.TerminateOnNaN, LogsAverager):
+class TerminateOnNaN(LogsAverager, tf.keras.callbacks.TerminateOnNaN):
   def __init__(self, keras_callback):
-    self._construct_from_keras_object(keras_callback)
-    LogsAverager.__init__(self)
-
-  def _construct_from_keras_object(self, keras_callback):
-    implemented_methods = ['on_batch_end']
     super().__init__()
-    for k, v in keras_callback.__dict__.items():
-      if k not in implemented_methods:
-        setattr(self, k, copy.deepcopy(v))
+    _construct_from_keras_object(self, keras_callback)
 
   def on_batch_end(self, batch, logs=None):
     if version_utils.tf_version_below_equal('2.1'):
@@ -169,20 +136,13 @@ class TerminateOnNaN(tf.keras.callbacks.TerminateOnNaN, LogsAverager):
 
     super().on_batch_end(batch, averaged_logs)
 
-class ReduceLROnPlateau(tf.keras.callbacks.ReduceLROnPlateau, LogsAverager):
+class ReduceLROnPlateau(LogsAverager, tf.keras.callbacks.ReduceLROnPlateau):
   def __init__(self, keras_callback):
-    self._construct_from_keras_object(keras_callback)
-    LogsAverager.__init__(self)
+    super().__init__()
+    _construct_from_keras_object(self, keras_callback)
 
     # only master rank should print messages
     self.verbose = keras_callback.verbose if tnt.is_master_rank() else 0
-
-  def _construct_from_keras_object(self, keras_callback):
-    implemented_methods = ['on_epoch_end']
-    super().__init__()
-    for k, v in keras_callback.__dict__.items():
-      if k not in implemented_methods:
-        setattr(self, k, copy.deepcopy(v))
 
   def on_epoch_end(self, epoch, logs=None):
     averaged_logs = self.average_logs(logs)
