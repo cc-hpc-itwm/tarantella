@@ -158,9 +158,8 @@ class ProgbarLogger(LogsAverager, tf.keras.callbacks.ProgbarLogger):
                              "`ProgbarLogger` support from TF 2.3")
     super().__init__()
     _construct_from_keras_object(self, keras_callback)
-    self.verbose = keras_callback.verbose if tnt.is_master_rank() \
-                                          else utilities.TF_verbose.SILENT.value
     self.is_built = False
+    self.should_print_progbar = tnt.is_master_rank() # the other ranks only need to participate in averaging logs
 
   def _logs_as_tensors(self, logs):
     logs_as_tensors = copy.deepcopy(logs)
@@ -181,31 +180,54 @@ class ProgbarLogger(LogsAverager, tf.keras.callbacks.ProgbarLogger):
       self._setup_tensor_allreducer(logs)
       self.is_built = True
 
+  def on_epoch_begin(self, epoch, logs=None):
+    if self.should_print_progbar:
+      super().on_epoch_begin(epoch, logs)
+
+  def on_train_begin(self, logs=None):
+    self._called_in_fit = True
+    if self.should_print_progbar:
+      super().on_train_begin(logs)
+
+  def on_test_begin(self, logs=None):
+    if self.should_print_progbar:
+      super().on_test_begin(logs)
+
+  def on_predict_begin(self, logs=None):
+    if self.should_print_progbar:
+      super().on_predict_begin(logs)
+
   def on_train_batch_end(self, batch, logs=None):
     self._build_tensor_allreducer_if_necessary(logs)
     averaged_logs = self.average_specific_metrics(logs, list(logs.keys()))
-    super().on_train_batch_end(batch, averaged_logs)
+    if self.should_print_progbar:
+      super().on_train_batch_end(batch, averaged_logs)
 
   def on_test_batch_end(self, batch, logs=None):
     self._build_tensor_allreducer_if_necessary(logs)
     if not self._called_in_fit:
       averaged_logs = self.average_logs(logs)
-      super().on_test_batch_end(batch, averaged_logs)
+      if self.should_print_progbar:
+        super().on_test_batch_end(batch, averaged_logs)
 
   def on_predict_batch_end(self, batch, logs=None):
     self._build_tensor_allreducer_if_necessary(logs)
-    super().on_predict_batch_end(batch, logs)
+    if self.should_print_progbar:
+      super().on_predict_batch_end(batch, logs)
 
   def on_epoch_end(self, epoch, logs=None):
     self._build_tensor_allreducer_if_necessary(logs)
     averaged_logs = self.average_logs(logs)
-    super().on_epoch_end(epoch, averaged_logs)
+    if self.should_print_progbar:
+      super().on_epoch_end(epoch, averaged_logs)
 
   def on_test_end(self, logs=None):
     self._build_tensor_allreducer_if_necessary(logs)
     if not self._called_in_fit:
       averaged_logs = self.average_logs(logs)
-      super().on_test_end(averaged_logs)
+      if self.should_print_progbar:
+        super().on_test_end(averaged_logs)
 
   def on_predict_end(self, logs=None):
-    super().on_predict_end(logs = None)
+    if self.should_print_progbar:
+      super().on_predict_end(logs = None)
