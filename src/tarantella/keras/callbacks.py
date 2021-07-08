@@ -204,14 +204,11 @@ class ProgbarLogger(LogsAverager, tf.keras.callbacks.ProgbarLogger):
       super().on_train_batch_end(batch, averaged_logs)
 
   def on_test_batch_end(self, batch, logs=None):
-    self._build_tensor_allreducer_if_necessary(logs)
     if not self._called_in_fit:
-      averaged_logs = self.average_logs(logs)
       if self.should_print_progbar:
-        super().on_test_batch_end(batch, averaged_logs)
+        super().on_test_batch_end(batch, logs)
 
   def on_predict_batch_end(self, batch, logs=None):
-    self._build_tensor_allreducer_if_necessary(logs)
     if self.should_print_progbar:
       super().on_predict_batch_end(batch, logs)
 
@@ -224,9 +221,8 @@ class ProgbarLogger(LogsAverager, tf.keras.callbacks.ProgbarLogger):
   def on_test_end(self, logs=None):
     self._build_tensor_allreducer_if_necessary(logs)
     if not self._called_in_fit:
-      averaged_logs = self.average_logs(logs)
       if self.should_print_progbar:
-        super().on_test_end(averaged_logs)
+        super().on_test_end(logs)
 
   def on_predict_end(self, logs=None):
     if self.should_print_progbar:
