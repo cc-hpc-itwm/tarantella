@@ -12,9 +12,12 @@ class LogsAverager(object):
     self.num_ranks = num_ranks
     self.allreducer = None
 
+  def create_allreducer(self, logs):
+    self.allreducer = tnt.TensorAllreducer(logs)
+
   def average_logs(self, logs):
     if self.allreducer is None:
-      self.allreducer = tnt.TensorAllreducer(logs)
+      self.create_allreducer(logs)
     sum_logs = self.allreducer.allreduce(logs)
     average_logs = { k : v / self.num_ranks for k, v in sum_logs.items() }
     return average_logs
@@ -42,7 +45,7 @@ class ModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
 
     self.tnt_model = tnt_model
     # only master rank should save and thus print messages
-    self.verbose = keras_callback.verbose if tnt.is_master_rank() else 0
+    self.verbose = keras_callback.verbose if tnt.is_master_rank() else utilities.TF_verbose.SILENT.value
 
   def set_model(self, model):
     # Overriding this method ensures that `ModelCheckpoint` is called on the
@@ -88,7 +91,7 @@ class EarlyStopping(LogsAverager, tf.keras.callbacks.EarlyStopping):
     _construct_from_keras_object(self, keras_callback)
 
     # only master rank should print messages
-    self.verbose = keras_callback.verbose if tnt.is_master_rank() else 0
+    self.verbose = keras_callback.verbose if tnt.is_master_rank() else utilities.TF_verbose.SILENT.value
 
   def get_monitor_value(self, logs):
     averaged_logs = self.average_logs(logs)
@@ -142,8 +145,88 @@ class ReduceLROnPlateau(LogsAverager, tf.keras.callbacks.ReduceLROnPlateau):
     _construct_from_keras_object(self, keras_callback)
 
     # only master rank should print messages
-    self.verbose = keras_callback.verbose if tnt.is_master_rank() else 0
+    self.verbose = keras_callback.verbose if tnt.is_master_rank() else utilities.TF_verbose.SILENT.value
 
   def on_epoch_end(self, epoch, logs=None):
     averaged_logs = self.average_logs(logs)
     super().on_epoch_end(epoch, averaged_logs)
+
+class ProgbarLogger(LogsAverager, tf.keras.callbacks.ProgbarLogger):
+  def __init__(self, keras_callback):
+    if version_utils.tf_version_below_equal('2.2'):
+      raise EnvironmentError("[tnt.callbacks.ProgbarLogger] "
+                             "`ProgbarLogger` support from TF 2.3")
+    super().__init__()
+    _construct_from_keras_object(self, keras_callback)
+    self.is_built = False
+    self.should_print_progbar = tnt.is_master_rank() # the other ranks only need to participate in averaging logs
+
+  def _logs_as_tensors(self, logs):
+    logs_as_tensors = copy.deepcopy(logs)
+    for key in logs_as_tensors.keys():
+      if not tf.is_tensor(logs_as_tensors[key]):
+        logs_as_tensors[key] = tf.constant(logs_as_tensors[key])
+    return logs_as_tensors
+
+  def _setup_tensor_allreducer(self, logs):
+    full_logs = copy.deepcopy(logs)
+    for key in list(logs):
+      new_key = 'val_' + key
+      full_logs[new_key] = np.double(0)
+    self.create_allreducer(self._logs_as_tensors(full_logs))
+
+  def _build_tensor_allreducer_if_necessary(self, logs):
+    if not self.is_built:
+      self._setup_tensor_allreducer(logs)
+      self.is_built = True
+
+  def on_epoch_begin(self, epoch, logs=None):
+    if self.should_print_progbar:
+      super().on_epoch_begin(epoch, logs)
+
+  def on_train_begin(self, logs=None):
+    self._called_in_fit = True
+    if self.should_print_progbar:
+      super().on_train_begin(logs)
+
+  def on_test_begin(self, logs=None):
+    if self.should_print_progbar:
+      super().on_test_begin(logs)
+
+  def on_predict_begin(self, logs=None):
+    if self.should_print_progbar:
+      super().on_predict_begin(logs)
+
+  def on_train_batch_end(self, batch, logs=None):
+    self._build_tensor_allreducer_if_necessary(logs)
+    averaged_logs = self.average_specific_metrics(logs, list(logs.keys()))
+    if self.should_print_progbar:
+      super().on_train_batch_end(batch, averaged_logs)
+
+  def on_test_batch_end(self, batch, logs=None):
+    # FIXME: Average in case validate/evaluate is distributed
+    if not self._called_in_fit:
+      if self.should_print_progbar:
+        super().on_test_batch_end(batch, logs)
+
+  def on_predict_batch_end(self, batch, logs=None):
+    # FIXME: Average in case predict is distributed
+    if self.should_print_progbar:
+      super().on_predict_batch_end(batch, logs)
+
+  def on_epoch_end(self, epoch, logs=None):
+    self._build_tensor_allreducer_if_necessary(logs)
+    averaged_logs = self.average_logs(logs)
+    if self.should_print_progbar:
+      super().on_epoch_end(epoch, averaged_logs)
+
+  def on_test_end(self, logs=None):
+    # FIXME: Average in case validate/evaluate is distributed
+    if not self._called_in_fit:
+      if self.should_print_progbar:
+        super().on_test_end(logs)
+
+  def on_predict_end(self, logs=None):
+    # FIXME: Average in case predict is distributed
+    if self.should_print_progbar:
+      super().on_predict_end(logs = None)

@@ -412,6 +412,7 @@ At the moment, Tarantella fully supports the following
 * ``tf.keras.callbacks.History``
 * ``tf.keras.callbacks.LearningRateScheduler``
 * ``tf.keras.callbacks.ModelCheckpoint``
+* ``tf.keras.callbacks.ProgbarLogger``
 * ``tf.keras.callbacks.ReduceLROnPlateau``
 * ``tf.keras.callbacks.RemoteMonitor``
 * ``tf.keras.callbacks.TensorBoard``
