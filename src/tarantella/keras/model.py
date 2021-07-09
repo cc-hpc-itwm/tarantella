@@ -377,9 +377,6 @@ class Model(tf.keras.models.Model):
   def _set_verbose_all_ranks(self, exec_type, args_dict):
     if not 'verbose' in args_dict:
       args_dict['verbose'] = self.tf_default_verbose[exec_type]
-    if not tnt.global_tnt_config.output_on_all_devices:
-      if not tnt.is_master_rank():
-        args_dict['verbose'] = 0
 
   def _validate_datasets(self, x, y):
     if not isinstance(x, tf.data.Dataset) or not y is None:
