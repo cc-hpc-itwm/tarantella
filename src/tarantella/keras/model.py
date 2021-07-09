@@ -444,7 +444,8 @@ class Model(tf.keras.models.Model):
       if isinstance(callback, tf_callbacks.ProgbarLogger):
         callback_exists = True
 
-    if not callback_exists and self.progbar_necessary:
+    if not callback_exists and self.progbar_necessary \
+    and version_utils.tf_version_above_equal('2.3'):
       # Always need to use `count_mode` to `steps`
       callbacks.append(tf_callbacks.ProgbarLogger(count_mode='steps'))
 
