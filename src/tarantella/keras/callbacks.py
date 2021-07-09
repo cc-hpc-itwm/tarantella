@@ -204,11 +204,13 @@ class ProgbarLogger(LogsAverager, tf.keras.callbacks.ProgbarLogger):
       super().on_train_batch_end(batch, averaged_logs)
 
   def on_test_batch_end(self, batch, logs=None):
+    # FIXME: Average in case validate/evaluate is distributed
     if not self._called_in_fit:
       if self.should_print_progbar:
         super().on_test_batch_end(batch, logs)
 
   def on_predict_batch_end(self, batch, logs=None):
+    # FIXME: Average in case predict is distributed
     if self.should_print_progbar:
       super().on_predict_batch_end(batch, logs)
 
@@ -219,11 +221,12 @@ class ProgbarLogger(LogsAverager, tf.keras.callbacks.ProgbarLogger):
       super().on_epoch_end(epoch, averaged_logs)
 
   def on_test_end(self, logs=None):
-    self._build_tensor_allreducer_if_necessary(logs)
+    # FIXME: Average in case validate/evaluate is distributed
     if not self._called_in_fit:
       if self.should_print_progbar:
         super().on_test_end(logs)
 
   def on_predict_end(self, logs=None):
+    # FIXME: Average in case predict is distributed
     if self.should_print_progbar:
       super().on_predict_end(logs = None)
