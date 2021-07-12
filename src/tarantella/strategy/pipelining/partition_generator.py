@@ -186,17 +186,19 @@ class GraphPartitionGenerator:
         return p_name
     raise ValueError(f"[get_partition_with_node] Cannot find node {node_name} in any partition.")
 
-  def _get_connection_size(self, layer_name, connection_id):
-    for n in self.graph.predecessors(layer_name):
-      node_info = self.graph.nodes[n]
-      if node_info.get('connection_id', None) == connection_id:
-        assert node_info['class_name'] == 'InputLayer', \
-               f"[get_input_size] Provided node {n} does not represent a graph input."
+  def _get_connection_info(self, connection_id):
+    for layer_name in self.graph.nodes:
+      node_info = self.graph.nodes[layer_name]
+      # two nodes have the same connection ID: one input and one output
+      if node_info.get('connection_id', None) == connection_id and \
+         node_info['class_name'] == 'InputLayer':
 
-        size = np.prod(node_info['config']['batch_input_shape'].as_list()[1:])
-        size_in_bytes = size * node_info['config']['dtype'].size
-        return size_in_bytes
-    raise ValueError(f"[get_input_size] Cannot find node {layer_name} in the graph.")
+        number_elements = np.prod(node_info['config']['batch_input_shape'].as_list()[1:])
+        return {'connection_id' : connection_id,
+                'number_elements' : number_elements,
+                'dtype' : node_info['config']['dtype']}
+
+    raise ValueError(f"[_get_connection_info] Cannot find connection ID {connection_id} in the graph.")
 
   def _build_partition_graph(self):
     conn_graph = nx.MultiDiGraph()
@@ -215,12 +217,9 @@ class GraphPartitionGenerator:
                            f"`{conn_info['source']}` and `{conn_info['target']}` layers: "
                             "both sides of the split edge belong to the same partition.")
 
-      connection_size_bytes = self._get_connection_size(conn_info['target'],
-                                                        conn_info['connection_id'])
       # vertices are automatically created in `conn_graph` when an edge is added
       conn_graph.add_edges_from([(source_partition, target_partition,
-                                 {'connection_id' : conn_info['connection_id'],
-                                  'size' : connection_size_bytes}) ])
+                                  self._get_connection_info(conn_info['connection_id'])) ])
     return conn_graph
 
   def get_partition_graph(self, partition_id):

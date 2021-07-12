@@ -27,5 +27,6 @@ class RankMapper:
       rank0 = self.get_rank_for_partition(edge[0])
       rank1 = self.get_rank_for_partition(edge[1])
       if rank in [rank0, rank1]:
-        partition_table[conn_id] = ((rank0, rank1), edge_info['size'])
+        size_in_bytes = edge_info['number_elements'] * edge_info['dtype'].size
+        partition_table[conn_id] = ((rank0, rank1), size_in_bytes)
     return partition_table
