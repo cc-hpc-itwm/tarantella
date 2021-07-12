@@ -4,7 +4,7 @@ Installation
 ============
 
 Tarantella needs to be built `from source <https://github.com/cc-hpc-itwm/tarantella>`_.
-Since Tarantella is built on top of `TensorFlow 2 <https://www.tensorflow.org/>`_,
+Since Tarantella is built on top of `TensorFlow <https://www.tensorflow.org/>`_,
 you will require a recent version of it. Additionally, you will need an installation of
 the open-source communication libraries `GaspiCxx <https://github.com/cc-hpc-itwm/GaspiCxx>`_
 and `GPI-2 <http://www.gpi-site.com/>`_,
@@ -114,10 +114,10 @@ where ``${GASPICXX_INSTALLATION_PATH}`` needs to be set to the path where you wa
 the library.
 
 
-Installing TensorFlow 2
-^^^^^^^^^^^^^^^^^^^^^^^
+Installing TensorFlow
+^^^^^^^^^^^^^^^^^^^^^
 
-Next you will need to install TensorFlow 2.
+Next you will need to install TensorFlow.
 Tarantella supports TensorFlow versions ``2.0`` to ``2.4``.
 Either version can be installed in a conda environment using pip,
 as recommended on the `TensorFlow website <https://www.tensorflow.org/install>`_.

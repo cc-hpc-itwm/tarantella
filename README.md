@@ -1,7 +1,7 @@
 Tarantella
 ============
 
-Tarantella is an open-source, distributed Deep Learning framework built on top of TensorFlow 2,
+Tarantella is an open-source, distributed Deep Learning framework built on top of TensorFlow,
 providing scalable Deep Neural Network training on CPU and GPU compute clusters.
 
 A comprehensive documentation of the Tarantella software can be found

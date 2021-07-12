@@ -32,7 +32,7 @@ reproduced when using distributed training
 so that computation can be scaled up at any point in time without losing reproducibility
 of the results.
 
-Furthermore, we made sure that existing TensorFlow 2/Keras
+Furthermore, we made sure that existing TensorFlow
 models can be made ready for distributed training with minimal effort
 (follow the :ref:`Quick Start guide <quick-start-label>` to learn more).
 Tarantella supports distributed training on GPU and pure CPU clusters,
