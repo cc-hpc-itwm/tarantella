@@ -1,2 +1,2 @@
 global tnt_version
-tnt_version = "0.6.2"
+tnt_version = "0.7.0"
