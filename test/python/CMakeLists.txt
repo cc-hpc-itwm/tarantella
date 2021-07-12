@@ -1,10 +1,14 @@
 include (add_test_wrappers)
 
-set(localranks_list 1 4)
 tarantella_generate_python_gpi_test(NAME DataParallel_TF_Callbacks
                                     TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/callbacks_test.py
-                                    LOCALRANKS_LIST "${localranks_list}"
+                                    LOCALRANKS_LIST "1"
                                     LABELS integration
+                                    TIMEOUT 300)
+tarantella_generate_python_gpi_test(NAME DataParallel_TF_Callbacks
+                                    TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/callbacks_test.py
+                                    LOCALRANKS_LIST "4"
+                                    LABELS integration cluster
                                     TIMEOUT 300)
 
 set(localranks_list 1 3)
