@@ -13,7 +13,7 @@ class TensorAllreducer:
       return
 
     default_tensor_id = 0
-    if utils.__is_floatOrDouble__(inputs) or utils.__is_tensor__(inputs):
+    if utils.__is_floatOrDouble__(inputs) or utils.__is_int__(inputs) or utils.__is_tensor__(inputs):
       self.shapes = [tf.shape(inputs)]
       tensor_infos = [utils.get_tensor_info(default_tensor_id, np.asarray(inputs))]
     elif utils.__is_nonEmptyArray__(inputs):
@@ -35,7 +35,7 @@ class TensorAllreducer:
         output_dict[key] = self.allreducer[key].allreduce(inputs[key])
       return output_dict
 
-    if utils.__is_floatOrDouble__(inputs):
+    if utils.__is_floatOrDouble__(inputs) or utils.__is_int__(inputs):
       return self.allreducer.allreduce([np.asarray(inputs)])[0][0]
     elif utils.__is_tensor__(inputs):
       outputs = self.allreducer.allreduce([np.asarray(inputs)])[0]

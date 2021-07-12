@@ -150,6 +150,14 @@ PYBIND11_MODULE(GPICommLib, m)
             {
               output_list.push_back(py::array_t<double>(info.size));
             }
+            else if (py::isinstance<py::array_t<int16_t>>(py::array::ensure(input)))
+            {
+              output_list.push_back(py::array_t<int16_t>(info.size));
+            }
+            else if (py::isinstance<py::array_t<int32_t>>(py::array::ensure(input)))
+            {
+              output_list.push_back(py::array_t<int32_t>(info.size));
+            }
           }
 
           // extract pointers for inputs and outputs
