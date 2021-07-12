@@ -58,11 +58,19 @@ def _get_partition_endpoints(model, partition_nodes, endpoint_direction):
   endpoint_names = _get_endpoint_names(model, endpoint_direction)
   return [name for name in endpoint_names if name in partition_nodes]
 
+def _generate_connection_id(node_name, split_layers_list):
+  for index, split_layer_name in enumerate(sorted(split_layers_list)):
+    if node_name == split_layer_name:
+      return index
+  raise ValueError(f"[_generate_connection_id] Cannot find node `{node_name}` "
+                    "in the list of SplitLayer's")
+
+
 class GraphPartitionGenerator:
   def __init__(self, model):
     self.model = model
     self.graph = self._build_graph(model)
-    self.connections = self._get_split_connections()
+    self.connections = self._get_connections_from_split_layers()
     self._replace_split_layers()
 
     self.partitions = self._build_partitions()
@@ -102,20 +110,20 @@ class GraphPartitionGenerator:
                          if SplitLayer.is_split_layer(self.model, node)]
     return split_layers
 
-  def _get_split_connections(self):
+  def _get_connections_from_split_layers(self):
     connections = dict()
-    for index, node in enumerate(sorted(self._get_split_layers())):
+    for node in sorted(self._get_split_layers()):
       predecessors = list(self.graph.predecessors(node))
       assert len(predecessors) == 1, \
-             "[get_split_connections] SplitLayers should only have one input."
+             "[get_connections_from_split_layers] SplitLayers should only have one input."
 
       successors = list(self.graph.successors(node))
       assert len(successors) == 1, \
-             "[get_split_connections] SplitLayers should only have one output."
+             "[get_connections_from_split_layers] SplitLayers should only have one output."
 
       connections[node] = {'source': predecessors[0],
                            'target' : successors[0],
-                           'connection_id': index
+                           'connection_id': _generate_connection_id(node, self._get_split_layers())
                           }
     return connections
 
@@ -128,19 +136,20 @@ class GraphPartitionGenerator:
 
   def _replace_split_layers(self):
     for node in self._get_split_layers():
-      self._replace_layer(node)
+      self._replace_split_layer(node)
 
-  def _replace_layer(self, layer_name):
-    assert layer_name in self.graph.nodes(), f"[replace_layer] Cannot find {layer_name} in the graph."
+  def _replace_split_layer(self, layer_name):
+    assert layer_name in self.graph.nodes(), f"[_replace_split_layer] Cannot find {layer_name} in the graph."
     predecessors = list(self.graph.predecessors(layer_name))
     successors = list(self.graph.successors(layer_name))
-    assert len(predecessors) == 1, "[replace_layer] Layer to be replaced can only have one input."
-    assert len(successors) == 1, "[replace_layer] Layer to be replaced can only have one output."
+    assert len(predecessors) == 1, "[_replace_split_layer] Layer to be replaced can only have one input."
+    assert len(successors) == 1, "[_replace_split_layer] Layer to be replaced can only have one output."
 
     keras_layer = self.model.get_layer(name = layer_name)
     connection_id = self._get_connection_id(layer_name)
     self.graph.remove_node(layer_name)
 
+    # the input of the SplitLayer `layer_name` will become the output of the partition before it
     output_name = layer_name + '_input'
     output_layer_config = {'class_name': 'Layer',
                           'config': {'dtype': keras_layer.output.dtype,
@@ -150,6 +159,7 @@ class GraphPartitionGenerator:
     self.graph.add_node(output_name, **output_layer_config)
     self.graph.add_edge(predecessors[0], output_name)
 
+    # the output of the SplitLayer `layer_name` will become the input of the next partition
     input_name = layer_name + '_output'
     input_layer_config = {'class_name': 'InputLayer',
                           'config': {'batch_input_shape': keras_layer.output.shape,
@@ -163,8 +173,8 @@ class GraphPartitionGenerator:
   def _build_partitions(self):
     partitions = dict()
     connected_components = nx.connected_components(self.graph.to_undirected(as_view = True))
-    for component in connected_components:
-      name = f"{len(partitions)}"
+    for index, component in enumerate(connected_components):
+      name = f"{index}"
       partitions[name] = self.graph.subgraph(component)
       partitions[name].graph['input_layers'] = _get_partition_endpoints(self.model, component, pinfo.EndpointDirection.inp)
       partitions[name].graph['output_layers'] = _get_partition_endpoints(self.model, component, pinfo.EndpointDirection.out)
@@ -197,7 +207,7 @@ class GraphPartitionGenerator:
         conn_graph.add_node(self._get_partition_with_node(first_node))
       return conn_graph
 
-    for conn, conn_info in self.connections.items():
+    for _, conn_info in self.connections.items():
       source_partition = self._get_partition_with_node(conn_info['source'])
       target_partition = self._get_partition_with_node(conn_info['target'])
       if source_partition == target_partition:
@@ -207,6 +217,7 @@ class GraphPartitionGenerator:
 
       connection_size_bytes = self._get_connection_size(conn_info['target'],
                                                         conn_info['connection_id'])
+      # vertices are automatically created in `conn_graph` when an edge is added
       conn_graph.add_edges_from([(source_partition, target_partition,
                                  {'connection_id' : conn_info['connection_id'],
                                   'size' : connection_size_bytes}) ])
