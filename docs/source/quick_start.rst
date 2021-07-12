@@ -404,7 +404,7 @@ micro-batching mechanism by setting ``tnt_distribute_validation_dataset=False``.
 Callbacks
 ^^^^^^^^^
 
-At the moment, Tarantella fully supports the following
+Tarantella fully supports all non-generic
 `Keras callbacks <https://www.tensorflow.org/api_docs/python/tf/keras/callbacks>`__:
 
 * ``tf.keras.callbacks.CSVLogger``
@@ -418,55 +418,24 @@ At the moment, Tarantella fully supports the following
 * ``tf.keras.callbacks.TensorBoard``
 * ``tf.keras.callbacks.TerminateOnNaN``
 
-The ``CSVLogger`` callback can be used to stream epoch results to a CSV file. All metrics are
-averaged over all devices after each epoch.
+All of these callbacks are implemented in such a way, that the device-local,
+micro-batch information is accumulated over all devices. This leads to the same
+callback behavior as in serial execution. That is, users do not need to
+make any modifications to their code when using Keras callbacks with Tarantella.
 
-The ``EarlyStopping`` callback can be used to stop training when a monitored metric has stopped improving.
-The monitored metric is averaged over all devices, so that the callback behaves in the same way as it would
-in single-device execution.
-
-The ``History`` callback can be used to record events into an object.
-All metrics and losses recorded in ``History.history`` are averaged over all devices after each epoch.
-
-The ``LearningRateScheduler`` takes a ``schedule`` which will change the learning rate
-on each of the devices used (for detailed explanation, cf.
-`here <https://www.tensorflow.org/api_docs/python/tf/keras/callbacks/LearningRateScheduler>`__
-and
-`here <https://www.tensorflow.org/guide/keras/train_and_evaluate#using_learning_rate_schedules>`__
-).
-If ``verbose=1`` is set, Tarantella will only print on one device by default.
-This behavior can be changed by passing ``--output-on-all-devices`` to ``tarantella``.
-
-``ModelCheckpoint`` can be used to automatically checkpoint the state of the model
-during training. For an example look :ref:`here <checkpointing-via-callbacks-label>`,
-and into the
-`Keras documentation <https://www.tensorflow.org/api_docs/python/tf/keras/callbacks/ModelCheckpoint>`__.
-
-The ``ReduceLROnPlateau`` callback can be used to reduce learning rate when a monitored metric has
-stopped improving. The learning rate would be changed on each of the devices and the metrics are
-averaged over all devices after each epoch before checking if there is a necessity to change the
-learning rate.
-
-The ``RemoteMonitor`` callback can be used to stream events to a server. All metrics are
-averaged over all devices at the end of every epoch before streaming.
-
-The ``TensorBoard`` callback can be used to collect training information for visualization
-in `TensorBoard <https://www.tensorflow.org/tensorboard>`__. By default, Tarantella
-will only collect (device local) information on one device. If you want to collect
-the local information on all devices use the environment variable ``TNT_TENSORBOARD_ON_ALL_DEVICES``:
+However, when using the `TensorBoard <https://www.tensorflow.org/tensorboard>`__ callback,
+by default, Tarantella will only collect device-local information *on one device*.
+If you want to collect the local information on all devices use the
+environment variable ``TNT_TENSORBOARD_ON_ALL_DEVICES``:
 
 .. code-block:: bash
 
    TNT_TENSORBOARD_ON_ALL_DEVICES=true tarantella -- model.py
 
-The ``TerminateOnNaN`` callback can be used to terminate training when a NaN loss is encountered. 
-When loss on one or more devices returns NaN value, then average value is also NaN and thus, 
-training is terminated.
-
 .. note::
 
-   At the moment, custom Keras callbacks (Callback, CallbackList, LambdaCallback) will be executed
-   on all devices with local information only.
+   At the moment, the generic Keras callbacks (Callback, CallbackList, LambdaCallback) will be executed
+   on each device independently using local (micro-batch) information only.
 
 .. note::
 
