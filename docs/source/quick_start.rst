@@ -4,7 +4,7 @@ Quick Start
 ===========
 
 This section explains how to get started using Tarantella to distributedly
-train an existing TensorFlow 2/Keras model.
+train an existing TensorFlow model.
 First, we will examine what changes have to be made to your code, before we will look into
 the execution of your script with ``tarantella`` on the command line.
 Finally, we will present the features Tarantella currently supports and
@@ -14,7 +14,7 @@ Code example: LeNet-5 on MNIST
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 After having :ref:`built and installed <installation-label>` Tarantella
-we are ready to add distributed training support to an existing TensorFlow 2/Keras model.
+we are ready to add distributed training support to an existing TensorFlow model.
 We will first illustrate all the necessary steps, using the well-known example of
 **LeNet-5** on the **MNIST** dataset. Although this is not necessarily a good use case
 to take full advantage of Tarantella's capabilities, it will allow you to simply

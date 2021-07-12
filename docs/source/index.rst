@@ -4,10 +4,10 @@
 
 |
 `Tarantella <https://github.com/cc-hpc-itwm/tarantella>`_
-is an open-source, distributed Deep Learning framework built on top of TensorFlow 2,
+is an open-source, distributed Deep Learning framework built on top of TensorFlow,
 providing scalable Deep Neural Network training on CPU and GPU compute clusters.
 
-Tarantella is easy-to-use, allows to re-use existing TensorFlow 2/Keras models,
+Tarantella is easy-to-use, allows to re-use existing TensorFlow models,
 and does not require any knowledge of parallel computing.
 
 .. image:: pics/tnt_run.gif
