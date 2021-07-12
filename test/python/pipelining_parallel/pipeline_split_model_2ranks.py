@@ -48,7 +48,7 @@ def to_microbatched(model, micro_batch_size, num_micro_batches, num_batches, num
 
   partition_id = rank_mapper.get_partition_for_rank(rank)
   partition_info = pinfo.PartitionInfo(partition_id = partition_id,
-                                       partition_graph = partition_generator.get_partition(partition_id))
+                                       partition_graph = partition_generator.get_partition_graph(partition_id))
 
   shared_model_builder = shared.SharedModelBuilder(partition_info, core_model,
                                                     pipeline_communicator, micro_batch_size)

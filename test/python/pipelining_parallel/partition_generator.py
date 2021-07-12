@@ -97,7 +97,7 @@ class TestPartitionGenerator:
       partition_id = rank_mapper.get_partition_for_rank(rank)
       partition_info = pinfo.PartitionInfo(
                           partition_id = partition_id,
-                          partition_graph = partition_gen.get_partition(partition_id))
+                          partition_graph = partition_gen.get_partition_graph(partition_id))
       assert partition_info == expected_partition_gen(model, rank)
 
 

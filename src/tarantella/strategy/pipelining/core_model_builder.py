@@ -62,17 +62,17 @@ class CoreModelBuilder():
     self.partition_id = rank_mapper.get_partition_for_rank(rank)
     self.core_model = self._get_model(model)
 
-  def _to_model_config(self, partition_id, partition):
+  def _to_model_config(self, partition_id, partition_graph):
     model_config = {'layers' : [],
                     'name' : partition_id,
                     'input_layers' : formatted_inout(get_digraph_endpoints(
-                                                        partition, pinfo.EndpointDirection.inp)),
+                                                        partition_graph, pinfo.EndpointDirection.inp)),
                     'output_layers' : formatted_inout(get_digraph_endpoints(
-                                                        partition, pinfo.EndpointDirection.out)),
+                                                        partition_graph, pinfo.EndpointDirection.out)),
                    }
 
-    for node_name, node_info in partition.nodes.items():
-      inbound_nodes = formatted_inbound_nodes(partition.predecessors(node_name))      
+    for node_name, node_info in partition_graph.nodes.items():
+      inbound_nodes = formatted_inbound_nodes(partition_graph.predecessors(node_name))
       node_config = {'class_name' : node_info['class_name'],
                      'config' : node_info['config'],
                      'inbound_nodes' : inbound_nodes,
@@ -82,8 +82,8 @@ class CoreModelBuilder():
 
   def _get_model(self, model):
     print(f"Creating model for partition {self.partition_id}")
-    partition = self.partition_generator.get_partition(self.partition_id)
-    core_model_config = self._to_model_config(self.partition_id, partition)
+    partition_graph = self.partition_generator.get_partition_graph(self.partition_id)
+    core_model_config = self._to_model_config(self.partition_id, partition_graph)
     core_model = tf.keras.Model().from_config(core_model_config)
 
     set_weights(core_model, model)

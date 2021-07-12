@@ -223,11 +223,11 @@ class GraphPartitionGenerator:
                                   'size' : connection_size_bytes}) ])
     return conn_graph
 
-  def get_partition(self, partition_id):
+  def get_partition_graph(self, partition_id):
     for p_name, p in self.partitions.items():
       if p_name == partition_id:
         return p
-    raise ValueError(f"[get_partition] Cannot find partition {input_name}.")
+    raise ValueError(f"[get_partition_graph] Cannot find partition {input_name}.")
 
   def get_pipeline_graph(self):
     return self.partition_graph
