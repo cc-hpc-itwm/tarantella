@@ -38,7 +38,7 @@ def simple_model_generator():
 def to_microbatched(model, micro_batch_size, num_micro_batches, num_batches, num_test_batches):
   rank = tnt.get_rank()
   partition_generator = pgen.GraphPartitionGenerator(model)
-  rank_mapper = rmapper.RankMapper(partition_generator.get_partition_graph(), tnt.get_size())
+  rank_mapper = rmapper.RankMapper(partition_generator.get_pipeline_graph(), tnt.get_size())
   cm_builder = core_model_builder.CoreModelBuilder(model, partition_generator,
                                                     rank_mapper, rank)
   core_model = cm_builder.get_model()

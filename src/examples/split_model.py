@@ -33,7 +33,7 @@ model = alexnet_model_generator()
 partition_generator = pgen.GraphPartitionGenerator(model)
 
 nranks = 3
-rank_mapper = rank_mapper.RankMapper(partition_generator.get_partition_graph(), nranks)
+rank_mapper = rank_mapper.RankMapper(partition_generator.get_pipeline_graph(), nranks)
 for rank in range(nranks):
   pprint.pprint(f"Model for rank {rank}")
   core_model_builder = core_model.CoreModelBuilder(partition_generator,

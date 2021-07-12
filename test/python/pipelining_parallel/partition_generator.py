@@ -90,7 +90,7 @@ class TestPartitionGenerator:
 
   def test_partition_info(self, model_and_partitions):
     model, partition_gen, expected_num_partitions, expected_partition_gen, _ = model_and_partitions
-    rank_mapper = rmapper.RankMapper(partition_gen.get_partition_graph(),
+    rank_mapper = rmapper.RankMapper(partition_gen.get_pipeline_graph(),
                                      nranks = expected_num_partitions)
 
     for rank in range(expected_num_partitions):
@@ -103,7 +103,7 @@ class TestPartitionGenerator:
 
   def test_partition_core_models(self, model_and_partitions):
     model, partition_gen, expected_num_partitions, _, expected_model_gen = model_and_partitions
-    rank_mapper = rmapper.RankMapper(partition_gen.get_partition_graph(),
+    rank_mapper = rmapper.RankMapper(partition_gen.get_pipeline_graph(),
                                      nranks = expected_num_partitions)
 
     for rank in range(expected_num_partitions):
@@ -116,7 +116,7 @@ class TestPartitionGenerator:
 
   def test_core_model_inputs(self, model_and_partitions):
     model, partition_gen, expected_num_partitions, _, expected_model_gen = model_and_partitions
-    rank_mapper = rmapper.RankMapper(partition_gen.get_partition_graph(),
+    rank_mapper = rmapper.RankMapper(partition_gen.get_pipeline_graph(),
                                      nranks = expected_num_partitions)
 
     for rank in range(expected_num_partitions):
@@ -130,7 +130,7 @@ class TestPartitionGenerator:
 
   def test_core_model_outputs(self, model_and_partitions):
     model, partition_gen, expected_num_partitions, _, expected_model_gen = model_and_partitions
-    rank_mapper = rmapper.RankMapper(partition_gen.get_partition_graph(),
+    rank_mapper = rmapper.RankMapper(partition_gen.get_pipeline_graph(),
                                      nranks = expected_num_partitions)
 
     for rank in range(expected_num_partitions):

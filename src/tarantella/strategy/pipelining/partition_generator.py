@@ -229,7 +229,7 @@ class GraphPartitionGenerator:
         return p
     raise ValueError(f"[get_partition] Cannot find partition {input_name}.")
 
-  def get_partition_graph(self):
+  def get_pipeline_graph(self):
     return self.partition_graph
 
   def get_number_partitions(self):
