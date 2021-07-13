@@ -13,7 +13,7 @@ def __is_floatOrDouble__(input):
   return isinstance(input, (np.float, np.double, np.float32, np.float64))
 
 def __is_int__(input):
-  return isinstance(input, (np.int, np.integer))
+  return isinstance(input, (np.int, np.int16, np.int32))
 
 def __is_tensor__(input):
   return tf.is_tensor(input)
