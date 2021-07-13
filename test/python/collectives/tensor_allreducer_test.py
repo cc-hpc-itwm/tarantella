@@ -9,8 +9,9 @@ import pytest
 
 class TestTensorAllreducer:
   @pytest.mark.parametrize("array_length", [8, 35, 67])
-  def test_single_array_identical_inputs(self, array_length):
-    input_array = np.ones(shape=(array_length, 1), dtype=np.float32)
+  @pytest.mark.parametrize("dtype", [np.float32, np.int32])
+  def test_single_array_identical_inputs(self, array_length, dtype):
+    input_array = np.ones(shape=(array_length, 1), dtype=dtype)
     expected_output_array = input_array * tnt.get_size()
 
     allreducer = tnt.TensorAllreducer(input_array)
@@ -34,9 +35,10 @@ class TestTensorAllreducer:
     assert np.array_equal(output_array, expected_output_array)
 
   @pytest.mark.parametrize("list_length", [1, 5, 12])
-  def test_list_of_arrays_identical_inputs(self, list_length):
+  @pytest.mark.parametrize("dtype", [np.float32, np.int32])
+  def test_list_of_arrays_identical_inputs(self, list_length, dtype):
     array_length = 50
-    input_array = np.ones(shape=(array_length, 1), dtype=np.float32)
+    input_array = np.ones(shape=(array_length, 1), dtype=dtype)
     input_list = [input_array for i in range(list_length)]
 
     expected_output_array = input_array * tnt.get_size()
@@ -128,10 +130,10 @@ class TestTensorAllreducer:
     with pytest.raises(TypeError):
       tnt.TensorAllreducer(string)
 
-  def test_tensor_numeric(self):
-    value = 4.67
-    expected_value = value * tnt.get_size()
-    input = tf.constant(value, dtype=np.float32)
+  @pytest.mark.parametrize("input_value, dtype", [(4.67, np.float32), (4, np.int32)])
+  def test_tensor_numeric(self, input_value, dtype):
+    expected_value = input_value * tnt.get_size()
+    input = tf.constant(input_value, dtype=dtype)
 
     allreducer = tnt.TensorAllreducer(input)
     output = allreducer.allreduce(input)
@@ -140,8 +142,9 @@ class TestTensorAllreducer:
     assert output == expected_value
 
   @pytest.mark.parametrize("input_shape", [(6,), (11, 12), (4, 5, 6)])
-  def test_nd_tensor(self, input_shape):
-    input_array = np.ones(shape=input_shape, dtype=np.float32)
+  @pytest.mark.parametrize("dtype", [np.float32, np.int32])
+  def test_nd_tensor(self, input_shape, dtype):
+    input_array = np.ones(shape=input_shape, dtype=dtype)
     expected_output_array = input_array * tnt.get_size()
 
     input = tf.constant(input_array)
