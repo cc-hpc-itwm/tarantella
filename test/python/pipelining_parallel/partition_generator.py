@@ -10,11 +10,8 @@ import tarantella.strategy.pipelining.partition_generator as pgen
 import models.split_layer_models as models
 import utilities as utils
 
+import tensorflow as tf
 import pytest
-
-import json
-import logging
-import numpy as np
 
 models_and_partition_infos = [
   # Test case 0:
@@ -120,11 +117,14 @@ class TestPartitionGenerator:
                                      nranks = expected_num_partitions)
 
     for rank in range(expected_num_partitions):
+      tf.keras.backend.clear_session()
       cm_builder = core_model_builder.CoreModelBuilder(model, partition_gen,
                                                        rank_mapper, rank)
       core_model = cm_builder.get_model()
-      reference_core_model = expected_model_gen(rank)
       core_input_names = [i.name for i in core_model.inputs]
+
+      tf.keras.backend.clear_session()
+      reference_core_model = expected_model_gen(rank)
       reference_input_names = [i.name for i in reference_core_model.inputs]
       assert core_input_names == reference_input_names
 
@@ -134,11 +134,14 @@ class TestPartitionGenerator:
                                      nranks = expected_num_partitions)
 
     for rank in range(expected_num_partitions):
+      tf.keras.backend.clear_session()
       cm_builder = core_model_builder.CoreModelBuilder(model, partition_gen,
                                                        rank_mapper, rank)
       core_model = cm_builder.get_model()
-      reference_core_model = expected_model_gen(rank)
       core_output_names = [i.name for i in core_model.outputs]
+
+      tf.keras.backend.clear_session()
+      reference_core_model = expected_model_gen(rank)
       reference_output_names = [i.name for i in reference_core_model.outputs]
       assert core_output_names == reference_output_names
 
