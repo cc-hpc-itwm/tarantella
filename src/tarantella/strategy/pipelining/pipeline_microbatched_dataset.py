@@ -219,6 +219,10 @@ def map_layer_names_to_tensor_types(datasets, endpoint_type, partition_id, num_i
   for i in range(num_inputs):
     for m in range(num_micro_batches):
       name = create_name_micro_batched_layer(partition_id, endpoint_type, layer_id = i, micro_batch_id = m)
-      mappings[name] = datasets[index].element_spec.dtype
+      input_elem_spec = datasets[index].element_spec
+      if isinstance(input_elem_spec, (tuple, list)):
+        mappings[name] = type(input_elem_spec)([elem_spec.dtype for elem_spec in list(input_elem_spec)])
+      else:
+        mappings[name] = input_elem_spec.dtype
       index += 1
   return mappings
