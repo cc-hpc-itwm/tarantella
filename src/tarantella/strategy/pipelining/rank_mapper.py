@@ -21,12 +21,12 @@ class RankMapper:
   def get_connections_for_rank(self, rank):
     # Create connections dict: { conn_id: ((rank_i, rank), size_in_bytes)}
     assert rank < self.nranks
-    partition_table = dict()
+    connection_table = dict()
     for edge, edge_info in self.pipeline_graph.edges.items():
       conn_id = self.pipeline_graph.edges[edge]['connection_id']
       rank0 = self.get_rank_for_partition(edge[0])
       rank1 = self.get_rank_for_partition(edge[1])
       if rank in [rank0, rank1]:
         size_in_bytes = edge_info['number_elements'] * edge_info['dtype'].size
-        partition_table[conn_id] = ((rank0, rank1), size_in_bytes)
-    return partition_table
+        connection_table[conn_id] = ((rank0, rank1), size_in_bytes)
+    return connection_table

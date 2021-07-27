@@ -44,8 +44,8 @@ def to_microbatched(model, micro_batch_size, num_micro_batches, num_batches, num
                                                     rank_mapper, rank)
   core_model = cm_builder.get_model()
 
-  partition_table = rank_mapper.get_connections_for_rank(rank)
-  pipeline_communicator = tnt.PipelineCommunicator(partition_table, micro_batch_size, num_micro_batches)
+  connection_table = rank_mapper.get_connections_for_rank(rank)
+  pipeline_communicator = tnt.PipelineCommunicator(connection_table, micro_batch_size, num_micro_batches)
 
   partition_id = rank_mapper.get_partition_for_rank(rank)
   partition_info = pinfo.PartitionInfo(partition_id = partition_id,

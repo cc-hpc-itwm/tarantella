@@ -15,6 +15,7 @@ import pytest
 
 models_and_partition_infos = [
   # Test case 0:
+  # input_id --> (partition_id) --connection_id--> (other_partition_id) --> output_id
   # i0 --> (0) --0--> (1) --> o0
   #
   { 'model_gen' : models.fc_model_generator,
@@ -145,6 +146,11 @@ class TestPartitionGenerator:
       reference_output_names = [i.name for i in reference_core_model.outputs]
       assert core_output_names == reference_output_names
 
+  # Test: incorrectly placed SplitLayer => cannot generate two partitions
+  # i0 --> (0) --0--> (1)----> o0
+  #         |         ^
+  #         |         |
+  #         -----------
   @pytest.mark.parametrize("model_generator", [models.incorrect_split_model])
   def test_incorrect_split(self, model_generator):
     model = model_generator()
