@@ -180,12 +180,11 @@ class Model(tf.keras.models.Model):
     else:
       logger.info("Automatic dataset distribution is disabled.")
     
-
     return self.model.evaluate(x, callbacks = processed_callbacks, **kwargs)
 
   def _apply_factor(self, loss_metric, factor):
     if isinstance(loss_metric, list):
-      loss_metric =  np.array(loss_metric * factor, np.float32)
+      loss_metric =  np.array(loss_metric * factor, np.float64)
     elif isinstance(loss_metric, dict):
       for k,v in loss_metric.items():
         loss_metric[k] = v * factor
@@ -194,18 +193,26 @@ class Model(tf.keras.models.Model):
                       factor,Metric is neither a `list` nor a `dict`.""")
     return loss_metric
 
+  def _fake_metric(self, **kwargs):
+    metrics_name = self.model.metrics_names
+    empty_metric = [float(0)] * len(metrics_name)
+    if 'return_dict' in kwargs and kwargs['return_dict']:
+      loss_metric = dict(zip(metrics_name, empty_metric))
+    else:
+      loss_metric = empty_metric
+    return loss_metric
+
   def distributed_evaluate(self, x, callbacks, factor = 1.0, **kwargs):
     try:
       loss_metric = self.model.evaluate(x, callbacks = callbacks, **kwargs)
     except:
-      metrics_name = self.model.metrics_names
-      empty_metric = [float(0)] * len(metrics_name)
-      if 'return_dict' in kwargs and kwargs['return_dict']:
-        loss_metric = dict(zip(metrics_name, empty_metric))
-      else:
-        loss_metric = empty_metric
+      loss_metric = self._fake_metric(**kwargs)
+    
+    if len(loss_metric) == 0:
+      loss_metric = self._fake_metric(**kwargs)
     
     loss_metric = self._apply_factor(loss_metric, factor)
+    
     if self.evaluate_reducer is None:
       self.evaluate_reducer = tnt.TensorAllreducer(loss_metric)
     return self.evaluate_reducer.allreduce(loss_metric)

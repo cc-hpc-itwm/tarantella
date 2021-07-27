@@ -3,6 +3,7 @@ from tensorflow import keras
 
 import tarantella as tnt
 import utilities as util
+import tarantella.utilities.tf_version as version_utils
 
 def generate_tnt_model_runner(model):
   model_data_par = tnt.Model(model)
@@ -26,7 +27,6 @@ class TrainingRunner:
     if tf.__version__.startswith('2.0') or \
        tf.__version__.startswith('2.1'):
       kwargs['experimental_run_tf_function'] = False
-
     self.model.compile(optimizer=optimizer,
                        loss=self.loss,
                        metrics=[self.metric],
@@ -51,9 +51,8 @@ class TrainingRunner:
       kwargs['tnt_distribute_dataset'] = False
       if distribution:
         kwargs = {}
-    if return_dict:
+    if return_dict and version_utils.tf_version_above_equal('2.2'):
       kwargs['return_dict'] = True
-    
     results = self.model.evaluate(val_dataset, verbose=0, **kwargs)
     return results
 

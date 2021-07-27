@@ -16,30 +16,39 @@ import pytest
                                          ])
 
 def model_runners(request):
-#   tnt_model_runner = base_runner.generate_tnt_model_runner(request.param())
   reference_model_runner = base_runner.generate_tnt_model_runner(request.param())
   yield reference_model_runner
 
 class TestsDistributedEvaluation:
+  
+  out_dict = [pytest.param(True,
+                           marks=[pytest.mark.tfversion('2.2'),
+                                  pytest.mark.tfversion('2.3'),
+                                  pytest.mark.tfversion('2.4'),]),
+              pytest.param(False,
+                           marks=[pytest.mark.tfversion('2.0'),
+                                  pytest.mark.tfversion('2.1'),
+                                  pytest.mark.tfversion('2.2'),
+                                  pytest.mark.tfversion('2.3'),
+                                  pytest.mark.tfversion('2.4'),]),
+             ]
+ 
   @pytest.mark.parametrize("micro_batch_size", [32])
-  @pytest.mark.parametrize("number_epochs", [4])
+  @pytest.mark.parametrize("number_epochs", [6])
   @pytest.mark.parametrize("nbatches", [8])
-  @pytest.mark.parametrize("test_nbatches", [0, 8])
-  @pytest.mark.parametrize("extra_batch", [0, 2])
-  @pytest.mark.parametrize("extra_sample", [1, 3])
-  @pytest.mark.parametrize("output_dict", [True, False])
+  @pytest.mark.parametrize("test_nbatches", [0, 12])
+  @pytest.mark.parametrize("extra_sample", [1, 33])
+  @pytest.mark.parametrize("output_dict", out_dict)
   def test_compare_accuracy_against_reference(self, model_runners, micro_batch_size,
                                               number_epochs, nbatches, test_nbatches,
-                                              extra_batch, extra_sample, output_dict):
+                                              extra_sample, output_dict):
     (_, test_dataset) = util.train_test_mnist_datasets(nbatches, test_nbatches,
                                                        micro_batch_size,
                                                        shuffle = False,
-                                                       remainder_samples_per_batch = extra_batch,
                                                        last_incomplete_batch_size = extra_sample)
     (ref_train_dataset, ref_test_dataset) = util.train_test_mnist_datasets(nbatches, test_nbatches,
                                                                            micro_batch_size,
                                                                            shuffle = False,
-                                                                           remainder_samples_per_batch = extra_batch,
                                                                            last_incomplete_batch_size = extra_sample)
     
     tnt_model = model_runners
@@ -52,6 +61,7 @@ class TestsDistributedEvaluation:
     rank = tnt.get_rank()
     logging.getLogger().info(f"[Rank {rank}] Tarantella[loss, accuracy] = {tnt_loss_accuracy}")
     logging.getLogger().info(f"[Rank {rank}] Reference [loss, accuracy] = {reference_loss_accuracy}")
+    
     if not output_dict:
       assert np.isclose(tnt_loss_accuracy[0], reference_loss_accuracy[0], atol=1e-2)
       assert np.isclose(tnt_loss_accuracy[1], reference_loss_accuracy[1], atol=1e-6)
