@@ -1,5 +1,5 @@
 import tarantella.strategy.pipelining.partition_info as pinfo
-import tarantella.strategy.pipelining.partition_generator as pgen
+import tarantella.keras.layers as tnt_layers
 import utilities as util
 
 import tensorflow as tf
@@ -14,11 +14,11 @@ def alexnet_model_generator():
   inputs = keras.Input(shape=(28,28,1,), name='input')
   x = keras.layers.Conv2D(32, 3, strides=(1, 1), name='conv')(inputs)
   x = keras.layers.MaxPooling2D(pool_size=(3, 3), strides=(1, 1), name='maxpool')(x)
-  x = pgen.SplitLayer(name="split_layer0")(x)
+  x = tnt_layers.SplitLayer(name="split_layer0")(x)
 
   x = keras.layers.Conv2D(32, 3, strides=(1, 1), name='conv_two')(x)
   x = keras.layers.MaxPooling2D(pool_size=(3, 3), strides=(1, 1), name='maxpool_two')(x)
-  x = pgen.SplitLayer(name="split_layer1")(x)
+  x = tnt_layers.SplitLayer(name="split_layer1")(x)
 
   x = keras.layers.Conv2D(64, 3, strides=(1, 1), name='conv_three')(x)
   x = keras.layers.MaxPooling2D(pool_size=(3, 3), strides=(2, 2), name='maxpool_three')(x)
@@ -93,7 +93,7 @@ def fc_model_generator():
   reference_input = keras.Input(shape=(28,28,1,), name='reference_input')
   reference_x = keras.layers.Flatten(name = 'flatten')(reference_input)
   reference_x = keras.layers.Dense(10, activation='relu', name='dense_relu')(reference_x)
-  reference_x = pgen.SplitLayer(name="split_layer1")(reference_x)
+  reference_x = tnt_layers.SplitLayer(name="split_layer1")(reference_x)
   reference_output = keras.layers.Dense(10,
                                   activation='softmax',
                                   name='dense_softmax')(reference_x)
@@ -142,12 +142,12 @@ def skip_connection_model_generator():
   util.set_tf_random_seed()
   inputs = keras.Input(shape=(28,28,1,), name='input')
   x = keras.layers.Conv2D(32, 3, strides=(1, 1), padding='valid', name='conv')(inputs)
-  y = pgen.SplitLayer(name="split_layer0")(x)
-  z = pgen.SplitLayer(name="split_layer1")(x)
+  y = tnt_layers.SplitLayer(name="split_layer0")(x)
+  z = tnt_layers.SplitLayer(name="split_layer1")(x)
 
   x = keras.layers.Conv2D(32, 1, strides=(1, 1), padding='valid', activation='relu',
                           name='conv_relu')(y)
-  x = pgen.SplitLayer(name="split_layer2")(x)
+  x = tnt_layers.SplitLayer(name="split_layer2")(x)
 
   x = keras.layers.Concatenate(name='concat')([x, z])
   x = keras.layers.Flatten(name='flatten')(x)
@@ -219,11 +219,11 @@ def multi_input_model_generator():
   input0 = keras.Input(shape=(28,28,1,), name='input0')
   input1 = keras.Input(shape=(26,26,32,), name='input1')
   x = keras.layers.Conv2D(32, 3, strides=(1, 1), padding='valid', name='conv')(input0)
-  y = pgen.SplitLayer(name="split_layer0")(x)
-  z = pgen.SplitLayer(name="split_layer1")(x)
+  y = tnt_layers.SplitLayer(name="split_layer0")(x)
+  z = tnt_layers.SplitLayer(name="split_layer1")(x)
 
   x = keras.layers.Conv2D(32, 1, strides=(1, 1), padding='valid', name='conv2')(y)
-  x = pgen.SplitLayer(name="split_layer2")(x)
+  x = tnt_layers.SplitLayer(name="split_layer2")(x)
 
   x = keras.layers.Concatenate(name='concat')([input1, x, z])
   x = keras.layers.Flatten(name='flatten')(x)
@@ -297,8 +297,8 @@ def multi_output_model_generator():
   input0 = keras.Input(shape=(28,28,1,), name='input')
   x = keras.layers.Flatten(name='flatten')(input0)
   x = keras.layers.Dense(10, activation='relu', name='dense_relu')(x)
-  y = pgen.SplitLayer(name="ten_classes")(x)
-  z = pgen.SplitLayer(name="two_classes")(x)
+  y = tnt_layers.SplitLayer(name="ten_classes")(x)
+  z = tnt_layers.SplitLayer(name="two_classes")(x)
   x = keras.layers.Add(name='add')([y,z])
   output0 = keras.layers.Dense(10, activation='relu', name='dense_softmax10')(x)
   output1 = keras.layers.Dense(2, activation='softmax', name='dense_softmax2')(x)
@@ -372,7 +372,7 @@ def simple_partitioned_core_model(rank):
 def incorrect_split_model():
   inputs = keras.Input(shape=(28,28,1,), name='input')
   x = keras.layers.Conv2D(32, 3, strides=(1, 1), padding='valid', name='conv')(inputs)
-  y = pgen.SplitLayer(name="split_layer0")(x)
+  y = tnt_layers.SplitLayer(name="split_layer0")(x)
 
   z = keras.layers.Conv2D(32, 1, strides=(1, 1), padding='valid', activation='relu',
                           name='conv_relu')(y)

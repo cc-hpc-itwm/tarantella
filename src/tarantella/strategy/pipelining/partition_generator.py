@@ -1,24 +1,9 @@
-import tensorflow as tf
-
 import tarantella.strategy.pipelining.partition_info as pinfo
+import tarantella.keras.layers as tnt_layers
 
 import copy
 import networkx as nx
 import numpy as np
-
-
-class SplitLayer(tf.keras.layers.Layer):
-
-  def __init__(self, name='split_layer'):
-    super().__init__(name=name)
-
-  def call(self, inputs):
-    return inputs
-
-  @classmethod
-  def is_split_layer(cls, model, name):
-    layer = model.get_layer(name = name)
-    return isinstance(layer, cls)
 
 # TODO: add support for TF-generated Lambda layers
 # Example: `x + x` as input after `SplitLayer`
@@ -107,7 +92,7 @@ class GraphPartitionGenerator:
 
   def _get_split_layers(self):
     split_layers = [node for node in self.graph.nodes() \
-                         if SplitLayer.is_split_layer(self.model, node)]
+                         if tnt_layers.SplitLayer.is_split_layer(self.model, node)]
     return split_layers
 
   def _get_connections_from_split_layers(self):

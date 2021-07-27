@@ -177,3 +177,17 @@ class AddSeqOutput(tf.keras.layers.Layer):
       output_tensors[i].set_shape(self.oshape[i])
 
     return output_tensors
+
+
+class SplitLayer(tf.keras.layers.Layer):
+
+  def __init__(self, name='split_layer'):
+    super().__init__(name=name)
+
+  def call(self, inputs):
+    return inputs
+
+  @classmethod
+  def is_split_layer(cls, model, name):
+    layer = model.get_layer(name = name)
+    return isinstance(layer, cls)

@@ -7,6 +7,7 @@ import tarantella.strategy.pipelining.microbatched_model_builder as microbatched
 import tarantella.strategy.pipelining.rank_mapper as rmapper
 import tarantella.strategy.pipelining.core_model_builder as core_model_builder
 import tarantella.strategy.pipelining.partition_generator as pgen
+import tarantella.keras.layers as tnt_layers
 
 import models.mnist_models as mnist
 import utilities as util
@@ -30,7 +31,7 @@ def simple_model_generator():
   input0 = keras.Input(shape=(28,28,1,), name='input')
   x = keras.layers.Flatten()(input0)
   x = keras.layers.Dense(2, activation='relu')(x)
-  x = pgen.SplitLayer(name="split_layer1")(x)
+  x = tnt_layers.SplitLayer(name="split_layer1")(x)
   output = keras.layers.Dense(10, activation='softmax', name='dense_softmax')(x)
   model = keras.Model(inputs=input0, outputs=output)
   return model
