@@ -6,6 +6,7 @@ import tarantella.keras.layers as tnt_layers
 import tarantella.keras.losses as tnt_losses
 import tarantella.keras.metrics as tnt_metrics
 import tarantella.strategy.pipelining.partition_info as pinfo
+import tarantella.strategy.pipelining.connection_info as cinfo
 import tarantella.strategy.pipelining.pipeline_microbatched_dataset as pipelining
 
 import tensorflow as tf
@@ -71,8 +72,8 @@ def get_partitioned_core_model():
     return p_1_core
 
 def get_pipeline_communicator(micro_batch_size, num_micro_batches):
-  connection_table = { 0 : ((p_0_rank, p_1_rank), fc_units * elem_type.itemsize),
-                       1 : ((p_0_rank, p_1_rank), fc_units * elem_type.itemsize) }
+  connection_table = { 0 : cinfo.ConnectionInfo((p_0_rank, p_1_rank), fc_units * elem_type.itemsize),
+                       1 : cinfo.ConnectionInfo((p_0_rank, p_1_rank), fc_units * elem_type.itemsize) }
   ppl_comm = tnt.PipelineCommunicator(connection_table, micro_batch_size, num_micro_batches)
   return ppl_comm
 

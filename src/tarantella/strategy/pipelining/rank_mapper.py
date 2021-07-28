@@ -1,5 +1,7 @@
 import networkx as nx
 
+import tarantella.strategy.pipelining.connection_info as cinfo
+
 class RankMapper:
   # Arguments:
   # - pipeline_graph: nx.MultiDiGraph with partition names as nodes and connections as edges
@@ -28,5 +30,5 @@ class RankMapper:
       rank1 = self.get_rank_for_partition(edge[1])
       if rank in [rank0, rank1]:
         size_in_bytes = edge_info['number_elements'] * edge_info['dtype'].size
-        connection_table[conn_id] = ((rank0, rank1), size_in_bytes)
+        connection_table[conn_id] = cinfo.ConnectionInfo((rank0, rank1), size_in_bytes)
     return connection_table

@@ -1,6 +1,7 @@
 import tarantella as tnt
 import tarantella.keras.layers as tnt_layers
 import tarantella.keras.losses as tnt_losses
+import tarantella.strategy.pipelining.connection_info as cinfo
 
 import tensorflow as tf
 from tensorflow import keras
@@ -52,7 +53,8 @@ class TestPipelineLayers:
     for mbatch_id in range(num_micro_batches):
       tags_dataset = tags_dataset + micro_batch_size * [[mbatch_id, connection_id]]
 
-    connection_table = {connection_id: ((rank_0, rank_1), tensor_size * elem_type.itemsize)}
+    connection_table = {connection_id: cinfo.ConnectionInfo((rank_0, rank_1),
+                                                            tensor_size * elem_type.itemsize)}
     pipeline_comm = tnt.PipelineCommunicator(connection_table, micro_batch_size, num_micro_batches)
 
     if rank == rank_0:
@@ -101,7 +103,8 @@ class TestPipelineLayers:
 
     labels_dataset = micro_batch_size * num_micro_batches * [0.]
 
-    connection_table = {connection_id: ((rank_0, rank_1), tensor_size * elem_type.itemsize)}
+    connection_table = {connection_id: cinfo.ConnectionInfo((rank_0, rank_1),
+                                                            tensor_size * elem_type.itemsize)}
     pipeline_comm = tnt.PipelineCommunicator(connection_table, micro_batch_size, num_micro_batches)
 
     if rank == rank_0:
