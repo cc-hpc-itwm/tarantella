@@ -55,15 +55,13 @@ def build_endpoint_info(partition_graph, node_name, id_field_name):
   return EndpointInfo(endpoint_id, shape, dtype)
 
 
-# Endpoint: a keras tensor (either `keras.Input` or the output of a layer)
-# Input/Output ID: the index of the Endpoint within the (ordered) list of inputs/outputs in a model
 class PartitionInfo:
-  #  real_input_infos = list(EndpointInfo)
-  #  edge_input_infos = list(EndpointInfo)
-  # real_output_infos = list(EndpointInfo),
-  # edge_output_infos = list(EndpointInfo)
   def __init__(self, partition_id, partition_graph = None):
-    # build input/output info lists based on the partition graph of the keras model
+    # build input/output info dicts for each Endpoint based on the partition graph of a keras model
+    # Endpoint: a keras tensor (either `keras.Input` or the output of a layer)
+    # [real|edge]_[in|out]_infos = { id : endpoint_info }, where
+    #                                id = index of the Endpoint within the (ordered) list of
+    #                                     inputs/outputs in the local partition
     self.partition_id = partition_id
     self.real_input_infos = dict()
     self.edge_input_infos = dict()
@@ -90,7 +88,7 @@ class PartitionInfo:
           assert node_info['class_name'] == 'InputLayer'
           self.edge_input_infos[index_input] = endpoint_info
           index_input += 1
-        else: # output node (can be any node in the graph)
+        elif partition_graph.out_degree(node_name) == 0: # output node
           self.edge_output_infos[index_output] = endpoint_info
           index_output += 1
 
