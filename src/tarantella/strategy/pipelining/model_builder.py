@@ -46,7 +46,7 @@ class ModelBuilder(metaclass = abc.ABCMeta):
   def build_inputs(self, endpoint_type):
     input_infos = self.partition_info.get_infos(endpoint_type)
     inputs = []
-    for index, (name, info) in enumerate(sorted(input_infos.items())):
+    for index, (_, info) in enumerate(sorted(input_infos.items())):
       name = dataset_utils.create_name_micro_batched_layer(self.partition_info.pid,
                                                            element_type = endpoint_type,
                                                            layer_id = index)  # index within the real inputs
