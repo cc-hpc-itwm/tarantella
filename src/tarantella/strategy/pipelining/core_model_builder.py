@@ -14,10 +14,11 @@ def get_digraph_endpoints(graph, endpoint_direction):
   real_endpoints = dict()
   conn_endpoints = dict()
   for node_name in endpoint_nodes:
-    if real_endpoint_key in graph.nodes[node_name]:
-      real_endpoints[graph.nodes[node_name][real_endpoint_key]] = node_name
+    node_info = graph.nodes[node_name]
+    if real_endpoint_key in node_info:
+      real_endpoints[int(node_info[real_endpoint_key])] = node_name
     else:
-      conn_endpoints[graph.nodes[node_name]['connection_id']] = node_name
+      conn_endpoints[int(node_info['connection_id'])] = node_name
 
   sorted_real_endpoints = [real_endpoints[key] for key in sorted(real_endpoints.keys())]
   sorted_conn_endpoints = [conn_endpoints[key] for key in sorted(conn_endpoints.keys())]
