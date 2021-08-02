@@ -1,6 +1,7 @@
 import tarantella.strategy.pipelining.partition_info as pinfo
 import tarantella.keras.layers as tnt_layers
 
+import collections
 import copy
 import networkx as nx
 import numpy as np
@@ -51,7 +52,10 @@ def _generate_connection_id(node_name, split_layers_list):
                     "in the list of SplitLayer's")
 
 
+Connection = collections.namedtuple('Connection', 'source target connection_id')
+
 class GraphPartitionGenerator:
+
   def __init__(self, model):
     self.model = model
     self.graph = self._build_graph(model)
@@ -106,16 +110,16 @@ class GraphPartitionGenerator:
       assert len(successors) == 1, \
              "[get_connections_from_split_layers] SplitLayers should only have one output."
 
-      connections[node] = {'source': predecessors[0],
-                           'target' : successors[0],
-                           'connection_id': _generate_connection_id(node, self._get_split_layers())
-                          }
+      connections[node] = Connection(source = predecessors[0],
+                                     target = successors[0],
+                                     connection_id = _generate_connection_id(
+                                                      node, self._get_split_layers()))
     return connections
 
   def _get_connection_id(self, split_layer_name):
     for conn, info in self.connections.items():
       if conn == split_layer_name:
-        return info['connection_id']
+        return info.connection_id
     raise ValueError(f"[get_connection_id] Split layer \"{split_layer_name}\""
                       " not found in the graph.")
 
@@ -195,16 +199,16 @@ class GraphPartitionGenerator:
       return conn_graph
 
     for _, conn_info in self.connections.items():
-      source_partition = self._get_partition_with_node(conn_info['source'])
-      target_partition = self._get_partition_with_node(conn_info['target'])
+      source_partition = self._get_partition_with_node(conn_info.source)
+      target_partition = self._get_partition_with_node(conn_info.target)
       if source_partition == target_partition:
         raise RuntimeError(f"[build_partition_graph] Incorrectly specified `SplitLayer` between "
-                           f"`{conn_info['source']}` and `{conn_info['target']}` layers: "
+                           f"`{conn_info.source}` and `{conn_info.target}` layers: "
                             "both sides of the split edge belong to the same partition.")
 
       # vertices are automatically created in `conn_graph` when an edge is added
       conn_graph.add_edges_from([(source_partition, target_partition,
-                                  self._get_connection_info(conn_info['connection_id'])) ])
+                                  self._get_connection_info(conn_info.connection_id)) ])
     return conn_graph
 
   def get_partition_graph(self, partition_id):
