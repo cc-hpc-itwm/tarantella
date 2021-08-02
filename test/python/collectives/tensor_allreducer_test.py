@@ -130,7 +130,10 @@ class TestTensorAllreducer:
     with pytest.raises(TypeError):
       tnt.TensorAllreducer(string)
 
-  @pytest.mark.parametrize("input_value, dtype", [(4.67, np.float32), (4, np.int32)])
+  @pytest.mark.parametrize("input_value, dtype", [(4.67, np.float32),
+                                                  (4.00000067, np.double),
+                                                  (-42111, np.int32),
+                                                  (42, np.int16)])
   def test_tensor_numeric(self, input_value, dtype):
     expected_value = input_value * tnt.get_size()
     input = tf.constant(input_value, dtype=dtype)
@@ -155,20 +158,19 @@ class TestTensorAllreducer:
     assert tf.is_tensor(output)
     assert np.array_equal(output.numpy(), expected_output_array)
 
-  def test_dict_of_tensors(self):
-    input_dict = dict()
-
-    value = 22.610077
-    expected_value = value * tnt.get_size()
-
-    input_dict["a"] = tf.constant(value, dtype=np.float32)
-    input_dict["b"] = tf.constant(value, dtype=np.float32)
+  @pytest.mark.parametrize("input_dict", [{ "a" : tf.constant(22.610077, dtype=np.float32),
+                                            "b" : tf.constant(1.000610077, dtype=np.float64)},
+                                          { "a" : tf.constant(-31222, dtype=np.int16),
+                                            "b" : tf.constant(55000111, dtype=np.int32)}
+                                          ])
+  def test_dict_of_tensors(self, input_dict):
+    expected_dict = { k: v * tnt.get_size() for k, v in input_dict.items() }
 
     allreducer = tnt.TensorAllreducer(input_dict)
     output_dict = allreducer.allreduce(input_dict)
 
     assert { k: tf.is_tensor(v) for k, v in output_dict.items() }
-    assert { k: v == expected_value for k, v in output_dict.items() }
+    assert output_dict == expected_dict
 
   @pytest.mark.parametrize("array_length", [35])
   @pytest.mark.parametrize("index", [12])
