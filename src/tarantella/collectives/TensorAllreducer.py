@@ -20,8 +20,14 @@ class TensorAllreducer:
       self.shapes = [inputs.shape]
       tensor_infos = [utils.get_tensor_info(default_tensor_id, inputs)]
     elif utils.is_nonEmptyList(inputs):
-      self.shapes = [tensor.shape for tensor in inputs]
-      tensor_infos = [utils.get_tensor_info(tid, tensor) for tid, tensor in enumerate(inputs)]
+      if utils.is_listOfTensors(inputs) or utils.is_listOfArrays(inputs):
+        self.shapes = [tensor.shape for tensor in inputs]
+        tensor_infos = [utils.get_tensor_info(tid, tensor) for tid, tensor in enumerate(inputs)]
+      else: # arbitrary list
+        self.allreducer = list()
+        for element in inputs:
+          self.allreducer.append(TensorAllreducer(element))
+        return
     else:
       self._raise_input_error()
 
@@ -46,10 +52,23 @@ class TensorAllreducer:
       outputs = outputs.reshape(self.shapes[0])
       return outputs
     elif utils.is_nonEmptyList(inputs):
-      outputs = self.allreducer.allreduce(inputs)
-      for i, _ in enumerate(outputs):
-        outputs[i] = outputs[i].reshape(self.shapes[i])
-      return outputs
+      if utils.is_listOfTensors(inputs):
+        inputs = [np.asarray(i) for i in inputs]
+        outputs = self.allreducer.allreduce(inputs)
+        for i, _ in enumerate(outputs):
+          outputs[i] = outputs[i].reshape(self.shapes[i])
+          outputs[i] = tf.convert_to_tensor(outputs[i])
+        return outputs
+      elif utils.is_listOfArrays(inputs):
+        outputs = self.allreducer.allreduce(inputs)
+        for i, _ in enumerate(outputs):
+          outputs[i] = outputs[i].reshape(self.shapes[i])
+        return outputs
+      else: # arbitrary list
+        output_list = list()
+        for index, element in enumerate(inputs):
+          output_list.append(self.allreducer[index].allreduce(element))
+        return output_list
     else:
       self._raise_input_error()
 

@@ -24,6 +24,12 @@ def is_tensor(input):
 def is_nonEmptyDict(input):
   return isinstance(input, dict) and len(input) != 0
 
+def is_listOfTensors(input):
+  return isinstance(input, list) and np.all([is_tensor(tensor) for tensor in input])
+
+def is_listOfArrays(input):
+  return isinstance(input, list) and np.all([isinstance(tensor, np.ndarray) for tensor in input])
+
 def get_tensor_info(tensor_id, tensor):
   return GPICommLib.TensorInfo(tensor_id,
                                int(np.prod(tensor.shape)),

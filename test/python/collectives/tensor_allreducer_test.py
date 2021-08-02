@@ -65,6 +65,19 @@ class TestTensorAllreducer:
                for (output_array, expected_output_array) \
                in zip(output_list, expected_output_list))
 
+  @pytest.mark.parametrize("list_length", [1, 5])
+  def test_list_of_tensors_identical_inputs(self, list_length):
+    input_array = tf.constant([1,2,3])
+    input_list = [input_array for i in range(list_length)]
+
+    expected_output_array = input_array * tnt.get_size()
+
+    allreducer = tnt.TensorAllreducer(input_list)
+    output_list = allreducer.allreduce(input_list)
+
+    assert isinstance(output_list, list)
+    assert all(np.array_equal(array, expected_output_array) for array in output_list)
+
   @pytest.mark.parametrize("length", [5, 56, 89])
   def test_dict_many_keys(self, length):
     input_value = 4.2
@@ -157,6 +170,16 @@ class TestTensorAllreducer:
 
     assert tf.is_tensor(output)
     assert np.array_equal(output.numpy(), expected_output_array)
+
+  def test_tensor_from_list(self):
+    input_list = tf.constant([[1,2,3,4,5], [.2,.3,.4,.5,.6]])
+    expected_output_list = input_list * tnt.get_size()
+
+    allreducer = tnt.TensorAllreducer(input_list)
+    output = allreducer.allreduce(input_list)
+
+    assert tf.is_tensor(output)
+    assert np.all(output == expected_output_list)
 
   @pytest.mark.parametrize("input_dict", [{ "a" : tf.constant(22.610077, dtype=np.float32),
                                             "b" : tf.constant(1.000610077, dtype=np.float64)},
