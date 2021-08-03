@@ -3,22 +3,20 @@ import tarantella.strategy.pipelining.partition_info as pinfo
 
 def get_digraph_endpoints(graph, endpoint_direction):
   if endpoint_direction == pinfo.EndpointDirection.inp:
-    all_nodes_with_degree = graph.in_degree()
+    get_degree_by_direction = graph.in_degree
     real_endpoint_key = 'original_input_id'
   else:
-    all_nodes_with_degree = graph.out_degree()
+    get_degree_by_direction = graph.out_degree
     real_endpoint_key = 'original_output_id'
 
-  endpoint_nodes = [node_name for node_name, degree in all_nodes_with_degree \
-                              if degree == 0 ]
   real_endpoints = dict()
   conn_endpoints = dict()
-  for node_name in endpoint_nodes:
-    node_info = graph.nodes[node_name]
-    if real_endpoint_key in node_info:
-      real_endpoints[int(node_info[real_endpoint_key])] = node_name
-    else:
-      conn_endpoints[int(node_info['connection_id'])] = node_name
+  for node in graph.get_nodes():
+    if get_degree_by_direction(node.name) == 0:
+      if real_endpoint_key in node.info_dict:
+        real_endpoints[int(node.info_dict[real_endpoint_key])] = node.name
+      else:
+        conn_endpoints[int(node.info_dict['connection_id'])] = node.name
 
   sorted_real_endpoints = [real_endpoints[key] for key in sorted(real_endpoints.keys())]
   sorted_conn_endpoints = [conn_endpoints[key] for key in sorted(conn_endpoints.keys())]
@@ -39,10 +37,10 @@ def formatted_inbound_node(node_name):
 def formatted_inbound_nodes(inbound_nodes_list):
   inbound_nodes = []
   for in_node in inbound_nodes_list:
-    inbound_nodes.append(formatted_inbound_node(node_name = in_node))
+    inbound_nodes.append(formatted_inbound_node(node_name = in_node.name))
   if len(inbound_nodes) == 0:
     return []
-  return [inbound_nodes]
+  return [sorted(inbound_nodes)]
 
 def set_weights(target_model, source_model):
   for layer in target_model.layers:
@@ -71,14 +69,14 @@ class CoreModelBuilder():
                     'output_layers' : formatted_inout(get_digraph_endpoints(
                                                         partition_graph, pinfo.EndpointDirection.out)),
                    }
-
-    for node_name, node_info in partition_graph.nodes.items():
-      inbound_nodes = formatted_inbound_nodes(partition_graph.predecessors(node_name))
-      node_config = {'class_name' : node_info['class_name'],
-                     'config' : node_info['config'],
+    for node in partition_graph.get_nodes():
+      inbound_nodes = formatted_inbound_nodes(partition_graph.get_predecessors(node.name))
+      node_config = {'class_name' : node.info_dict['class_name'],
+                     'config' : node.info_dict['config'],
                      'inbound_nodes' : inbound_nodes,
-                     'name': node_name}
+                     'name': node.name}
       model_config['layers'] += [node_config]
+
     return model_config
 
   def _get_model(self, model):

@@ -1,10 +1,9 @@
-import networkx as nx
-
 import tarantella.strategy.pipelining.connection_info as cinfo
 
 class RankMapper:
   # Arguments:
-  # - pipeline_graph: nx.MultiDiGraph with partition names as nodes and connections as edges
+  # - pipeline_graph: graphs.MultiDirectedGraph with
+  #   partition names as nodes and connections as edges
   # - nranks: total number of ranks
   def __init__(self, pipeline_graph, nranks):
     self.pipeline_graph = pipeline_graph
@@ -12,10 +11,11 @@ class RankMapper:
     self.mapping = self._map_ranks_to_partition_ids()
 
   def _map_ranks_to_partition_ids(self):
-    assert len(self.pipeline_graph.nodes) <= self.nranks
+    assert len(self.pipeline_graph.get_nodes()) <= self.nranks
     mapping = dict()
-    for index, partition_id in enumerate(list(self.pipeline_graph.nodes)):
+    for index, node in enumerate(self.pipeline_graph.get_nodes()):
       rank = index
+      partition_id = node.name
       mapping[rank] = partition_id
     return mapping
 
@@ -36,11 +36,11 @@ class RankMapper:
     # Create connections dict: { conn_id: ((rank_i, rank), size_in_bytes)}
     assert rank < self.nranks
     connection_table = dict()
-    for edge, edge_info in self.pipeline_graph.edges.items():
-      conn_id = self.pipeline_graph.edges[edge]['connection_id']
-      rank0 = self.get_rank_for_partition(edge[0])
-      rank1 = self.get_rank_for_partition(edge[1])
+    for edge in self.pipeline_graph.get_edges():
+      conn_id = edge.info_dict['connection_id']
+      rank0 = self.get_rank_for_partition(edge.source_node)
+      rank1 = self.get_rank_for_partition(edge.target_node)
       if rank in [rank0, rank1]:
-        size_in_bytes = edge_info['number_elements'] * edge_info['dtype'].size
+        size_in_bytes = edge.info_dict['number_elements'] * edge.info_dict['dtype'].size
         connection_table[conn_id] = cinfo.ConnectionInfo((rank0, rank1), size_in_bytes)
     return connection_table

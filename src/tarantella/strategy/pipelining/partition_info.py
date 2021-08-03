@@ -48,10 +48,10 @@ class EndpointInfo:
     return f"Endpoint id={self.endpoint_id}, shape={self.shape}, dtype={self.dtype}"
 
 def build_endpoint_info(partition_graph, node_name, id_field_name):
-  node_info = partition_graph.nodes[node_name]
-  shape = node_info.get('shape', None)
-  dtype = node_info['config'].get('dtype', None)
-  endpoint_id = node_info.get(id_field_name, node_name)
+  node = partition_graph.get_node(node_name)
+  shape = node.info_dict.get('shape', None)
+  dtype = node.info_dict['config'].get('dtype', None)
+  endpoint_id = node.info_dict.get(id_field_name, node_name)
   return EndpointInfo(endpoint_id, shape, dtype)
 
 
@@ -79,29 +79,32 @@ class PartitionInfo:
 
     index_input = 0
     index_output = 0
-    for node_name in sorted(partition_graph.nodes.keys()):
-      node_info = partition_graph.nodes[node_name]
+    for node in sorted(partition_graph.get_nodes()):
+      node_info = node.info_dict
 
       if 'connection_id' in node_info:  # edge node in the partitions graph
-        endpoint_info = build_endpoint_info(partition_graph, node_name, 'connection_id')
-        if partition_graph.in_degree(node_name) == 0: # input node
+        endpoint_info = build_endpoint_info(partition_graph, node.name, 'connection_id')
+        if partition_graph.in_degree(node.name) == 0: # input node
           assert node_info['class_name'] == 'InputLayer'
           self.edge_input_infos[index_input] = endpoint_info
           index_input += 1
-        elif partition_graph.out_degree(node_name) == 0: # output node
+        elif partition_graph.out_degree(node.name) == 0: # output node
           self.edge_output_infos[index_output] = endpoint_info
           index_output += 1
 
       elif 'original_input_id' in node_info:
-        endpoint_info = build_endpoint_info(partition_graph, node_name, 'original_input_id')
-        assert partition_graph.in_degree(node_name) == 0 # input node
+        endpoint_info = build_endpoint_info(partition_graph, node.name, 'original_input_id')
+        assert partition_graph.in_degree(node.name) == 0 # input node
         assert node_info['class_name'] == 'InputLayer'
         self.real_input_infos[index_input] = endpoint_info
         index_input += 1
 
       elif 'original_output_id' in node_info:
-        endpoint_info = build_endpoint_info(partition_graph, node_name, 'original_output_id')
-        assert partition_graph.out_degree(node_name) == 0 # output node
+        import logging
+        logging.getLogger().info(f"{node.name}, {partition_graph.in_degree(node.name)}")
+
+        endpoint_info = build_endpoint_info(partition_graph, node.name, 'original_output_id')
+        assert partition_graph.out_degree(node.name) == 0 # output node
         self.real_output_infos[index_output] = endpoint_info
         index_output += 1
 
