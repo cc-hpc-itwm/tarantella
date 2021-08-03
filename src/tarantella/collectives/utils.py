@@ -3,20 +3,32 @@ import GPICommLib
 import numpy as np
 import tensorflow as tf
 
-def __is_nonEmptyList__(input):
+def is_nonEmptyList(input):
   return isinstance(input, list) and len(input) != 0
 
-def __is_nonEmptyArray__(input):
+def is_nonEmptyArray(input):
   return isinstance(input, np.ndarray) and input.size != 0
 
-def __is_floatOrDouble__(input):
+def is_floatOrDouble(input):
   return isinstance(input, (np.float, np.double, np.float32, np.float64))
 
-def __is_tensor__(input):
+def is_int(input):
+  return isinstance(input, (np.int, np.int16, np.int32))
+
+def is_scalar(input):
+  return is_int(input) or is_floatOrDouble(input)
+
+def is_tensor(input):
   return tf.is_tensor(input)
 
-def __is_nonEmptyDict__(input):
+def is_nonEmptyDict(input):
   return isinstance(input, dict) and len(input) != 0
+
+def is_listOfTensors(input):
+  return isinstance(input, list) and np.all([is_tensor(tensor) for tensor in input])
+
+def is_listOfArrays(input):
+  return isinstance(input, list) and np.all([isinstance(tensor, np.ndarray) for tensor in input])
 
 def get_tensor_info(tensor_id, tensor):
   return GPICommLib.TensorInfo(tensor_id,

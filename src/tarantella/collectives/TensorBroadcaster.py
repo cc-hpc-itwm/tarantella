@@ -8,10 +8,10 @@ class TensorBroadcaster():
     self.root_rank = root_rank
     self.shapes = list()
 
-    if utils.__is_nonEmptyList__(input):
+    if utils.is_nonEmptyList(input):
       tensor_infos = [utils.get_tensor_info(tid, tensor) for tid, tensor in enumerate(input)]
       self.shapes = [array.shape for array in input]
-    elif utils.__is_nonEmptyArray__(input):
+    elif utils.is_nonEmptyArray(input):
       tensor_infos = [utils.get_tensor_info(0, input)]
       self.shapes = [input.shape]
     else:
@@ -25,10 +25,10 @@ class TensorBroadcaster():
       if tnt.get_rank() != self.root_rank:
         raise RuntimeError("[Tarantella][TensorBroadcaster][broadcast] "
                            "function with input must be called on root rank.")
-      if utils.__is_nonEmptyList__(input):
+      if utils.is_nonEmptyList(input):
         self.broadcaster.broadcast(input)
         return input
-      elif utils.__is_nonEmptyArray__(input):
+      elif utils.is_nonEmptyArray(input):
         self.broadcaster.broadcast([input])[0]
         return input
       else:
