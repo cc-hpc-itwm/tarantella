@@ -77,10 +77,11 @@ class GraphPartitionGenerator:
                          'config': copy.deepcopy(layer_info['config'])}
       graph.add_node(graphs.Node(name = layer_info['name'], info_dict = node_attributes))
 
-    edges_list = get_incoming_edges_per_layer(model)
-    for node, in_list in edges_list.items():
-      for in_node in in_list:
+    edges_dict = get_incoming_edges_per_layer(model)
+    for node, in_list in edges_dict.items():
+      for index, in_node in enumerate(in_list):
         graph.add_edge(graphs.Edge(in_node, node))
+        graph.add_info_for_node(in_node, {'index': index})
 
     self._add_endpoint_ids_by_direction(graph, model, pinfo.EndpointDirection.inp)
     self._add_endpoint_ids_by_direction(graph, model, pinfo.EndpointDirection.out)
@@ -141,6 +142,7 @@ class GraphPartitionGenerator:
 
     keras_layer = self.model.get_layer(name = layer_name)
     connection_id = self._get_connection_id(layer_name)
+    node_index = self.graph.get_node(layer_name).info_dict['index']
     self.graph.remove_node(layer_name)
 
     # the input of the SplitLayer `layer_name` will become the output of the partition before it
@@ -149,7 +151,8 @@ class GraphPartitionGenerator:
                           'config': {'dtype': keras_layer.output.dtype,
                                      'name': output_name},
                           'shape' : keras_layer.output.shape,
-                          'connection_id': connection_id}
+                          'connection_id': connection_id,
+                          'index': node_index}
     self.graph.add_node(graphs.Node(name = output_name, info_dict = output_layer_config))
     self.graph.add_edge(graphs.Edge(source_node = predecessors[0].name, target_node = output_name))
 
@@ -160,7 +163,8 @@ class GraphPartitionGenerator:
                                      'dtype': keras_layer.output.dtype,
                                      'name': input_name},
                           'shape' : keras_layer.output.shape,
-                          'connection_id': connection_id}
+                          'connection_id': connection_id,
+                          'index': node_index}
     self.graph.add_node(graphs.Node(name = input_name, info_dict = input_layer_config))
     self.graph.add_edge(graphs.Edge(source_node = input_name, target_node = successors[0].name))
 

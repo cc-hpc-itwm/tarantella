@@ -34,13 +34,35 @@ def formatted_inout(node_list):
 def formatted_inbound_node(node_name):
   return [node_name, 0, 0, {}]
 
+def reorder_nodes_by_info(node_list, info_key):
+  indexed_nodes = dict()
+  for n in node_list:
+    index = int(n.info_dict[info_key])
+    if index in indexed_nodes.keys():
+      raise ValueError(f"[reorder_nodes_by_info] Node indices are not unique")
+    indexed_nodes[index] = n
+  return [indexed_nodes[index] for index in sorted(indexed_nodes.keys())]
+
 def formatted_inbound_nodes(inbound_nodes_list):
   inbound_nodes = []
   for in_node in inbound_nodes_list:
     inbound_nodes.append(formatted_inbound_node(node_name = in_node.name))
   if len(inbound_nodes) == 0:
     return []
-  return [sorted(inbound_nodes)]
+  return [inbound_nodes]
+
+def build_layers_for_model_config(graph):
+  layers = list()
+  for node in graph.get_nodes():
+    predecessors = graph.get_predecessors(node.name)
+    inbound_nodes = formatted_inbound_nodes(reorder_nodes_by_info(node_list = predecessors,
+                                                                  info_key = 'index'))
+    node_config = {'class_name' : node.info_dict['class_name'],
+                   'config' : node.info_dict['config'],
+                   'inbound_nodes' : inbound_nodes,
+                   'name': node.name}
+    layers.append(node_config)
+  return layers
 
 def set_weights(target_model, source_model):
   for layer in target_model.layers:
@@ -55,6 +77,7 @@ def set_weights(target_model, source_model):
     except ValueError:
       pass  # layer is not built yet, so no weights are needed
 
+
 class CoreModelBuilder():
   def __init__(self, model, partition_generator, rank_mapper, rank):
     self.partition_generator = partition_generator
@@ -62,21 +85,13 @@ class CoreModelBuilder():
     self.core_model = self._get_model(model)
 
   def _to_model_config(self, partition_id, partition_graph):
-    model_config = {'layers' : [],
+    model_config = {'layers' : build_layers_for_model_config(partition_graph),
                     'name' : partition_id,
                     'input_layers' : formatted_inout(get_digraph_endpoints(
                                                         partition_graph, pinfo.EndpointDirection.inp)),
                     'output_layers' : formatted_inout(get_digraph_endpoints(
                                                         partition_graph, pinfo.EndpointDirection.out)),
                    }
-    for node in partition_graph.get_nodes():
-      inbound_nodes = formatted_inbound_nodes(partition_graph.get_predecessors(node.name))
-      node_config = {'class_name' : node.info_dict['class_name'],
-                     'config' : node.info_dict['config'],
-                     'inbound_nodes' : inbound_nodes,
-                     'name': node.name}
-      model_config['layers'] += [node_config]
-
     return model_config
 
   def _get_model(self, model):
