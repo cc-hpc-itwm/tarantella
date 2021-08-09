@@ -38,6 +38,107 @@ def _construct_from_keras_object(obj, keras_callback):
   for k, v in keras_callback.__dict__.items():
     setattr(obj, k, copy.deepcopy(v))
 
+class Callback(LogsAverager):
+  def __init__(self, keras_callback, aggregate_logs=True, run_on_all_ranks=True):
+    super().__init__()
+    self.aggregate_logs = aggregate_logs
+    self.run_on_all_ranks = run_on_all_ranks
+    self.keras_callback = keras_callback
+    _construct_from_keras_object(self, keras_callback)
+
+  def set_params(self, params):
+    self.keras_callback.set_params(params)
+  
+  def set_model(self, model):
+    self.keras_callback.set_model(model)
+  
+  def on_epoch_begin(self, epoch, logs=None):
+    if self.aggregate_logs:
+      logs = self.average_logs(logs)
+    if self.run_on_all_ranks:
+      self.keras_callback.on_epoch_begin(epoch, logs=logs)
+    else:
+      if tnt.is_master_rank:
+        self.keras_callback.on_epoch_begin(epoch, logs=logs)
+  
+  def on_epoch_end(self, epoch, logs=None):
+    if self.aggregate_logs:
+      logs = self.average_logs(logs)
+    if self.run_on_all_ranks:
+      self.keras_callback.on_epoch_end(epoch, logs=logs)
+    else:
+      if tnt.is_master_rank:
+        self.keras_callback.on_epoch_end(epoch, logs=logs)
+
+  def _distribute_batch_callback(self, callback_func, batch, logs):
+    if self.aggregate_logs:
+      logs = self.average_logs(logs)
+    if self.run_on_all_ranks:
+      callback_func(batch, logs=logs)
+    else:
+      if tnt.is_master_rank:
+        callback_func(batch, logs=logs)
+
+  def on_batch_begin(self, batch, logs=None):
+    self._distribute_batch_callback(self.keras_callback.on_batch_begin, batch, logs)
+  
+  def on_batch_end(self, batch, logs=None):
+    self._distribute_batch_callback(self.keras_callback.on_batch_end, batch, logs)
+
+  def on_train_batch_begin(self, batch, logs=None):
+    self._distribute_batch_callback(self.keras_callback.on_train_batch_begin, batch, logs)
+  
+  def on_train_batch_end(self, batch, logs=None):
+    self._distribute_batch_callback(self.keras_callback.on_train_batch_end, batch, logs)
+  
+  def on_test_batch_begin(self, batch, logs=None):
+    self._distribute_batch_callback(self.keras_callback.on_test_batch_begin, batch, logs)
+  
+  def on_test_batch_end(self, batch, logs=None):
+    self._distribute_batch_callback(self.keras_callback.on_test_batch_end, batch, logs)
+  
+  def on_predict_batch_begin(self, batch, logs=None):
+    self._distribute_batch_callback(self.keras_callback.on_predict_batch_begin, batch, logs)
+  
+  def on_predict_batch_end(self, batch, logs=None):
+    self._distribute_batch_callback(self.keras_callback.on_predict_batch_end, batch, logs)
+  
+  def _distribute_callback(self, callback_func, logs):
+    if self.aggregate_logs:
+      logs = self.average_logs(logs)
+    if self.run_on_all_ranks:
+      callback_func(logs=logs)
+    else:
+      if tnt.is_master_rank:
+        callback_func(logs=logs)
+  
+  def on_train_begin(self, logs=None):
+    self._distribute_callback(self.keras_callback.on_train_begin, logs)
+  
+  def on_train_end(self, logs=None):
+    self._distribute_callback(self.keras_callback.on_train_end, logs)
+  
+  def on_test_begin(self, logs=None):
+    self._distribute_callback(self.keras_callback.on_test_begin, logs)
+  
+  def on_test_end(self, logs=None):
+    self._distribute_callback(self.keras_callback.on_test_end, logs)
+  
+  def on_predict_begin(self, logs=None):
+    self._distribute_callback(self.keras_callback.on_predict_begin, logs)
+  
+  def on_predict_end(self, logs=None):
+    self._distribute_callback(self.keras_callback.on_predict_end, logs)
+  
+  def _implements_train_batch_hooks(self):
+    return self.keras_callback._implements_train_batch_hooks()
+
+  def _implements_test_batch_hooks(self):
+    return self.keras_callback._implements_test_batch_hooks()
+  
+  def _implements_predict_batch_hooks(self):
+    return self.keras_callback._implements_predict_batch_hooks()
+
 class ModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
   def __init__(self, keras_callback, tnt_model):
     super().__init__(filepath = keras_callback.filepath)

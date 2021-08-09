@@ -503,6 +503,13 @@ class Model(tf.keras.models.Model):
       elif isinstance(callback, tf_callbacks.ProgbarLogger):
         progbar_callback = tnt_callbacks.ProgbarLogger(keras_callback = callback)
         callbacks[index] = progbar_callback
+      
+      elif isinstance(callback, tnt_callbacks.Callback):
+        callbacks[index] = callback
+
+      elif isinstance(callback, tf_callbacks.Callback):
+        custom_callback = tnt_callbacks.Callback(keras_callback=callback)
+        callbacks[index] = custom_callback
 
     if remove_tensorboard_index is not None:
       del callbacks[remove_tensorboard_index]
