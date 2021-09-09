@@ -5,6 +5,7 @@ import tarantella as tnt
 
 import tensorflow as tf
 from tensorflow import keras
+from tensorflow.keras.callbacks import LambdaCallback
 
 import numpy as np
 
@@ -58,8 +59,10 @@ class CustomLearningRateScheduler(keras.callbacks.Callback):
           as inputs and returns a new learning rate as output (float).
   """
 
-  def __init__(self):
+  def __init__(self, model=None):
     super(CustomLearningRateScheduler, self).__init__()
+    if model is not None:
+        self.model = model
     self.step_schedule = (2, 4)
     self.step_size = 10
     
@@ -110,13 +113,50 @@ class TestsDataParallelCallbacks:
   
   @pytest.mark.parametrize("number_epochs", [5])
   def test_custom_callback(self, model_runners, number_epochs):
-    callbacks = [CustomLearningRateScheduler()]
-    tnt_callbacks = [tnt.keras.callbacks.Callback(CustomLearningRateScheduler(), aggregate_logs=False, run_on_all_ranks=True)]
     (train_dataset, val_dataset) = train_val_dataset_generator()
     (ref_train_dataset, ref_val_dataset) = train_val_dataset_generator()
 
     tnt_model_runner, reference_model_runner = model_runners
 
+    callbacks = [CustomLearningRateScheduler()]
+
+    tnt_callback = CustomLearningRateScheduler()
+    tnt_callbacks = [tnt.keras.callbacks.Callback(tnt_callback)]
+
+    tnt_history = tnt_model_runner.model.fit(train_dataset,
+                                             validation_data=val_dataset,
+                                             epochs=number_epochs,
+                                             verbose=0,
+                                             shuffle=False,
+                                             callbacks=tnt_callbacks)
+    reference_history = reference_model_runner.model.fit(ref_train_dataset,
+                                                   validation_data=ref_val_dataset,
+                                                   epochs=number_epochs,
+                                                   verbose=0,
+                                                   shuffle=False,
+                                                   callbacks=callbacks)
+
+    for key in reference_history.history.keys():
+      assert all(np.isclose(tnt_history.history[key], reference_history.history[key], atol=1e-6))
+
+  @pytest.mark.parametrize("number_epochs", [5])
+  def test_lambda_callback(self, model_runners, number_epochs):
+    (train_dataset, val_dataset) = train_val_dataset_generator()
+    (ref_train_dataset, ref_val_dataset) = train_val_dataset_generator()
+
+    tnt_model_runner, reference_model_runner = model_runners
+
+    lr_callback = CustomLearningRateScheduler(reference_model_runner.model)
+    lr_lambda_callback = LambdaCallback(
+      on_epoch_begin=lambda epoch,logs: lr_callback.on_epoch_begin(epoch, logs))
+    
+    lr_tnt_callback = CustomLearningRateScheduler(tnt_model_runner.model.model)
+    lr_tnt_lambda_callback = LambdaCallback(
+      on_epoch_begin=lambda epoch,logs: lr_tnt_callback.on_epoch_begin(epoch, logs))
+    
+    callbacks = [lr_lambda_callback]
+    tnt_callbacks = [tnt.keras.callbacks.Callback(lr_tnt_lambda_callback, aggregate_logs=False, run_on_all_ranks=True)]
+    
     tnt_history = tnt_model_runner.model.fit(train_dataset,
                                              validation_data=val_dataset,
                                              epochs=number_epochs,

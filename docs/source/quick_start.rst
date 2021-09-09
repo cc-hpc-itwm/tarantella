@@ -404,7 +404,7 @@ micro-batching mechanism by setting ``tnt_distribute_validation_dataset=False``.
 Callbacks
 ^^^^^^^^^
 
-Tarantella fully supports all non-generic
+Tarantella fully supports all pre-defined
 `Keras callbacks <https://www.tensorflow.org/api_docs/python/tf/keras/callbacks>`__:
 
 * ``tf.keras.callbacks.CSVLogger``
@@ -441,6 +441,40 @@ environment variable ``TNT_TENSORBOARD_ON_ALL_DEVICES``:
 
    The explicit addition of ``BaseLogger`` callbacks is not supported in Tarantella.
 
+Custom Callbacks
+^^^^^^^^^^^^^^^^
+
+Any Keras callback can be used to create a Tarantella callback.
+
+First, a custom keras callback needs to be defined, as explained in
+`Writing Custom Callback <https://www.tensorflow.org/guide/keras/custom_callback>`__
+
+Next, we need to wrap the ``keras.callbacks.Callback`` object into a ``tnt.keras.callbacks.Callback`` object.
+Like keras, a list of tnt_callbacks can then be passed to Model.fit(...) function.
+
+.. code-block:: Python
+
+   tnt_callback = tnt.keras.callbacks.Callback(keras_callback, aggregate_logs=True, run_on_all_ranks=True)
+   tnt_callbacks = [tnt_callback]
+   Model.fit(..., callbacks=tnt_callbacks)
+
+``tnt.keras.callbacks.Callback`` accepts three parameters:
+keras_callback: ``keras.callbacks.Callback`` object.
+aggregate_logs: Defines if the logs need to be aggregated from all devices. Aggregates from all devices by default.
+run_on_all_ranks: Defines if the callback need to be run on all devices or just the master rank. Runs on all ranks by default.
+
+The ``keras.callbacks.Callback`` object can also be directly passed (without the wrapper) inside fit function and the 
+``tnt.keras.callbacks.Callback`` object is automatically created with the default parameter values.
+
+Lambda Callback
+^^^^^^^^^^^^^^^
+
+Lambda callback provides the functionality to create simple custom callbacks using lambda function.
+
+First, create a Keras lambda callback, as explained in 
+`Lambda Callback <https://www.tensorflow.org/api_docs/python/tf/keras/callbacks/LambdaCallback>`__
+
+Then, wrap the ``keras.callbacks.Callback`` object into a ``tnt.keras.callbacks.Callback`` object as explained in the previous section.
 
 Important points
 ^^^^^^^^^^^^^^^^
