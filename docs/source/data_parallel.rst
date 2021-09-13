@@ -152,7 +152,8 @@ Note however, the extreme case of very small *local* batch sizes.
 .. caution::
 
    Avoid using ``BatchNormalization`` layers when the global batch size
-   divided by the number of devices used is *smaller than 16*.
+   divided by the number of devices used is *smaller than 16*. A warning is
+   issued when this occurs.
 
 In such cases, the local batches that are used to collect statistics are
 too small to obtain meaningful results. This will likely reduce the
