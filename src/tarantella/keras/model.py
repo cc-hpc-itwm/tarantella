@@ -170,6 +170,7 @@ class Model(tf.keras.models.Model):
       x = test_dataset.distribute_dataset_across_ranks(
               user_micro_batch_size = tnt_micro_batch_size,
               is_training = False)
+      self._validate_micro_batch_size_for_batch_normalization(test_dataset.micro_batch_size)
     else:
       logger.info("Automatic dataset distribution is disabled.")
 
@@ -222,6 +223,7 @@ class Model(tf.keras.models.Model):
       x = distributed_x.distribute_dataset_across_ranks(
             user_micro_batch_size = tnt_micro_batch_size,
             is_training = True)
+      self._validate_micro_batch_size_for_batch_normalization(distributed_x.micro_batch_size)
 
       # if different ranks have different micro-batch sizes, the gradients need rescaling
       dataset_callback = distributed_x.get_gradient_scaling_callback()
@@ -244,6 +246,7 @@ class Model(tf.keras.models.Model):
         validation_data = distributed_validation_data.distribute_dataset_across_ranks(
               user_micro_batch_size = tnt_validation_micro_batch_size,
               is_training = False)
+        self._validate_micro_batch_size_for_batch_normalization(distributed_validation_data.micro_batch_size)
       else:
         logger.info("Automatic distribution for the validation dataset is disabled.")
 
@@ -302,6 +305,7 @@ class Model(tf.keras.models.Model):
       x = test_dataset.distribute_dataset_across_ranks(
                user_micro_batch_size = tnt_micro_batch_size,
                is_training = False)
+      self._validate_micro_batch_size_for_batch_normalization(test_dataset.micro_batch_size)
     else:
       logger.info("Automatic dataset distribution is disabled.")
     return self.model.predict(x, callbacks = processed_callbacks, **kwargs)
@@ -512,6 +516,13 @@ class Model(tf.keras.models.Model):
       kwargs['experimental_run_tf_function'] = False
       logger.info("Set `experimental_run_tf_function` to False.")
     return kwargs
+  
+  def _validate_micro_batch_size_for_batch_normalization(self, micro_batch_size):
+    if micro_batch_size < 16:
+      for layer in self.layers:
+        if isinstance(layer, tf.keras.layers.BatchNormalization):
+          logger.warn("Micro batch size should be at least 16 when using Batch Normalization.")
+          return
 
 def connect_ancillary_layers(model, created_layers):
   raise AttributeError('Not supported by tarantella model. '

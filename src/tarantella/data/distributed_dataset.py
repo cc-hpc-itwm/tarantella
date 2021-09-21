@@ -16,10 +16,16 @@ class DistributedDataset:
     self.rank = rank
     self.shuffle_seed = shuffle_seed
     self.num_samples = None
+    self._micro_batch_size = None
 
     self.base_dataset, self.dataset_transformations = \
            ops_helpers.gen_dataset_transformations(dataset)
     self.batching_info = ops_helpers.get_batching_info(self.dataset_transformations)
+
+
+  @property
+  def micro_batch_size(self):
+    return self._micro_batch_size
 
 
   def distribute_dataset_across_ranks(self, user_micro_batch_size = None, is_training = True):
@@ -40,21 +46,21 @@ class DistributedDataset:
                            f"to be distributed to all available devices ({self.num_ranks}).")
 
         if user_micro_batch_size:
-          micro_batch_size = user_micro_batch_size
-          if micro_batch_size * self.num_ranks != batch_size:
-            raise ValueError(f"[DistributedDataset] micro batch size ({micro_batch_size}) " \
+          self._micro_batch_size = user_micro_batch_size
+          if self._micro_batch_size * self.num_ranks != batch_size:
+            raise ValueError(f"[DistributedDataset] micro batch size ({self._micro_batch_size}) " \
                              f"is not consistent with batch size ({batch_size}) on the " \
                              f"number of devices used ({self.num_ranks}).")
         else:
-          micro_batch_size = ds_helpers._get_microbatch_size(self.rank, self.num_ranks, batch_size)
+          self._micro_batch_size = ds_helpers._get_microbatch_size(self.rank, self.num_ranks, batch_size)
 
         if is_training:
           dataset = self.distributed_batch(dataset,
                                            batch_size = batch_size,
-                                           micro_batch_size = micro_batch_size)
+                                           micro_batch_size = self._micro_batch_size)
         else:
           # FIXME: distribute batch for `evaluate` and `predict`
-          dataset = self.batching_info.apply(dataset, new_batch_size = micro_batch_size)
+          dataset = self.batching_info.apply(dataset, new_batch_size = self._micro_batch_size)
 
       # other operations
       else:
@@ -64,17 +70,17 @@ class DistributedDataset:
     if self.batching_info.is_batched == False:
       if is_training == False:    # outside `fit`
         if user_micro_batch_size:
-          dataset = self.batching_info.apply(dataset, new_batch_size = micro_batch_size)
+          dataset = self.batching_info.apply(dataset, new_batch_size = self._micro_batch_size)
         else:
           dataset = self.batching_info.apply(dataset, new_batch_size = 1)
 
       if is_training == True:     # inside `fit`
         if user_micro_batch_size:
-          micro_batch_size = user_micro_batch_size
-          batch_size = micro_batch_size * self.num_ranks
+          self._micro_batch_size = user_micro_batch_size
+          batch_size = self._micro_batch_size * self.num_ranks
           dataset = self.distributed_batch(dataset,
                                            batch_size = batch_size,
-                                           micro_batch_size = micro_batch_size)
+                                           micro_batch_size = self._micro_batch_size)
         else:
           raise ValueError("[DistributedDataset] Unbatched datasets without " \
                            "tnt_micro_batch_size are not supported")
