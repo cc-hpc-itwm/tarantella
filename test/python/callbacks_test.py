@@ -51,30 +51,22 @@ def train_val_dataset_generator():
                            test_batch_size = batch_size)
 
 class CustomLearningRateScheduler(keras.callbacks.Callback):
-  """Learning rate scheduler which sets the learning rate according to schedule.
-
-  Arguments:
-      schedule: a function that takes an epoch index
-          (integer, indexed from 0) and current learning rate
-          as inputs and returns a new learning rate as output (float).
-  """
-
-  def __init__(self, model=None):
-    super(CustomLearningRateScheduler, self).__init__()
+  # Learning rate scheduler to update the learning rate according to a schedule.
+  def __init__(self, model = None):
+    super().__init__()
     if model is not None:
-        self.model = model
+      self.model = model
     self.step_schedule = (2, 4)
     self.step_size = 10
     
   def lr_schedule(self, epoch, lr):
-    """Helper function to retrieve the scheduled learning rate based on epoch."""
     if epoch in self.step_schedule:
-        return lr/10
+      return lr/self.step_size
     return lr
 
   def on_epoch_begin(self, epoch, logs=None):
     if not hasattr(self.model.optimizer, "lr"):
-        raise ValueError('Optimizer must have a "lr" attribute.')
+      raise ValueError('Optimizer must have a "lr" attribute.')
     # Get the current learning rate from model's optimizer.
     lr = float(tf.keras.backend.get_value(self.model.optimizer.learning_rate))
     # Call schedule function to get the scheduled learning rate.
@@ -113,28 +105,9 @@ class TestsDataParallelCallbacks:
   
   @pytest.mark.parametrize("number_epochs", [5])
   def test_custom_callback(self, model_runners, number_epochs):
-    (train_dataset, val_dataset) = train_val_dataset_generator()
-    (ref_train_dataset, ref_val_dataset) = train_val_dataset_generator()
-
-    tnt_model_runner, reference_model_runner = model_runners
-
     callbacks = [CustomLearningRateScheduler()]
-
-    tnt_callback = CustomLearningRateScheduler()
-    tnt_callbacks = [tnt.keras.callbacks.Callback(tnt_callback)]
-
-    tnt_history = tnt_model_runner.model.fit(train_dataset,
-                                             validation_data=val_dataset,
-                                             epochs=number_epochs,
-                                             verbose=0,
-                                             shuffle=False,
-                                             callbacks=tnt_callbacks)
-    reference_history = reference_model_runner.model.fit(ref_train_dataset,
-                                                   validation_data=ref_val_dataset,
-                                                   epochs=number_epochs,
-                                                   verbose=0,
-                                                   shuffle=False,
-                                                   callbacks=callbacks)
+    tnt_history, reference_history = self.train_tnt_and_ref_models_with_callbacks(
+                                       callbacks, model_runners, number_epochs)
 
     for key in reference_history.history.keys():
       assert all(np.isclose(tnt_history.history[key], reference_history.history[key], atol=1e-6))
