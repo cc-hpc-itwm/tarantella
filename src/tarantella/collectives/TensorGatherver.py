@@ -31,6 +31,10 @@ class TensorGatherver:
 
   def get_output_shape(self, shape, index):
     size = self.gatherver.get_output_count(index)
+    for index in range(len(shape)):
+      if index == 0:
+        continue
+      size = int(size / shape[index])
     if isinstance(shape, tuple):
       temp = list(shape)
       temp[0] = size
@@ -53,19 +57,19 @@ class TensorGatherver:
         return self.gatherver.gatherv([np.asarray(inputs)])
     elif utils.is_tensor(inputs):
       outputs = self.gatherver.gatherv([np.asarray(inputs)])
-      if  tnt.get_rank() == tnt.get_master_rank():
+      if  tnt.get_rank() == self.root:
         outputs = outputs[0]
         outputs = outputs.reshape(self.get_output_shape(self.shapes[0], 0))
       return tf.convert_to_tensor(outputs)
     elif utils.is_nonEmptyArray(inputs):
       outputs = self.gatherver.gatherv([inputs])
-      if tnt.get_rank() == tnt.get_master_rank():
+      if tnt.get_rank() == self.root:
         outputs = outputs[0]
         outputs = outputs.reshape(self.get_output_shape(self.shapes[0], 0))
       return outputs
     elif utils.is_nonEmptyList(inputs):
       outputs = self.gatherver.gatherv(inputs)
-      if tnt.get_rank() == tnt.get_master_rank():
+      if tnt.get_rank() == self.root:
         for i, _ in enumerate(outputs):
           outputs[i] = outputs[i].reshape(self.get_output_shape(self.shapes[i], i))
       return outputs
