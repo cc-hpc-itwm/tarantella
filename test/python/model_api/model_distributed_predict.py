@@ -24,7 +24,7 @@ class TestsDistributedPrediction:
   @pytest.mark.parametrize("micro_batch_size", [4])
   @pytest.mark.parametrize("number_epochs", [6])
   @pytest.mark.parametrize("nbatches", [8])
-  @pytest.mark.parametrize("test_nbatches", [1, 5])
+  @pytest.mark.parametrize("test_nbatches", [0, 1, 5])
   @pytest.mark.parametrize("extra_sample", [1, 3, 22])
   def test_compare_accuracy_against_reference(self, model_runners, micro_batch_size,
                                               number_epochs, nbatches, test_nbatches,

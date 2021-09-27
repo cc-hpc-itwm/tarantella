@@ -316,12 +316,15 @@ class Model(tf.keras.models.Model):
     return self.model.predict(x, callbacks = processed_callbacks, **kwargs)
 
   def distributed_predict(self, x, callbacks, root_rank, **kwargs):
-    predict_result = self.model.predict(x, callbacks = callbacks, **kwargs)
-    
+    try:
+      predict_result = self.model.predict(x, callbacks = callbacks, **kwargs)
+    except:
+      predict_result = [np.array([])]
+
     if self.predict_gatherver is None:
-      self.predict_gatherver = tnt.TensorGatherver(np.array(predict_result, np.float32), root_rank)
+      self.predict_gatherver = tnt.TensorGatherver(predict_result, root_rank)
     
-    return self.predict_gatherver.gatherv(np.array(predict_result, np.float32))
+    return self.predict_gatherver.gatherv(predict_result)
 
   def reset_metrics(self):
     self.model.reset_metrics()
