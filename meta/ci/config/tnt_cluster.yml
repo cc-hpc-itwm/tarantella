@@ -1,4 +1,4 @@
-.tnt_cluster_common:
+.tnt_cluster_environment:
   tags:
     - tnt_cluster
   extends:
@@ -10,9 +10,18 @@
     - module load ${CMAKE_MODULE} 
     - module load ${BOOST_MODULE}
     - module load ${TNT_GPI2_MODULE}
-    - module load ${TNT_GASPICXX_MODULE}
     - conda activate ${TF_ENV}
     - export LD_LIBRARY_PATH=${TNT_LD_LIBRARY_PATH}:${LD_LIBRARY_PATH}
+
+.tnt_cluster_common:
+  extends:
+    - .cache_pull_job
+    - .tnt_cluster_environment
+
+.tnt_cluster_dep_build:
+  extends:
+    - .tnt_cluster_environment
+    - .build_gaspicxx_job
 
 .tnt_cluster_build:
   extends:
@@ -86,13 +95,11 @@
   variables:
     GPI2_MODULE_ETH: gpi-2/1.5.0-gcc-10.1.0-eth-glvfd
     GPI2_MODULE_IB:  gpi-2/1.5.0-gcc-10.1.0-infiniband-4nlwj
-    TNT_GASPICXX_MODULE: GaspiCxx/2021-03-19-gcc-10.1.0-gwnky
 
 .gpi1.4.0_job:
   variables:
     GPI2_MODULE_ETH: gpi-2/1.4.0-gcc-8.4.0-eth-vswoi 
     GPI2_MODULE_IB:  gpi-2/1.4.0-gcc-8.4.0-infiniband-vngux 
-    TNT_GASPICXX_MODULE: GaspiCxx/2021-03-19-gcc-8.4.0-ohoyi
 
 .tnt_cluster_tf2.4_job:
   variables:
@@ -134,6 +141,46 @@
   variables:
     TNT_TEST_MACHINEFILE: ${CI_PROJECT_DIR}/meta/ci/tnt_cluster/machinefile_1rankspernode
 
+####### Build dependencies jobs ############
+gaspicxx-gpi1.5.0-ib-build:
+  stage: build_deps
+  variables:
+    CACHE_KEY: gpi1.5.0-ib-${GASPICXX_SHA1}
+    GASPICXX_INSTALL_DIR : ${CI_PROJECT_DIR}/${CACHE_DIR}/${CACHE_KEY}
+  extends:
+    - .ib_job
+    - .gpi1.5.0_job
+    - .tnt_cluster_dep_build
+
+gaspicxx-gpi1.4.0-ib-build:
+  stage: build_deps
+  variables:
+    CACHE_KEY: gpi1.4.0-ib-${GASPICXX_SHA1}
+    GASPICXX_INSTALL_DIR : ${CI_PROJECT_DIR}/${CACHE_DIR}/${CACHE_KEY}
+  extends:
+    - .ib_job
+    - .gpi1.4.0_job
+    - .tnt_cluster_dep_build
+
+gaspicxx-gpi1.5.0-eth-build:
+  stage: build_deps
+  variables:
+    CACHE_KEY: gpi1.5.0-eth-${GASPICXX_SHA1}
+    GASPICXX_INSTALL_DIR : ${CI_PROJECT_DIR}/${CACHE_DIR}/${CACHE_KEY}
+  extends:
+    - .eth_job
+    - .gpi1.5.0_job
+    - .tnt_cluster_dep_build
+
+gaspicxx-gpi1.4.0-eth-build:
+  stage: build_deps
+  variables:
+    CACHE_KEY: gpi1.4.0-eth-${GASPICXX_SHA1}
+    GASPICXX_INSTALL_DIR : ${CI_PROJECT_DIR}/${CACHE_DIR}/${CACHE_KEY}
+  extends:
+    - .eth_job
+    - .gpi1.4.0_job
+    - .tnt_cluster_dep_build
 
 ####### Build jobs ############
 tf2.4-cpu-ib-gcc10.1.0-Release-build:
@@ -145,6 +192,8 @@ tf2.4-cpu-ib-gcc10.1.0-Release-build:
     - .gpi1.5.0_job
     - .gcc10.1.0_job
     - .tnt_cluster_build
+  needs:
+    - job: gaspicxx-gpi1.5.0-ib-build
 
 tf2.3-gpu-ib-gcc10.1.0-Release-build:
   extends:
@@ -155,6 +204,8 @@ tf2.3-gpu-ib-gcc10.1.0-Release-build:
     - .gpi1.5.0_job
     - .gcc10.1.0_job
     - .tnt_cluster_build
+  needs:
+    - job: gaspicxx-gpi1.5.0-ib-build
 
 tf2.2-gpu-ib-gcc8.4.0-Release-build:
   extends:
@@ -165,6 +216,8 @@ tf2.2-gpu-ib-gcc8.4.0-Release-build:
     - .gpi1.4.0_job
     - .gcc8.4.0_job
     - .tnt_cluster_build
+  needs:
+    - job: gaspicxx-gpi1.4.0-ib-build
 
 tf2.1-gpu-ib-gcc8.4.0-Release-build:
   extends:
@@ -175,6 +228,8 @@ tf2.1-gpu-ib-gcc8.4.0-Release-build:
     - .gpi1.4.0_job
     - .gcc8.4.0_job
     - .tnt_cluster_build
+  needs:
+    - job: gaspicxx-gpi1.4.0-ib-build
 
 tf2.0-gpu-ib-gcc8.4.0-Release-build:
   extends:
@@ -185,6 +240,8 @@ tf2.0-gpu-ib-gcc8.4.0-Release-build:
     - .gpi1.4.0_job
     - .gcc8.4.0_job
     - .tnt_cluster_build
+  needs:
+    - job: gaspicxx-gpi1.4.0-ib-build
 
 # CPUs only builds
 tf2.2-cpu-ib-gcc8.4.0-Release-build:
@@ -193,9 +250,11 @@ tf2.2-cpu-ib-gcc8.4.0-Release-build:
     - .release_job
     - .ib_job
     - .cpu_job
-    - .gpi1.4.0_job
+    - .gpi1.5.0_job
     - .gcc8.4.0_job
     - .tnt_cluster_build
+  needs:
+    - job: gaspicxx-gpi1.5.0-ib-build
 
 tf2.1-cpu-ib-gcc8.4.0-Release-build:
   extends:
@@ -203,9 +262,11 @@ tf2.1-cpu-ib-gcc8.4.0-Release-build:
     - .release_job
     - .ib_job
     - .cpu_job_1rankpernode
-    - .gpi1.4.0_job
+    - .gpi1.5.0_job
     - .gcc8.4.0_job
     - .tnt_cluster_build
+  needs:
+    - job: gaspicxx-gpi1.5.0-ib-build
 
 # Ethernet builds [test the C++ libraries]
 tf2.3-gpu-eth-gcc10.1.0-Release-build:
@@ -217,6 +278,8 @@ tf2.3-gpu-eth-gcc10.1.0-Release-build:
     - .gpi1.5.0_job
     - .gcc10.1.0_job
     - .tnt_cluster_build
+  needs:
+    - job: gaspicxx-gpi1.5.0-eth-build
 
 tf2.2-gpu-eth-gcc8.4.0-Release-build:
   extends:
@@ -226,6 +289,8 @@ tf2.2-gpu-eth-gcc8.4.0-Release-build:
     - .gpi1.4.0_job
     - .gcc8.4.0_job
     - .tnt_cluster_build
+  needs:
+    - job: gaspicxx-gpi1.4.0-eth-build
 
 # Debug builds
 tf2.4-cpu-ib-gcc10.1.0-Debug-build:
@@ -236,6 +301,8 @@ tf2.4-cpu-ib-gcc10.1.0-Debug-build:
     - .gpi1.5.0_job
     - .gcc10.1.0_job
     - .tnt_cluster_build
+  needs:
+    - job: gaspicxx-gpi1.5.0-ib-build
 
 ####### Unit tests [C++, do not need to test TF versions or GPUs] ############
 ib-gcc10.1.0-Release-cpp:

@@ -1,4 +1,4 @@
-.vm_centos_common:
+.vm_centos_environment:
   tags:
     - vm_centos
   extends:
@@ -8,7 +8,6 @@
     CONDA_ENVIRONMENT_DIR: ${RUNNER_HOME}/conda_env
     SCL_ENVIRONMENT: devtoolset-7
     BOOST_MODULE: boost/1.67.0-gcc-8.3.0-6rtzd
-    TNT_GASPICXX_MODULE: gaspicxx/2021-03-19-gcc-8.3.0-7oy2u
     TNT_TEST_MACHINEFILE: ${CI_PROJECT_DIR}/meta/ci/vm_centos/machinefile_4ranks
   before_script:
     - source ${BASE_ENVIRONMENT_SETUP}
@@ -20,11 +19,19 @@
     - module load ${BOOST_MODULE}
     - module load ${COMPILER_MODULE}
     - module load ${TNT_GPI2_MODULE}
-    - module load ${TNT_GASPICXX_MODULE}
-    - conda activate ${CONDA_ENVIRONMENT_DIR}/${TF_ENV}
+    - if [ -n "${TF_ENV}" ]; then conda activate ${CONDA_ENVIRONMENT_DIR}/${TF_ENV}; fi
     - export LD_LIBRARY_PATH=${TNT_LD_LIBRARY_PATH}:${LD_LIBRARY_PATH}
 
-  
+.vm_centos_common:
+  extends:
+    - .cache_pull_job
+    - .vm_centos_environment
+
+.vm_centos_dep_build:
+  extends:
+    - .vm_centos_environment
+    - .build_gaspicxx_job
+
 .vm_centos_build:
   extends: 
     - .vm_centos_common
@@ -83,12 +90,41 @@
 .vm_centos_gcc8.3.0_job:
   variables:
     COMPILER_MODULE: gcc/8.3.0-gcc-7.3.1-tsrcq
-    GPI2_MODULE_ETH: gpi-2/1.5.0-gcc-8.3.0-dvipb
 
 .vm_centos_gcc7.4.0_job:
   variables:
     COMPILER_MODULE: gcc/7.4.0-gcc-7.3.1-vsyxv 
+
+.gpi1.4.0_job:
+  variables:
     GPI2_MODULE_ETH: gpi-2/1.4.0-gcc-8.3.0-kzqza
+
+.gpi1.5.0_job:
+  variables:
+    GPI2_MODULE_ETH: gpi-2/1.5.0-gcc-8.3.0-dvipb
+
+####### Build dependencies jobs ############
+gaspicxx-gpi1.5.0-eth-build:
+  stage: build_deps
+  variables:
+    CACHE_KEY: gpi1.5.0-eth-${GASPICXX_SHA1}
+    GASPICXX_INSTALL_DIR : ${CI_PROJECT_DIR}/${CACHE_DIR}/${CACHE_KEY}
+  extends:
+    - .vm_centos_gcc8.3.0_job  
+    - .eth_job
+    - .gpi1.5.0_job
+    - .vm_centos_dep_build
+
+gaspicxx-gpi1.4.0-eth-build:
+  stage: build_deps
+  variables:
+    CACHE_KEY: gpi1.4.0-eth-${GASPICXX_SHA1}
+    GASPICXX_INSTALL_DIR : ${CI_PROJECT_DIR}/${CACHE_DIR}/${CACHE_KEY}
+  extends:
+    - .vm_centos_gcc8.3.0_job  
+    - .eth_job
+    - .gpi1.4.0_job
+    - .vm_centos_dep_build
 
 ####### Build jobs ############
 tf2.3-cpu-eth-gcc8.3.0-Release-build:
@@ -97,7 +133,10 @@ tf2.3-cpu-eth-gcc8.3.0-Release-build:
     - .vm_centos_gcc8.3.0_job
     - .release_job
     - .eth_job
+    - .gpi1.5.0_job
     - .vm_centos_build
+  needs:
+    - job: gaspicxx-gpi1.5.0-eth-build
 
 tf2.2-cpu-eth-gcc8.3.0-Release-build:
   extends:
@@ -105,7 +144,10 @@ tf2.2-cpu-eth-gcc8.3.0-Release-build:
     - .vm_centos_gcc8.3.0_job
     - .release_job
     - .eth_job
+    - .gpi1.5.0_job
     - .vm_centos_build
+  needs:
+    - job: gaspicxx-gpi1.5.0-eth-build
 
 tf2.2-cpu-eth-gcc7.4.0-Release-build:
   extends:
@@ -113,7 +155,11 @@ tf2.2-cpu-eth-gcc7.4.0-Release-build:
     - .vm_centos_gcc7.4.0_job
     - .release_job
     - .eth_job
+    - .gpi1.4.0_job
     - .vm_centos_build
+  needs:
+    - job: gaspicxx-gpi1.4.0-eth-build
+
 
 ####### Unit tests [C++, do not need to test TF versions] ############
 gpi1.5.0-eth-gcc8.3.0-Release-cpp:
