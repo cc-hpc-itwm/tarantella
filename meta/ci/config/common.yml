@@ -57,8 +57,8 @@
 
 .eth_job:
   variables:
-    TNT_GPI2_MODULE: ${GPI2_MODULE_ETH}
+    TNT_NETWORK_TYPE: "eth"
 
 .ib_job:
   variables:
-    TNT_GPI2_MODULE: ${GPI2_MODULE_IB}
+    TNT_NETWORK_TYPE: "ib"

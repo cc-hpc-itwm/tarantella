@@ -14,7 +14,12 @@
     - module load cmake
     - module load miniconda3
     - source `conda info --base`/etc/profile.d/conda.sh
-    - if [ -d "${TNT_INSTALL_DIR}" ]; then rm -r "${TNT_INSTALL_DIR}"; fi
+    - echo TNT_NETWORK_TYPE=${TNT_NETWORK_TYPE}
+    - if [ "${TNT_NETWORK_TYPE}" = "ib" ];
+      then TNT_GPI2_MODULE=${GPI2_MODULE_IB};
+      else TNT_GPI2_MODULE=${GPI2_MODULE_ETH};
+      fi
+    - echo TNT_GPI2_MODULE=${TNT_GPI2_MODULE}
     - source scl_source enable ${SCL_ENVIRONMENT} || 1
     - module load ${BOOST_MODULE}
     - module load ${COMPILER_MODULE}
@@ -95,16 +100,16 @@
   variables:
     COMPILER_MODULE: gcc/7.4.0-gcc-7.3.1-vsyxv 
 
-.gpi1.4.0_job:
+.vm_centos_gpi1.4.0_job:
   variables:
     GPI2_MODULE_ETH: gpi-2/1.4.0-gcc-8.3.0-kzqza
 
-.gpi1.5.0_job:
+.vm_centos_gpi1.5.0_job:
   variables:
     GPI2_MODULE_ETH: gpi-2/1.5.0-gcc-8.3.0-dvipb
 
 ####### Build dependencies jobs ############
-gaspicxx-gpi1.5.0-eth-build:
+gaspicxx-gpi1.5.0-eth-vmcentos-build:
   stage: build_deps
   variables:
     CACHE_KEY: gpi1.5.0-eth-${GASPICXX_SHA1}
@@ -112,10 +117,10 @@ gaspicxx-gpi1.5.0-eth-build:
   extends:
     - .vm_centos_gcc8.3.0_job  
     - .eth_job
-    - .gpi1.5.0_job
+    - .vm_centos_gpi1.5.0_job
     - .vm_centos_dep_build
 
-gaspicxx-gpi1.4.0-eth-build:
+gaspicxx-gpi1.4.0-eth-vmcentos-build:
   stage: build_deps
   variables:
     CACHE_KEY: gpi1.4.0-eth-${GASPICXX_SHA1}
@@ -123,103 +128,103 @@ gaspicxx-gpi1.4.0-eth-build:
   extends:
     - .vm_centos_gcc8.3.0_job  
     - .eth_job
-    - .gpi1.4.0_job
+    - .vm_centos_gpi1.4.0_job
     - .vm_centos_dep_build
 
 ####### Build jobs ############
-tf2.3-cpu-eth-gcc8.3.0-Release-build:
+tf2.3-cpu-eth-gcc8.3.0-Release-vmcentos-build:
   extends:
     - .vm_centos_tf2.3_job
     - .vm_centos_gcc8.3.0_job
     - .release_job
     - .eth_job
-    - .gpi1.5.0_job
+    - .vm_centos_gpi1.5.0_job
     - .vm_centos_build
   needs:
-    - job: gaspicxx-gpi1.5.0-eth-build
+    - job: gaspicxx-gpi1.5.0-eth-vmcentos-build
 
-tf2.2-cpu-eth-gcc8.3.0-Release-build:
+tf2.2-cpu-eth-gcc8.3.0-Release-vmcentos-build:
   extends:
     - .vm_centos_tf2.2_job
     - .vm_centos_gcc8.3.0_job
     - .release_job
     - .eth_job
-    - .gpi1.5.0_job
+    - .vm_centos_gpi1.5.0_job
     - .vm_centos_build
   needs:
-    - job: gaspicxx-gpi1.5.0-eth-build
+    - job: gaspicxx-gpi1.5.0-eth-vmcentos-build
 
-tf2.2-cpu-eth-gcc7.4.0-Release-build:
+tf2.2-cpu-eth-gcc7.4.0-Release-vmcentos-build:
   extends:
     - .vm_centos_tf2.2_job
     - .vm_centos_gcc7.4.0_job
     - .release_job
     - .eth_job
-    - .gpi1.4.0_job
+    - .vm_centos_gpi1.4.0_job
     - .vm_centos_build
   needs:
-    - job: gaspicxx-gpi1.4.0-eth-build
+    - job: gaspicxx-gpi1.4.0-eth-vmcentos-build
 
 
 ####### Unit tests [C++, do not need to test TF versions] ############
-gpi1.5.0-eth-gcc8.3.0-Release-cpp:
+gpi1.5.0-eth-gcc8.3.0-Release-vmcentos-cpp:
   extends:
     - .vm_centos_tf2.3_job
     - .vm_centos_gcc8.3.0_job
     - .eth_job
     - .vm_centos_run_tests_cpp
   needs:
-    - job: tf2.3-cpu-eth-gcc8.3.0-Release-build
+    - job: tf2.3-cpu-eth-gcc8.3.0-Release-vmcentos-build
 
-eth-gcc8.3.0-Release-cpp:
+eth-gcc8.3.0-Release-vmcentos-cpp:
   extends:
     - .vm_centos_tf2.2_job
     - .vm_centos_gcc8.3.0_job
     - .eth_job
     - .vm_centos_run_tests_cpp
   needs:
-    - job: tf2.2-cpu-eth-gcc8.3.0-Release-build
+    - job: tf2.2-cpu-eth-gcc8.3.0-Release-vmcentos-build
 
-eth-gcc7.4.0-Release-test:
+eth-gcc7.4.0-Release-vmcentos-test:
   extends:
     - .vm_centos_tf2.2_job
     - .vm_centos_gcc7.4.0_job
     - .eth_job
     - .vm_centos_run_tests_cpp
   needs:
-    - job: tf2.2-cpu-eth-gcc7.4.0-Release-build
+    - job: tf2.2-cpu-eth-gcc7.4.0-Release-vmcentos-build
 
 ####### Unit tests [Python] ############
-tf2.3-cpu-eth-gcc8.3.0-Release-py:
+tf2.3-cpu-eth-gcc8.3.0-Release-vmcentos-py:
   extends:
     - .vm_centos_tf2.3_job
     - .eth_job
     - .vm_centos_run_tests_py
   needs:
-    - job: tf2.3-cpu-eth-gcc8.3.0-Release-build
+    - job: tf2.3-cpu-eth-gcc8.3.0-Release-vmcentos-build
 
-tf2.2-cpu-eth-gcc8.3.0-Release-py:
+tf2.2-cpu-eth-gcc8.3.0-Release-vmcentos-py:
   extends:
     - .vm_centos_tf2.2_job
     - .eth_job
     - .vm_centos_run_tests_py
   needs:
-    - job: tf2.2-cpu-eth-gcc8.3.0-Release-build
+    - job: tf2.2-cpu-eth-gcc8.3.0-Release-vmcentos-build
 
 ######## Integration tests ############
 
-tf2.3-cpu-eth-gcc8.3.0-Release-integration-nightly:
+tf2.3-cpu-eth-gcc8.3.0-Release-vmcentos-integration-nightly:
   extends:
     - .vm_centos_tf2.3_job
     - .eth_job
     - .vm_centos_integration_tests_nightly
   needs:
-    - job: tf2.3-cpu-eth-gcc8.3.0-Release-build
+    - job: tf2.3-cpu-eth-gcc8.3.0-Release-vmcentos-build
 
-tf2.2-cpu-eth-gcc8.3.0-Release-integration-nightly:
+tf2.2-cpu-eth-gcc8.3.0-Release-vmcentos-integration-nightly:
   extends:
     - .vm_centos_tf2.2_job
     - .eth_job
     - .vm_centos_integration_tests_nightly
   needs:
-    - job: tf2.2-cpu-eth-gcc8.3.0-Release-build
+    - job: tf2.2-cpu-eth-gcc8.3.0-Release-vmcentos-build
