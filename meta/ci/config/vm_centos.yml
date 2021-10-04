@@ -1,8 +1,6 @@
 .vm_centos_environment:
   tags:
     - vm_centos
-  extends:
-    - .common_after_script
   variables:
     BASE_ENVIRONMENT_SETUP: ${RUNNER_HOME}/workspace/setup-env.sh
     CONDA_ENVIRONMENT_DIR: ${RUNNER_HOME}/conda_env
@@ -29,8 +27,8 @@
 
 .vm_centos_common:
   extends:
-    - .cache_pull_job
     - .vm_centos_environment
+    - .cache_pull_job
 
 .vm_centos_dep_build:
   extends:
@@ -113,7 +111,6 @@ gaspicxx-gpi1.5.0-eth-vmcentos-build:
   stage: build_deps
   variables:
     CACHE_KEY: gpi1.5.0-eth-${GASPICXX_SHA1}
-    GASPICXX_INSTALL_DIR : ${CI_PROJECT_DIR}/${CACHE_DIR}/${CACHE_KEY}
   extends:
     - .vm_centos_gcc8.3.0_job  
     - .eth_job
@@ -124,7 +121,6 @@ gaspicxx-gpi1.4.0-eth-vmcentos-build:
   stage: build_deps
   variables:
     CACHE_KEY: gpi1.4.0-eth-${GASPICXX_SHA1}
-    GASPICXX_INSTALL_DIR : ${CI_PROJECT_DIR}/${CACHE_DIR}/${CACHE_KEY}
   extends:
     - .vm_centos_gcc8.3.0_job  
     - .eth_job

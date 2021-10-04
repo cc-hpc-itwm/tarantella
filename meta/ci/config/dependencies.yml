@@ -1,8 +1,11 @@
 .build_gaspicxx_job:
   extends:
     - .cache_setup_job
+  variables:
+    BUILD_GASPICXX_ENV: ${CI_PROJECT_DIR}/dep_build_${CI_JOB_ID}.env
   script:
     - export GASPICXX_SHA1=${GASPICXX_SHA1-master}
+    - export GASPICXX_INSTALL_DIR=${CI_PROJECT_DIR}/${CACHE_DIR}/${CACHE_KEY}
     - if [[ ! -d ${CACHE_DIR}/${CACHE_KEY} ]];
       then
       if [ "`cat ${CI_PROJECT_DIR}/${CACHE_DIR}/${CACHE_KEY}/gaspicxx.lock`" != "${GASPICXX_SHA1}" ];
@@ -19,13 +22,14 @@
         echo ${GASPICXX_SHA1} >> ${CI_PROJECT_DIR}/${CACHE_DIR}/${CACHE_KEY}/gaspicxx.lock;
       fi;
       fi
-    - env | grep CACHE >> ${CI_PROJECT_DIR}/dep_build_${CI_JOB_ID}.env
-    - echo "GASPICXX_INSTALL_DIR=${GASPICXX_INSTALL_DIR}" >> ${CI_PROJECT_DIR}/dep_build_${CI_JOB_ID}.env
-    - echo "LD_LIBRARY_PATH=${GASPICXX_INSTALL_DIR}/lib:${LD_LIBRARY_PATH}" >> ${CI_PROJECT_DIR}/dep_build_${CI_JOB_ID}.env
-    - echo "PYTHONPATH=${GASPICXX_INSTALL_DIR}/lib:${PYTHONPATH}" >> ${CI_PROJECT_DIR}/dep_build_${CI_JOB_ID}.env
-    - echo "CMAKE_PREFIX_PATH=${GASPICXX_INSTALL_DIR}:${CMAKE_PREFIX_PATH}" >> ${CI_PROJECT_DIR}/dep_build_${CI_JOB_ID}.env
+    - rm -f ${BUILD_GASPICXX_ENV}
+    - env | grep CACHE_KEY >> ${BUILD_GASPICXX_ENV} # required because the `cache` artifact is overriden
+    - echo "GASPICXX_INSTALL_DIR=${GASPICXX_INSTALL_DIR}" >> ${BUILD_GASPICXX_ENV}
+    - echo "LD_LIBRARY_PATH=${GASPICXX_INSTALL_DIR}/lib:${LD_LIBRARY_PATH}" >> ${BUILD_GASPICXX_ENV}
+    - echo "PYTHONPATH=${GASPICXX_INSTALL_DIR}/lib:${PYTHONPATH}" >> ${BUILD_GASPICXX_ENV}
+    - echo "CMAKE_PREFIX_PATH=${GASPICXX_INSTALL_DIR}:${CMAKE_PREFIX_PATH}" >> ${BUILD_GASPICXX_ENV}
   artifacts:
     when: always
     expire_in: 1 day
     reports:
-      dotenv: ${CI_PROJECT_DIR}/dep_build_${CI_JOB_ID}.env
+      dotenv: ${BUILD_GASPICXX_ENV}

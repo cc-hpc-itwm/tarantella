@@ -7,7 +7,7 @@
     reports:
       dotenv: ${CI_PROJECT_DIR}/cache_key_${CI_JOB_ID}.env
   after_script:
-    - echo "CACHE_KEY=${CACHE_KEY}" >> ${CI_PROJECT_DIR}/cache_key_${CI_JOB_ID}.env
+    - echo "CACHE_KEY=${CACHE_KEY}" > ${CI_PROJECT_DIR}/cache_key_${CI_JOB_ID}.env
 
 .cache_pull_job:
   extends:
@@ -32,8 +32,6 @@
     expire_in: 1 day
     paths:
       - ${TNT_BUILD_DIR}
-  extends:
-    - .cache_pull_job
   script:
     - echo TNT_BUILD_TYPE=${TNT_BUILD_TYPE}
     - echo TNT_TEST_MACHINEFILE=${TNT_TEST_MACHINEFILE}
@@ -42,10 +40,6 @@
     - cd ${TNT_BUILD_DIR}
     - cmake -DTNT_TEST_MACHINEFILE=${TNT_TEST_MACHINEFILE} -DCMAKE_BUILD_TYPE=${TNT_BUILD_TYPE} -DCMAKE_INSTALL_PREFIX=${TNT_INSTALL_DIR} -DENABLE_TESTING=ON ${CI_PROJECT_DIR}
     - make -j$(nproc)
-
-.common_after_script:
-  after_script:
-    - sh ${CI_PROJECT_DIR}/cmake/cleanup.sh 
 
 .release_job:
   variables:

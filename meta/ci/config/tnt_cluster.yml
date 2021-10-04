@@ -1,8 +1,6 @@
 .tnt_cluster_environment:
   tags:
     - tnt_cluster
-  extends:
-    - .common_after_script
   before_script:
     - source /opt/software/miniconda3-4.8.3/etc/profile.d/conda.sh
     - export MODULEPATH=/opt/modules/linux-ubuntu20.04-broadwell:${MODULEPATH}
@@ -20,8 +18,8 @@
 
 .tnt_cluster_common:
   extends:
-    - .cache_pull_job
     - .tnt_cluster_environment
+    - .cache_pull_job
 
 .tnt_cluster_dep_build:
   extends:
@@ -151,7 +149,6 @@ gaspicxx-gpi1.5.0-ib-build:
   stage: build_deps
   variables:
     CACHE_KEY: gpi1.5.0-ib-${GASPICXX_SHA1}
-    GASPICXX_INSTALL_DIR : ${CI_PROJECT_DIR}/${CACHE_DIR}/${CACHE_KEY}
   extends:
     - .tnt_cluster_gcc10.1.0_job
     - .ib_job
@@ -162,7 +159,6 @@ gaspicxx-gpi1.4.0-ib-build:
   stage: build_deps
   variables:
     CACHE_KEY: gpi1.4.0-ib-${GASPICXX_SHA1}
-    GASPICXX_INSTALL_DIR : ${CI_PROJECT_DIR}/${CACHE_DIR}/${CACHE_KEY}
   extends:
     - .tnt_cluster_gcc8.4.0_job
     - .ib_job
@@ -173,7 +169,6 @@ gaspicxx-gpi1.5.0-eth-build:
   stage: build_deps
   variables:
     CACHE_KEY: gpi1.5.0-eth-${GASPICXX_SHA1}
-    GASPICXX_INSTALL_DIR : ${CI_PROJECT_DIR}/${CACHE_DIR}/${CACHE_KEY}
   extends:
     - .tnt_cluster_gcc10.1.0_job
     - .eth_job
@@ -184,7 +179,6 @@ gaspicxx-gpi1.4.0-eth-build:
   stage: build_deps
   variables:
     CACHE_KEY: gpi1.4.0-eth-${GASPICXX_SHA1}
-    GASPICXX_INSTALL_DIR : ${CI_PROJECT_DIR}/${CACHE_DIR}/${CACHE_KEY}
   extends:
     - .tnt_cluster_gcc8.4.0_job
     - .eth_job
