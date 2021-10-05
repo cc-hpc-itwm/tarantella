@@ -27,15 +27,10 @@ class TensorAllgatherver:
 
     self.allgatherver = GPICommLib.TensorAllgatherver(tensor_infos)
 
-  def get_output_shape(self, shape, index):
-    size = self.allgatherver.get_output_count(index)
-    if isinstance(shape, tuple):
-      temp = list(shape)
-      temp[0] = size
-      return tuple(temp)
-    else:
-      shape[0] = size
-      return shape
+  def get_output_shape(self, input_shape, index):
+    shape = list(input_shape)
+    shape[0] = self.allgatherver.get_output_count(index)
+    return shape
 
   def allgatherv(self, inputs):
     if utils.is_nonEmptyDict(inputs):
