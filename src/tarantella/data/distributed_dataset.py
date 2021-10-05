@@ -56,15 +56,10 @@ class DistributedDataset:
         else:
           self._micro_batch_size = ds_helpers._get_microbatch_size(self.rank, self.num_ranks, batch_size)
 
-        if is_training:
-          dataset = self.distributed_batch(dataset,
-                                           batch_size = batch_size,
-                                           micro_batch_size = self._micro_batch_size)
-        else:
-          # FIXME: distribute batch for `evaluate` and `predict`
-          dataset = self.distributed_evaluate_batch(dataset,
-                                                    batch_size = batch_size,
-                                                    micro_batch_size = micro_batch_size)
+        dataset = self.distributed_batch(dataset,
+                                         batch_size = batch_size,
+                                         micro_batch_size = self._micro_batch_size,
+                                         is_training = is_training)
 
       # other operations
       else:
@@ -84,7 +79,8 @@ class DistributedDataset:
           batch_size = self._micro_batch_size * self.num_ranks
           dataset = self.distributed_batch(dataset,
                                            batch_size = batch_size,
-                                           micro_batch_size = self._micro_batch_size)
+                                           micro_batch_size = self._micro_batch_size,
+                                           is_training = is_training)
         else:
           raise ValueError("[DistributedDataset] Unbatched datasets without " \
                            "tnt_micro_batch_size are not supported")
@@ -98,7 +94,7 @@ class DistributedDataset:
       logger.debug("Shuffling with shuffle seed {}.".format(ds_kwargs['seed']))
     return dataset.shuffle(**ds_kwargs)
 
-  def distributed_batch(self, dataset, batch_size, micro_batch_size):
+  def distributed_batch(self, dataset, batch_size, micro_batch_size, is_training):
     if self.batching_info.drop_remainder == True:
       dataset = self.batching_info.apply(dataset, new_batch_size = batch_size)
       dataset = dataset.unbatch()
@@ -110,30 +106,21 @@ class DistributedDataset:
 
       # pad final incomplete batch to have at least `num_ranks` samples, such that
       # each rank will have the same number of iterations within one epoch
-      dataset = ds_helpers._pad_dataset_if_necessary(dataset, self.num_samples, batch_size,
+      if is_training:
+        dataset = ds_helpers._pad_dataset_if_necessary(dataset, self.num_samples, batch_size,
                                                      min_last_batch_size = self.num_ranks)
 
     dataset = self._get_dataset_slice_per_rank(dataset, batch_size, micro_batch_size)
     dataset = self.batching_info.apply(dataset, new_batch_size = micro_batch_size)
-
-    logger.info(f"Using batch size = {batch_size}, micro batch size = {micro_batch_size}.")
-    return dataset
-
-  def distributed_evaluate_batch(self, dataset, batch_size, micro_batch_size):
-    if self.batching_info.drop_remainder == True:
-      dataset = self.batching_info.apply(dataset, new_batch_size = batch_size)
-      dataset = dataset.unbatch()
-    else:
+    
+    if not is_training:
       if self.num_samples is None:
         self.num_samples = ds_helpers._get_num_samples(dataset)
       if self.num_samples == tf.data.experimental.INFINITE_CARDINALITY:
         raise ValueError("[DistributedDataset] Infinite dataset provided; cannot count samples.")
+      self.evaluation_factor = self._get_my_sample(batch_size, micro_batch_size) / self.num_samples
     
-    dataset = self._get_dataset_slice_per_rank(dataset, batch_size, micro_batch_size)
-    dataset = self.batching_info.apply(dataset, new_batch_size = micro_batch_size)
-    
-    self.evaluation_factor = self._get_my_sample(batch_size, micro_batch_size) / self.num_samples
-    
+    logger.info(f"Using batch size = {batch_size}, micro batch size = {micro_batch_size}.")
     return dataset
   
   def _get_my_sample(self, batch_size, micro_batch_size):
