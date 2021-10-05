@@ -17,19 +17,20 @@ import pytest
 
 def model_runners(request):
 #   tnt_model_runner = base_runner.generate_tnt_model_runner(request.param())
-  reference_model_runner = base_runner.TrainingRunner(request.param())
+  reference_model_runner = base_runner.generate_tnt_model_runner(request.param())
   yield reference_model_runner
 
 class TestsDistributedEvaluation:
   @pytest.mark.parametrize("micro_batch_size", [32])
   @pytest.mark.parametrize("number_epochs", [4])
   @pytest.mark.parametrize("nbatches", [8])
-  @pytest.mark.parametrize("test_nbatches", [10])
-  @pytest.mark.parametrize("extra_batch", [0, 5])
-  @pytest.mark.parametrize("extra_sample", [0, 33])
+  @pytest.mark.parametrize("test_nbatches", [0, 8])
+  @pytest.mark.parametrize("extra_batch", [0, 2])
+  @pytest.mark.parametrize("extra_sample", [1, 3])
+  @pytest.mark.parametrize("output_dict", [True, False])
   def test_compare_accuracy_against_reference(self, model_runners, micro_batch_size,
                                               number_epochs, nbatches, test_nbatches,
-                                              extra_batch, extra_sample):
+                                              extra_batch, extra_sample, output_dict):
     (_, test_dataset) = util.train_test_mnist_datasets(nbatches, test_nbatches,
                                                        micro_batch_size,
                                                        shuffle = False,
@@ -43,13 +44,18 @@ class TestsDistributedEvaluation:
     
     tnt_model = model_runners
     tnt_model.train_model(ref_train_dataset, number_epochs)
-    reference_model_runner = base_runner.generate_tnt_model_runner(tnt_model.model)
-    reference_loss_accuracy = reference_model_runner.evaluate_model(test_dataset)
+    reference_model_runner = base_runner.generate_tnt_model_runner(tnt_model.model.model)
+    reference_loss_accuracy = reference_model_runner.evaluate_model(test_dataset, return_dict = output_dict)
     
-    tnt_loss_accuracy = tnt_model.evaluate_model(ref_test_dataset, distribution = True)
+    tnt_loss_accuracy = tnt_model.evaluate_model(ref_test_dataset, return_dict = output_dict, distribution = True)
     
     rank = tnt.get_rank()
     logging.getLogger().info(f"[Rank {rank}] Tarantella[loss, accuracy] = {tnt_loss_accuracy}")
     logging.getLogger().info(f"[Rank {rank}] Reference [loss, accuracy] = {reference_loss_accuracy}")
-    assert np.isclose(tnt_loss_accuracy[0], reference_loss_accuracy[0], atol=1e-2)
-    assert np.isclose(tnt_loss_accuracy[1], reference_loss_accuracy[1], atol=1e-6)
+    if not output_dict:
+      assert np.isclose(tnt_loss_accuracy[0], reference_loss_accuracy[0], atol=1e-2)
+      assert np.isclose(tnt_loss_accuracy[1], reference_loss_accuracy[1], atol=1e-6)
+    else:
+      assert np.isclose(tnt_loss_accuracy['loss'], reference_loss_accuracy['loss'], atol=1e-2)
+      assert np.isclose(tnt_loss_accuracy['sparse_categorical_accuracy'], 
+                        reference_loss_accuracy['sparse_categorical_accuracy'], atol=1e-6)

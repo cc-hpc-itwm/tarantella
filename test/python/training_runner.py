@@ -44,13 +44,16 @@ class TrainingRunner:
   def reset_weights(self):
     self.model.set_weights(self.initial_weights)
 
-  def evaluate_model(self, val_dataset, distribution = False):
+  def evaluate_model(self, val_dataset, distribution = False, return_dict = False):
     #return_dict to be added here (support only from tf 2.2)
     kwargs = {}
     if isinstance(self.model, tnt.Model):
       kwargs['tnt_distribute_dataset'] = False
       if distribution:
         kwargs = {}
+    if return_dict:
+      kwargs['return_dict'] = True
+    
     results = self.model.evaluate(val_dataset, verbose=0, **kwargs)
     return results
 
