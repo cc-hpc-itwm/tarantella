@@ -11,6 +11,7 @@ import tarantella.keras.callbacks as tnt_callbacks
 import tarantella.keras.utilities as utilities
 import tarantella.utilities.tf_version as version_utils
 from tarantella import logger
+import numpy as np
 
 
 class Model(tf.keras.models.Model):
@@ -157,7 +158,7 @@ class Model(tf.keras.models.Model):
                y = None,
                callbacks = None,
                tnt_micro_batch_size = None,
-               tnt_distribute_dataset = True,
+               tnt_distribute_dataset = False,
                **kwargs):
     self._setup_for_execution('evaluate', x, y, kwargs)
     processed_callbacks = self._preprocess_callbacks(callbacks)
@@ -171,10 +172,20 @@ class Model(tf.keras.models.Model):
               user_micro_batch_size = tnt_micro_batch_size,
               is_training = False)
       self._validate_micro_batch_size_for_batch_normalization(test_dataset.micro_batch_size)
+
+      logger.info("Dataset for evaluation is distributed.")
+      return self.distributed_evaluate(x, callbacks = processed_callbacks, factor = test_dataset.evaluation_factor, **kwargs)
+
     else:
       logger.info("Automatic dataset distribution is disabled.")
 
     return self.model.evaluate(x, callbacks = processed_callbacks, **kwargs)
+
+  def distributed_evaluate(self, x, callbacks, factor = 1.0, **kwargs):
+    loss_metric = self.model.evaluate(x, callbacks = callbacks, **kwargs)
+    loss_metric = factor * loss_metric
+    evaluate_reducer = tarantella.TensorAllreducer(np.array(loss_metric, dtype=np.float64))
+    return evaluate_reducer.allreduce(np.array(loss_metric,dtype=np.float64))
 
   def fit(self,
           x = None,

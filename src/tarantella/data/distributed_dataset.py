@@ -60,7 +60,9 @@ class DistributedDataset:
                                            micro_batch_size = self._micro_batch_size)
         else:
           # FIXME: distribute batch for `evaluate` and `predict`
-          dataset = self.batching_info.apply(dataset, new_batch_size = self._micro_batch_size)
+          dataset = self.distributed_batch_evaluate(dataset,
+                                                    batch_size = batch_size,
+                                                    micro_batch_size = micro_batch_size)
 
       # other operations
       else:

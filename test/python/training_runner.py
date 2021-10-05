@@ -50,3 +50,8 @@ class TrainingRunner:
     results = self.model.evaluate(val_dataset, verbose=0)
     return results
 
+  def distributed_evaluate_model(self, val_dataset):
+    #return_dict to be added here (support only from tf 2.2)
+    results = self.model.evaluate(val_dataset, tnt_distribute_dataset = True, verbose=0)
+    return results
+
