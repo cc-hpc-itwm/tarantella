@@ -13,7 +13,8 @@ tarantella_compile_and_generate_gpi_test(NAME DataParallel_SynchCommunicator
                 LIBRARIES tnt::gpicommlib
                 INCLUDE_DIRECTORIES ${include_dirs})
 
-tarantella_compile_and_generate_test(NAME DataParallel_TensorFusor
+tarantella_compile_and_generate_gpi_test(NAME DataParallel_TensorFusor
+                LOCALRANKS_LIST "1"
                 TIMEOUT 20
                 SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/TensorFusor.cpp
                 LIBRARIES tnt::gpicommlib

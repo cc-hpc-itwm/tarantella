@@ -1,18 +1,30 @@
-.tnt_cluster_common:
+.tnt_cluster_environment:
   tags:
     - tnt_cluster
-  extends:
-    - .common_after_script
   before_script:
     - source /opt/software/miniconda3-4.8.3/etc/profile.d/conda.sh
     - export MODULEPATH=/opt/modules/linux-ubuntu20.04-broadwell:${MODULEPATH}
+    - if [ "${TNT_NETWORK_TYPE}" = "ib" ];
+      then TNT_GPI2_MODULE=${GPI2_MODULE_IB};
+      else TNT_GPI2_MODULE=${GPI2_MODULE_ETH};
+      fi
+    - echo TNT_GPI2_MODULE=${TNT_GPI2_MODULE}
     - module load ${COMPILER_MODULE}
     - module load ${CMAKE_MODULE} 
     - module load ${BOOST_MODULE}
     - module load ${TNT_GPI2_MODULE}
-    - module load ${TNT_GASPICXX_MODULE}
     - conda activate ${TF_ENV}
     - export LD_LIBRARY_PATH=${TNT_LD_LIBRARY_PATH}:${LD_LIBRARY_PATH}
+
+.tnt_cluster_common:
+  extends:
+    - .tnt_cluster_environment
+    - .cache_pull_job
+
+.tnt_cluster_dep_build:
+  extends:
+    - .tnt_cluster_environment
+    - .build_gaspicxx_job
 
 .tnt_cluster_build:
   extends:
@@ -64,35 +76,33 @@
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $NIGHTLY_PIPELINE && $NIGHTLY_PIPELINE == "true"'
 
-.gcc10.1.0_job:
+.tnt_cluster_gcc10.1.0_job:
   variables:
     COMPILER_MODULE: gcc/10.1.0-gcc-9.3.0-htfd3
     CMAKE_MODULE: cmake/3.17.3-gcc-10.1.0-2jpg5
     BOOST_MODULE: boost/1.69.0-gcc-9.3.0-tj65h
 
-.gcc8.4.0_job:
+.tnt_cluster_gcc8.4.0_job:
   variables:
     COMPILER_MODULE: gcc/8.4.0-gcc-9.3.0-itvm7
     CMAKE_MODULE: cmake/3.15.4-gcc-8.4.0-zvbii
     BOOST_MODULE: boost/1.68.0-gcc-9.3.0-gr57o
 
-.gcc7.4.0_job:
+.tnt_cluster_gcc7.4.0_job:
   variables:
     COMPILER_MODULE: gcc/7.4.0-gcc-9.3.0-oeoyn
     CMAKE_MODULE: cmake/3.15.4-gcc-8.4.0-zvbii
     BOOST_MODULE: boost/1.68.0-gcc-9.3.0-gr57o
 
-.gpi1.5.0_job:
+.tnt_cluster_gpi1.5.0_job:
   variables:
     GPI2_MODULE_ETH: gpi-2/1.5.0-gcc-10.1.0-eth-glvfd
     GPI2_MODULE_IB:  gpi-2/1.5.0-gcc-10.1.0-infiniband-4nlwj
-    TNT_GASPICXX_MODULE: GaspiCxx/2021-03-19-gcc-10.1.0-gwnky
 
-.gpi1.4.0_job:
+.tnt_cluster_gpi1.4.0_job:
   variables:
     GPI2_MODULE_ETH: gpi-2/1.4.0-gcc-8.4.0-eth-vswoi 
     GPI2_MODULE_IB:  gpi-2/1.4.0-gcc-8.4.0-infiniband-vngux 
-    TNT_GASPICXX_MODULE: GaspiCxx/2021-03-19-gcc-8.4.0-ohoyi
 
 .tnt_cluster_tf2.4_job:
   variables:
@@ -122,18 +132,58 @@
   variables:
     TF_ENV: tf2.1-cpu
 
-.gpu_job:
+.tnt_cluster_gpu_job:
   variables:
     TNT_TEST_MACHINEFILE: ${CI_PROJECT_DIR}/meta/ci/tnt_cluster/machinefile_1rankspernode
 
-.cpu_job:
+.tnt_cluster_cpu_job:
   variables:
     TNT_TEST_MACHINEFILE: ${CI_PROJECT_DIR}/meta/ci/tnt_cluster/machinefile_2rankspernode
 
-.cpu_job_1rankpernode:
+.tnt_cluster_cpu_job_1rankpernode:
   variables:
     TNT_TEST_MACHINEFILE: ${CI_PROJECT_DIR}/meta/ci/tnt_cluster/machinefile_1rankspernode
 
+####### Build dependencies jobs ############
+gaspicxx-gpi1.5.0-ib-build:
+  stage: build_deps
+  variables:
+    CACHE_KEY: gpi1.5.0-ib-${GASPICXX_SHA1}
+  extends:
+    - .tnt_cluster_gcc10.1.0_job
+    - .ib_job
+    - .tnt_cluster_gpi1.5.0_job
+    - .tnt_cluster_dep_build
+
+gaspicxx-gpi1.4.0-ib-build:
+  stage: build_deps
+  variables:
+    CACHE_KEY: gpi1.4.0-ib-${GASPICXX_SHA1}
+  extends:
+    - .tnt_cluster_gcc8.4.0_job
+    - .ib_job
+    - .tnt_cluster_gpi1.4.0_job
+    - .tnt_cluster_dep_build
+
+gaspicxx-gpi1.5.0-eth-build:
+  stage: build_deps
+  variables:
+    CACHE_KEY: gpi1.5.0-eth-${GASPICXX_SHA1}
+  extends:
+    - .tnt_cluster_gcc10.1.0_job
+    - .eth_job
+    - .tnt_cluster_gpi1.5.0_job
+    - .tnt_cluster_dep_build
+
+gaspicxx-gpi1.4.0-eth-build:
+  stage: build_deps
+  variables:
+    CACHE_KEY: gpi1.4.0-eth-${GASPICXX_SHA1}
+  extends:
+    - .tnt_cluster_gcc8.4.0_job
+    - .eth_job
+    - .tnt_cluster_gpi1.4.0_job
+    - .tnt_cluster_dep_build
 
 ####### Build jobs ############
 tf2.4-cpu-ib-gcc10.1.0-Release-build:
@@ -141,50 +191,60 @@ tf2.4-cpu-ib-gcc10.1.0-Release-build:
     - .tnt_cluster_tf2.4_job
     - .release_job
     - .ib_job
-    - .cpu_job
-    - .gpi1.5.0_job
-    - .gcc10.1.0_job
+    - .tnt_cluster_cpu_job
+    - .tnt_cluster_gpi1.5.0_job
+    - .tnt_cluster_gcc10.1.0_job
     - .tnt_cluster_build
+  needs:
+    - job: gaspicxx-gpi1.5.0-ib-build
 
 tf2.3-gpu-ib-gcc10.1.0-Release-build:
   extends:
     - .tnt_cluster_tf2.3_job
     - .release_job
     - .ib_job
-    - .gpu_job
-    - .gpi1.5.0_job
-    - .gcc10.1.0_job
+    - .tnt_cluster_gpu_job
+    - .tnt_cluster_gpi1.5.0_job
+    - .tnt_cluster_gcc10.1.0_job
     - .tnt_cluster_build
+  needs:
+    - job: gaspicxx-gpi1.5.0-ib-build
 
 tf2.2-gpu-ib-gcc8.4.0-Release-build:
   extends:
     - .tnt_cluster_tf2.2_job
     - .release_job
     - .ib_job
-    - .gpu_job
-    - .gpi1.4.0_job
-    - .gcc8.4.0_job
+    - .tnt_cluster_gpu_job
+    - .tnt_cluster_gpi1.4.0_job
+    - .tnt_cluster_gcc8.4.0_job
     - .tnt_cluster_build
+  needs:
+    - job: gaspicxx-gpi1.4.0-ib-build
 
 tf2.1-gpu-ib-gcc8.4.0-Release-build:
   extends:
     - .tnt_cluster_tf2.1_job
     - .release_job
     - .ib_job
-    - .gpu_job
-    - .gpi1.4.0_job
-    - .gcc8.4.0_job
+    - .tnt_cluster_gpu_job
+    - .tnt_cluster_gpi1.4.0_job
+    - .tnt_cluster_gcc8.4.0_job
     - .tnt_cluster_build
+  needs:
+    - job: gaspicxx-gpi1.4.0-ib-build
 
 tf2.0-gpu-ib-gcc8.4.0-Release-build:
   extends:
     - .tnt_cluster_tf2.0_job
     - .release_job
     - .ib_job
-    - .gpu_job
-    - .gpi1.4.0_job
-    - .gcc8.4.0_job
+    - .tnt_cluster_gpu_job
+    - .tnt_cluster_gpi1.4.0_job
+    - .tnt_cluster_gcc8.4.0_job
     - .tnt_cluster_build
+  needs:
+    - job: gaspicxx-gpi1.4.0-ib-build
 
 # CPUs only builds
 tf2.2-cpu-ib-gcc8.4.0-Release-build:
@@ -192,20 +252,24 @@ tf2.2-cpu-ib-gcc8.4.0-Release-build:
     - .tnt_cluster_tf2.2-cpu_job
     - .release_job
     - .ib_job
-    - .cpu_job
-    - .gpi1.4.0_job
-    - .gcc8.4.0_job
+    - .tnt_cluster_cpu_job
+    - .tnt_cluster_gpi1.4.0_job
+    - .tnt_cluster_gcc8.4.0_job
     - .tnt_cluster_build
+  needs:
+    - job: gaspicxx-gpi1.4.0-ib-build
 
 tf2.1-cpu-ib-gcc8.4.0-Release-build:
   extends:
     - .tnt_cluster_tf2.1-cpu_job
     - .release_job
     - .ib_job
-    - .cpu_job_1rankpernode
-    - .gpi1.4.0_job
-    - .gcc8.4.0_job
+    - .tnt_cluster_cpu_job_1rankpernode
+    - .tnt_cluster_gpi1.4.0_job
+    - .tnt_cluster_gcc8.4.0_job
     - .tnt_cluster_build
+  needs:
+    - job: gaspicxx-gpi1.4.0-ib-build
 
 # Ethernet builds [test the C++ libraries]
 tf2.3-gpu-eth-gcc10.1.0-Release-build:
@@ -213,19 +277,23 @@ tf2.3-gpu-eth-gcc10.1.0-Release-build:
     - .tnt_cluster_tf2.3_job
     - .release_job
     - .eth_job
-    - .gpu_job
-    - .gpi1.5.0_job
-    - .gcc10.1.0_job
+    - .tnt_cluster_gpu_job
+    - .tnt_cluster_gpi1.5.0_job
+    - .tnt_cluster_gcc10.1.0_job
     - .tnt_cluster_build
+  needs:
+    - job: gaspicxx-gpi1.5.0-eth-build
 
 tf2.2-gpu-eth-gcc8.4.0-Release-build:
   extends:
     - .tnt_cluster_tf2.2_job
     - .release_job
     - .eth_job
-    - .gpi1.4.0_job
-    - .gcc8.4.0_job
+    - .tnt_cluster_gpi1.4.0_job
+    - .tnt_cluster_gcc8.4.0_job
     - .tnt_cluster_build
+  needs:
+    - job: gaspicxx-gpi1.4.0-eth-build
 
 # Debug builds
 tf2.4-cpu-ib-gcc10.1.0-Debug-build:
@@ -233,16 +301,18 @@ tf2.4-cpu-ib-gcc10.1.0-Debug-build:
     - .tnt_cluster_tf2.4_job
     - .debug_job
     - .ib_job
-    - .gpi1.5.0_job
-    - .gcc10.1.0_job
+    - .tnt_cluster_gpi1.5.0_job
+    - .tnt_cluster_gcc10.1.0_job
     - .tnt_cluster_build
+  needs:
+    - job: gaspicxx-gpi1.5.0-ib-build
 
 ####### Unit tests [C++, do not need to test TF versions or GPUs] ############
 ib-gcc10.1.0-Release-cpp:
   extends:
     - .tnt_cluster_tf2.4_job
     - .ib_job
-    - .gpi1.5.0_job
+    - .tnt_cluster_gpi1.5.0_job
     - .tnt_cluster_run_tests_cpp
   needs:
     - job: tf2.4-cpu-ib-gcc10.1.0-Release-build
@@ -251,7 +321,7 @@ eth-gcc10.1.0-Release-cpp:
   extends:
     - .tnt_cluster_tf2.3_job
     - .eth_job
-    - .gpi1.5.0_job
+    - .tnt_cluster_gpi1.5.0_job
     - .tnt_cluster_run_tests_cpp
   needs:
     - job: tf2.3-gpu-eth-gcc10.1.0-Release-build
@@ -260,7 +330,7 @@ ib-gcc8.4.0-Release-cpp:
   extends:
     - .tnt_cluster_tf2.2_job
     - .ib_job
-    - .gpi1.4.0_job
+    - .tnt_cluster_gpi1.4.0_job
     - .tnt_cluster_run_tests_cpp
   needs:
     - job: tf2.2-cpu-ib-gcc8.4.0-Release-build
@@ -270,7 +340,7 @@ tf2.4-cpu-ib-gcc10.1.0-Release-py:
   extends:
     - .tnt_cluster_tf2.4_job
     - .ib_job
-    - .gpi1.5.0_job
+    - .tnt_cluster_gpi1.5.0_job
     - .tnt_cluster_run_tests_py
   needs:
     - job: tf2.4-cpu-ib-gcc10.1.0-Release-build
@@ -279,7 +349,7 @@ tf2.3-gpu-ib-gcc10.1.0-Release-py:
   extends:
     - .tnt_cluster_tf2.3_job
     - .ib_job
-    - .gpi1.5.0_job
+    - .tnt_cluster_gpi1.5.0_job
     - .tnt_cluster_run_tests_py
   needs:
     - job: tf2.3-gpu-ib-gcc10.1.0-Release-build
@@ -288,7 +358,7 @@ tf2.2-gpu-ib-gcc8.4.0-Release-py:
   extends:
     - .tnt_cluster_tf2.2_job
     - .ib_job
-    - .gpi1.4.0_job
+    - .tnt_cluster_gpi1.4.0_job
     - .tnt_cluster_run_tests_py
   needs:
     - job: tf2.2-gpu-ib-gcc8.4.0-Release-build
@@ -297,7 +367,7 @@ tf2.1-gpu-ib-gcc8.4.0-Release-py:
   extends:
     - .tnt_cluster_tf2.1_job
     - .ib_job
-    - .gpi1.4.0_job
+    - .tnt_cluster_gpi1.4.0_job
     - .tnt_cluster_run_tests_py
   needs:
     - job: tf2.1-gpu-ib-gcc8.4.0-Release-build
@@ -306,7 +376,7 @@ tf2.0-gpu-ib-gcc8.4.0-Release-py:
   extends:
     - .tnt_cluster_tf2.0_job
     - .ib_job
-    - .gpi1.4.0_job
+    - .tnt_cluster_gpi1.4.0_job
     - .tnt_cluster_run_tests_py
   needs:
     - job: tf2.0-gpu-ib-gcc8.4.0-Release-build
@@ -316,7 +386,7 @@ tf2.3-gpu-eth-gcc10.1.0-Release-py:
   extends:
     - .tnt_cluster_tf2.3_job
     - .eth_job
-    - .gpi1.5.0_job
+    - .tnt_cluster_gpi1.5.0_job
     - .tnt_cluster_run_tests_py_nightly
   needs:
     - job: tf2.3-gpu-eth-gcc10.1.0-Release-build
@@ -325,7 +395,7 @@ tf2.2-cpu-ib-gcc8.4.0-Release-py:
   extends:
     - .tnt_cluster_tf2.2-cpu_job
     - .ib_job
-    - .gpi1.4.0_job
+    - .tnt_cluster_gpi1.4.0_job
     - .tnt_cluster_run_tests_py_nightly
   needs:
     - job: tf2.2-cpu-ib-gcc8.4.0-Release-build
@@ -334,7 +404,7 @@ tf2.1-cpu-ib-gcc8.4.0-Release-py:
   extends:
     - .tnt_cluster_tf2.1-cpu_job
     - .ib_job
-    - .gpi1.4.0_job
+    - .tnt_cluster_gpi1.4.0_job
     - .tnt_cluster_run_tests_py_nightly
   needs:
     - job: tf2.1-cpu-ib-gcc8.4.0-Release-build

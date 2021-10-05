@@ -1,3 +1,30 @@
+.cache_key_forward:
+  script:
+    - echo "Using cache key ${CACHE_KEY-None}."
+  artifacts:
+    when: always
+    expire_in: 1 day
+    reports:
+      dotenv: ${CI_PROJECT_DIR}/cache_key_${CI_JOB_ID}.env
+  after_script:
+    - echo "CACHE_KEY=${CACHE_KEY}" > ${CI_PROJECT_DIR}/cache_key_${CI_JOB_ID}.env
+
+.cache_pull_job:
+  extends:
+    - .cache_key_forward
+  cache:
+    key: ${CACHE_KEY}
+    paths:
+      - ${CACHE_DIR}/${CACHE_KEY}
+    policy: pull
+
+.cache_setup_job:
+  extends:
+    - .cache_key_forward
+  cache:
+    key: ${CACHE_KEY}
+    paths:
+      - ${CACHE_DIR}/${CACHE_KEY}
 
 .common_build_job:
   artifacts:
@@ -7,17 +34,12 @@
       - ${TNT_BUILD_DIR}
   script:
     - echo TNT_BUILD_TYPE=${TNT_BUILD_TYPE}
-    - echo TNT_USE_IB=${TNT_USE_IB}
     - echo TNT_TEST_MACHINEFILE=${TNT_TEST_MACHINEFILE}
     - rm -rf ${TNT_INSTALL_DIR}
     - rm -rf ${TNT_BUILD_DIR} && mkdir ${TNT_BUILD_DIR}
     - cd ${TNT_BUILD_DIR}
-    - cmake -DTNT_TEST_MACHINEFILE=${TNT_TEST_MACHINEFILE} -DCMAKE_BUILD_TYPE=${TNT_BUILD_TYPE} -DCMAKE_INSTALL_PREFIX=${TNT_INSTALL_DIR} -DLINK_IB=${TNT_USE_IB} -DENABLE_TESTING=ON ${CI_PROJECT_DIR}
+    - cmake -DTNT_TEST_MACHINEFILE=${TNT_TEST_MACHINEFILE} -DCMAKE_BUILD_TYPE=${TNT_BUILD_TYPE} -DCMAKE_INSTALL_PREFIX=${TNT_INSTALL_DIR} -DENABLE_TESTING=ON ${CI_PROJECT_DIR}
     - make -j$(nproc)
-
-.common_after_script:
-  after_script:
-    - sh ${CI_PROJECT_DIR}/cmake/cleanup.sh 
 
 .release_job:
   variables:
@@ -29,10 +51,8 @@
 
 .eth_job:
   variables:
-    TNT_USE_IB: "OFF"
-    TNT_GPI2_MODULE: ${GPI2_MODULE_ETH}
+    TNT_NETWORK_TYPE: "eth"
 
 .ib_job:
   variables:
-    TNT_USE_IB: "ON"
-    TNT_GPI2_MODULE: ${GPI2_MODULE_IB}
+    TNT_NETWORK_TYPE: "ib"
