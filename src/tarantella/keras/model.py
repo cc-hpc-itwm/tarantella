@@ -24,6 +24,7 @@ class Model(tf.keras.models.Model):
     self.done_broadcast = False
     self.compiled = False
     self.broadcaster = None
+    self.predict_gatherver = None
     self.barrier = tnt.Barrier()
 
     self.dist_optimizer = None
@@ -129,6 +130,7 @@ class Model(tf.keras.models.Model):
               **kwargs):
     self.done_broadcast = False
     self.compiled = True
+    self.predict_gatherver = None
 
     if isinstance(optimizer, dict):
       optimizer = deserialize(optimizer)
@@ -293,6 +295,7 @@ class Model(tf.keras.models.Model):
               callbacks = None,
               tnt_micro_batch_size = None,
               tnt_distribute_dataset = True,
+              root_rank = tnt.get_master_rank(),
               **kwargs):
     self._setup_for_execution('predict', x, None, kwargs)
     processed_callbacks = self._preprocess_callbacks(callbacks)
@@ -306,9 +309,19 @@ class Model(tf.keras.models.Model):
                user_micro_batch_size = tnt_micro_batch_size,
                is_training = False)
       self._validate_micro_batch_size_for_batch_normalization(test_dataset.micro_batch_size)
+      return self.distributed_predict(x, callbacks = processed_callbacks,
+                                      root_rank = root_rank, **kwargs)
     else:
       logger.info("Automatic dataset distribution is disabled.")
     return self.model.predict(x, callbacks = processed_callbacks, **kwargs)
+
+  def distributed_predict(self, x, callbacks, root_rank, **kwargs):
+    predict_result = self.model.predict(x, callbacks = callbacks, **kwargs)
+    
+    if self.predict_gatherver is None:
+      self.predict_gatherver = tnt.TensorGatherver(np.array(predict_result, np.float32), root_rank)
+    
+    return self.predict_gatherver.gatherv(np.array(predict_result, np.float32))
 
   def reset_metrics(self):
     self.model.reset_metrics()

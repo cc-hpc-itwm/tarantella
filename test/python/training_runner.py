@@ -50,3 +50,13 @@ class TrainingRunner:
     results = self.model.evaluate(val_dataset, verbose=0)
     return results
 
+  def predict_model(self, val_dataset, distribution = False, root_rank = tnt.get_master_rank()):
+    kwargs = {}
+    if isinstance(self.model, tnt.Model):
+      kwargs['tnt_distribute_dataset'] = False
+      if distribution:
+        kwargs = {}
+      kwargs['root_rank'] = root_rank
+    results = self.model.predict(val_dataset, verbose=0, **kwargs)
+    return results
+
