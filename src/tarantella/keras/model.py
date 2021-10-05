@@ -131,7 +131,8 @@ class Model(tf.keras.models.Model):
               **kwargs):
     self.done_broadcast = False
     self.compiled = True
-
+    self.evaluate_reducer = None
+    
     if isinstance(optimizer, dict):
       optimizer = deserialize(optimizer)
     elif isinstance(optimizer, six.string_types):
@@ -186,8 +187,8 @@ class Model(tf.keras.models.Model):
     loss_metric = self.model.evaluate(x, callbacks = callbacks, **kwargs)
     loss_metric = factor * loss_metric
     if self.evaluate_reducer is None:
-      self.evaluate_reducer = tarantella.TensorAllreducer(np.array(loss_metric, dtype=np.float32))
-    return self.evaluate_reducer.allreduce(np.array(loss_metric,dtype=np.float32))
+      self.evaluate_reducer = tnt.TensorAllreducer(loss_metric)
+    return self.evaluate_reducer.allreduce(loss_metric)
     
   def fit(self,
           x = None,

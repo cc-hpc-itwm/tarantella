@@ -31,13 +31,15 @@ class TestsDistributedEvaluation:
                                               number_epochs, nbatches, test_nbatches,
                                               extra_batch, extra_sample):
     (_, test_dataset) = util.train_test_mnist_datasets(nbatches, test_nbatches,
-                                                                   micro_batch_size,
-                                                                   extra_batch = extra_batch,
-                                                                   extra_sample_test = extra_sample)
+                                                       micro_batch_size,
+                                                       shuffle = False,
+                                                       remainder_samples_per_batch = extra_batch,
+                                                       last_incomplete_batch_size = extra_sample)
     (ref_train_dataset, ref_test_dataset) = util.train_test_mnist_datasets(nbatches, test_nbatches,
                                                                            micro_batch_size,
-                                                                           extra_batch = extra_batch,
-                                                                           extra_sample_test = extra_sample)
+                                                                           shuffle = False,
+                                                                           remainder_samples_per_batch = extra_batch,
+                                                                           last_incomplete_batch_size = extra_sample)
     
     reference_model_runner = model_runners
     reference_model_runner.train_model(ref_train_dataset, number_epochs)

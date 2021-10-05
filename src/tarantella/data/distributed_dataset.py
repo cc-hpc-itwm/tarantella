@@ -18,6 +18,8 @@ class DistributedDataset:
     self.num_samples = None
     self._micro_batch_size = None
 
+    self.evaluation_factor = None
+    
     self.base_dataset, self.dataset_transformations = \
            ops_helpers.gen_dataset_transformations(dataset)
     self.batching_info = ops_helpers.get_batching_info(self.dataset_transformations)
@@ -60,7 +62,7 @@ class DistributedDataset:
                                            micro_batch_size = self._micro_batch_size)
         else:
           # FIXME: distribute batch for `evaluate` and `predict`
-          dataset = self.distributed_batch_evaluate(dataset,
+          dataset = self.distributed_evaluate_batch(dataset,
                                                     batch_size = batch_size,
                                                     micro_batch_size = micro_batch_size)
 
@@ -117,6 +119,36 @@ class DistributedDataset:
     logger.info(f"Using batch size = {batch_size}, micro batch size = {micro_batch_size}.")
     return dataset
 
+  def distributed_evaluate_batch(self, dataset, batch_size, micro_batch_size):
+    if self.batching_info.drop_remainder == True:
+      dataset = self.batching_info.apply(dataset, new_batch_size = batch_size)
+      dataset = dataset.unbatch()
+    else:
+      if self.num_samples is None:
+        self.num_samples = ds_helpers._get_num_samples(dataset)
+      if self.num_samples == tf.data.experimental.INFINITE_CARDINALITY:
+        raise ValueError("[DistributedDataset] Infinite dataset provided; cannot count samples.")
+    
+    dataset = self._get_dataset_slice_per_rank(dataset, batch_size, micro_batch_size)
+    dataset = self.batching_info.apply(dataset, new_batch_size = micro_batch_size)
+    
+    self.evaluation_factor = self._get_my_sample(batch_size, micro_batch_size) / self.num_samples
+    
+    return dataset
+  
+  def _get_my_sample(self, batch_size, micro_batch_size):
+    num_iteration = self.num_samples // batch_size
+    num_sample = num_iteration * micro_batch_size
+    
+    extra_sample = self.num_samples % batch_size
+    num_sample = num_sample + extra_sample // self.num_ranks
+    extra_final_sample = extra_sample % self.num_ranks
+    
+    if self.rank < extra_final_sample:
+      num_sample = num_sample + 1
+    
+    return num_sample
+    
   def _get_dataset_slice_per_rank(self, dataset, batch_size, micro_batch_size):
     if ds_helpers._is_batch_multiple_num_ranks(self.num_ranks, batch_size):
       dataset = dataset.shard(num_shards = self.num_ranks, index = self.rank)
