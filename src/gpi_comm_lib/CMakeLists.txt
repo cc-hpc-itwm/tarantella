@@ -7,6 +7,7 @@ set (GPICOMMLIB_SOURCES
     ${SRC_DIR}/gpi_comm_lib/SynchCommunicator.cpp
     ${SRC_DIR}/gpi_comm_lib/TensorAllreducer.cpp
     ${SRC_DIR}/gpi_comm_lib/TensorBroadcaster.cpp
+    ${SRC_DIR}/gpi_comm_lib/TensorGatherver.cpp
     ${SRC_DIR}/gpi_comm_lib/TensorInfo.cpp
     ${SRC_DIR}/gpi_comm_lib/FusedTensorInfo.cpp
     ${SRC_DIR}/gpi_comm_lib/BufferElementType.cpp

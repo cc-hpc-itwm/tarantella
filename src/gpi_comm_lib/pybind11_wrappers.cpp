@@ -4,6 +4,7 @@
 #include "SynchCommunicator.hpp"
 #include "TensorBroadcaster.hpp"
 #include "TensorAllreducer.hpp"
+#include "TensorGatherver.hpp"
 
 #include <GaspiCxx/Runtime.hpp>
 
@@ -120,6 +121,72 @@ PYBIND11_MODULE(GPICommLib, m)
 
           tensor_broadcaster.exec_broadcast(input_ptrs, output_ptrs);
           return output_list;
+        });
+
+  py::class_<tarantella::TensorGatherver>(m, "TensorGatherver")
+    .def(py::init(
+        [](std::vector<tarantella::collectives::TensorInfo> tensor_infos,
+          gaspi::group::GlobalRank root_rank)
+        {
+          gaspi::group::Group group_all;
+
+          return std::unique_ptr<tarantella::TensorGatherver>(
+            new tarantella::TensorGatherver(tensor_infos,
+                                            group_all,
+                                            group_all.toGroupRank(root_rank)));
+        }))
+    .def("gatherv",
+        [](tarantella::TensorGatherver& tensor_gatherver, std::vector<py::array>& input_list)
+        {
+          gaspi::group::Group group_all;
+          gaspi::group::Rank root = tensor_gatherver.get_root();
+
+          std::vector<py::array> output_list;
+          std::vector<std::size_t> output_sizes = tensor_gatherver.get_output_sizes();
+
+          if(group_all.rank() == root)
+          {
+              for(auto i = 0UL; i < input_list.size(); ++i)
+            {
+              auto const info = input_list[i].request();
+              if (py::isinstance<py::array_t<float>>(py::array::ensure(input_list[i])))
+              {
+                output_list.push_back(py::array_t<float>(output_sizes[i]));
+              }
+              else if (py::isinstance<py::array_t<double>>(py::array::ensure(input_list[i])))
+              {
+                output_list.push_back(py::array_t<double>(output_sizes[i]));
+              }
+            }
+          }
+
+          // extract pointers for inputs and outputs
+          std::vector<void const*> input_ptrs;
+          for (auto const& input : input_list)
+          {
+            input_ptrs.push_back(input.request().ptr);
+          }
+
+          if(group_all.rank() == root)
+          {
+            std::vector<void*> output_ptrs;
+            for (auto const& output : output_list)
+            {
+              output_ptrs.push_back(output.request().ptr);
+            }
+            tensor_gatherver.exec_gatherv(input_ptrs, output_ptrs);
+          }
+          else
+          {
+            tensor_gatherver.exec_gatherv(input_ptrs);
+          }
+          
+          return output_list;
+        })
+        .def("get_output_count",
+        [](tarantella::TensorGatherver& tensor_gatherver, int index)
+        {
+          return tensor_gatherver.get_output_sizes().at(index);
         });
 
   py::class_<tarantella::TensorAllreducer>(m, "TensorAllreducer")
