@@ -168,6 +168,7 @@ gpi1.5.0-eth-gcc8.3.0-Release-vmcentos-cpp:
     - .vm_centos_tf2.3_job
     - .vm_centos_gcc8.3.0_job
     - .eth_job
+    - .vm_centos_gpi1.5.0_job
     - .vm_centos_run_tests_cpp
   needs:
     - job: tf2.3-cpu-eth-gcc8.3.0-Release-vmcentos-build
@@ -177,6 +178,7 @@ eth-gcc8.3.0-Release-vmcentos-cpp:
     - .vm_centos_tf2.2_job
     - .vm_centos_gcc8.3.0_job
     - .eth_job
+    - .vm_centos_gpi1.5.0_job
     - .vm_centos_run_tests_cpp
   needs:
     - job: tf2.2-cpu-eth-gcc8.3.0-Release-vmcentos-build
@@ -186,6 +188,7 @@ eth-gcc7.4.0-Release-vmcentos-test:
     - .vm_centos_tf2.2_job
     - .vm_centos_gcc7.4.0_job
     - .eth_job
+    - .vm_centos_gpi1.4.0_job
     - .vm_centos_run_tests_cpp
   needs:
     - job: tf2.2-cpu-eth-gcc7.4.0-Release-vmcentos-build
@@ -195,6 +198,7 @@ tf2.3-cpu-eth-gcc8.3.0-Release-vmcentos-py:
   extends:
     - .vm_centos_tf2.3_job
     - .eth_job
+    - .vm_centos_gpi1.5.0_job
     - .vm_centos_run_tests_py
   needs:
     - job: tf2.3-cpu-eth-gcc8.3.0-Release-vmcentos-build
@@ -203,6 +207,7 @@ tf2.2-cpu-eth-gcc8.3.0-Release-vmcentos-py:
   extends:
     - .vm_centos_tf2.2_job
     - .eth_job
+    - .vm_centos_gpi1.5.0_job
     - .vm_centos_run_tests_py
   needs:
     - job: tf2.2-cpu-eth-gcc8.3.0-Release-vmcentos-build
@@ -221,6 +226,7 @@ tf2.2-cpu-eth-gcc8.3.0-Release-vmcentos-integration-nightly:
   extends:
     - .vm_centos_tf2.2_job
     - .eth_job
+    - .vm_centos_gpi1.5.0_job
     - .vm_centos_integration_tests_nightly
   needs:
     - job: tf2.2-cpu-eth-gcc8.3.0-Release-vmcentos-build
