@@ -45,7 +45,11 @@ PYBIND11_MODULE(GPICommLib, m)
           else if (tensdtype.is(py::dtype::of<double>()))
           {
             elemtype = tarantella::collectives::BufferElementType::DOUBLE;
-          }    
+          }
+          else if (tensdtype.is(py::dtype::of<int64_t>()))
+          {
+            elemtype = tarantella::collectives::BufferElementType::INT64;
+          }
           else if (tensdtype.is(py::dtype::of<int32_t>()))
           {
             elemtype = tarantella::collectives::BufferElementType::INT32;
@@ -149,6 +153,10 @@ PYBIND11_MODULE(GPICommLib, m)
             else if (py::isinstance<py::array_t<double>>(py::array::ensure(input)))
             {
               output_list.push_back(py::array_t<double>(info.size));
+            }
+            else if (py::isinstance<py::array_t<int64_t>>(py::array::ensure(input)))
+            {
+              output_list.push_back(py::array_t<int64_t>(info.size));
             }
             else if (py::isinstance<py::array_t<int16_t>>(py::array::ensure(input)))
             {

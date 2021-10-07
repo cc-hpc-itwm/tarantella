@@ -35,6 +35,10 @@ namespace tarantella
             allreduces.push_back(std::make_unique<gaspi::collectives::Allreduce<int32_t, Algorithm>>(
                           group, tensor_info.get_nelems(), reduction_op));
             break;
+        case tensor_type::INT64:
+            allreduces.push_back(std::make_unique<gaspi::collectives::Allreduce<int64_t, Algorithm>>(
+                          group, tensor_info.get_nelems(), reduction_op));
+            break;
         default: throw std::logic_error("TensorAllreducer::TensorAllreducer() Unsupported tensor data type");
       }
     }

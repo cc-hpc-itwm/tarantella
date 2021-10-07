@@ -13,7 +13,8 @@ namespace tarantella
         {BufferElementType::FLOAT, sizeof(float)},
         {BufferElementType::DOUBLE, sizeof(double)},
         {BufferElementType::INT16, sizeof(int16_t)},
-        {BufferElementType::INT32, sizeof(int32_t)}
+        {BufferElementType::INT32, sizeof(int32_t)},
+        {BufferElementType::INT64, sizeof(int64_t)}
       };
       return sizes.at(d);
     }

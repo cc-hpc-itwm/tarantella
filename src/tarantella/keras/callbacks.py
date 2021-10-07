@@ -38,6 +38,112 @@ def _construct_from_keras_object(obj, keras_callback):
   for k, v in keras_callback.__dict__.items():
     setattr(obj, k, copy.deepcopy(v))
 
+class Callback(LogsAverager, tf.keras.callbacks.Callback):
+  def __init__(self, keras_callback, aggregate_logs=True, run_on_all_ranks=True):
+    super().__init__()
+    self.aggregate_logs = aggregate_logs
+    self.run_on_all_ranks = run_on_all_ranks
+    self.keras_callback = keras_callback
+    self.is_built = False
+    _construct_from_keras_object(self, keras_callback)
+  
+  def _logs_as_tensors(self, logs):
+    logs_as_tensors = copy.deepcopy(logs)
+    for key in logs_as_tensors.keys():
+      if not tf.is_tensor(logs_as_tensors[key]):
+        logs_as_tensors[key] = tf.constant(logs_as_tensors[key])
+    return logs_as_tensors
+
+  def _setup_tensor_allreducer(self, logs):
+    full_logs = copy.deepcopy(logs)
+    for key in list(logs):
+      new_key = 'val_' + key
+      full_logs[new_key] = np.double(0)
+    self.create_allreducer(self._logs_as_tensors(full_logs))
+
+  def _build_tensor_allreducer_if_necessary(self, logs):
+    if not self.is_built:
+      self._setup_tensor_allreducer(logs)
+      self.is_built = True
+
+  def set_params(self, params):
+    self.keras_callback.set_params(params)
+  
+  def set_model(self, model):
+    self.keras_callback.set_model(model)
+
+  def _distribute_callback(self, callback_func, **kwargs):
+    kwargs_copy = copy.deepcopy(kwargs)
+    # Check if logs do not contain None (for tf versions older than 2.1)
+    if kwargs_copy['logs'] is not None: 
+      if "loss" in kwargs_copy['logs']:
+        self._build_tensor_allreducer_if_necessary(kwargs_copy['logs'])
+        if self.aggregate_logs:
+          kwargs_copy['logs'] = self.average_logs(kwargs_copy['logs'])
+
+    if self.run_on_all_ranks:
+      callback_func(**kwargs_copy)
+    else:
+      if tnt.is_master_rank:
+        callback_func(**kwargs_copy)
+  
+  def on_epoch_begin(self, epoch, logs=None):
+    self._distribute_callback(self.keras_callback.on_epoch_begin, epoch=epoch, logs=logs)
+  
+  def on_epoch_end(self, epoch, logs=None):
+    self._distribute_callback(self.keras_callback.on_epoch_end, epoch=epoch, logs=logs)
+
+  def on_batch_begin(self, batch, logs=None):
+    self._distribute_callback(self.keras_callback.on_batch_begin, batch=batch, logs=logs)
+  
+  def on_batch_end(self, batch, logs=None):
+    self._distribute_callback(self.keras_callback.on_batch_end, batch=batch, logs=logs)
+
+  def on_train_batch_begin(self, batch, logs=None):
+    self._distribute_callback(self.keras_callback.on_train_batch_begin, batch=batch, logs=logs)
+  
+  def on_train_batch_end(self, batch, logs=None):
+    self._distribute_callback(self.keras_callback.on_train_batch_end, batch=batch, logs=logs)
+  
+  def on_test_batch_begin(self, batch, logs=None):
+    self._distribute_callback(self.keras_callback.on_test_batch_begin, batch=batch, logs=logs)
+  
+  def on_test_batch_end(self, batch, logs=None):
+    self._distribute_callback(self.keras_callback.on_test_batch_end, batch=batch, logs=logs)
+  
+  def on_predict_batch_begin(self, batch, logs=None):
+    self._distribute_callback(self.keras_callback.on_predict_batch_begin, batch=batch, logs=logs)
+  
+  def on_predict_batch_end(self, batch, logs=None):
+    self._distribute_callback(self.keras_callback.on_predict_batch_end, batch=batch, logs=logs)
+  
+  def on_train_begin(self, logs=None):
+    self._distribute_callback(self.keras_callback.on_train_begin, logs=logs)
+  
+  def on_train_end(self, logs=None):
+    self._distribute_callback(self.keras_callback.on_train_end, logs=logs)
+  
+  def on_test_begin(self, logs=None):
+    self._distribute_callback(self.keras_callback.on_test_begin, logs=logs)
+  
+  def on_test_end(self, logs=None):
+    self._distribute_callback(self.keras_callback.on_test_end, logs=logs)
+  
+  def on_predict_begin(self, logs=None):
+    self._distribute_callback(self.keras_callback.on_predict_begin, logs=logs)
+  
+  def on_predict_end(self, logs=None):
+    self._distribute_callback(self.keras_callback.on_predict_end, logs=logs)
+  
+  def _implements_train_batch_hooks(self):
+    return self.keras_callback._implements_train_batch_hooks()
+
+  def _implements_test_batch_hooks(self):
+    return self.keras_callback._implements_test_batch_hooks()
+  
+  def _implements_predict_batch_hooks(self):
+    return self.keras_callback._implements_predict_batch_hooks()
+
 class ModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
   def __init__(self, keras_callback, tnt_model):
     super().__init__(filepath = keras_callback.filepath)

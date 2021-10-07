@@ -12,7 +12,8 @@ namespace tarantella
       FLOAT,
       DOUBLE,
       INT16,
-      INT32
+      INT32,
+      INT64
     };
 
     std::size_t getDataTypeSize(const BufferElementType d);
