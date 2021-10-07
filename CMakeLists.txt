@@ -78,6 +78,5 @@ set(CPACK_SOURCE_IGNORE_FILES
     ${CMAKE_SOURCE_DIR}/build.*
     ${CMAKE_SOURCE_DIR}/Testing
     ${CMAKE_SOURCE_DIR}/meta
-    ${CMAKE_SOURCE_DIR}/src/examples
-    ${CMAKE_SOURCE_DIR}/README.md)
+    )
 include(CPack)
