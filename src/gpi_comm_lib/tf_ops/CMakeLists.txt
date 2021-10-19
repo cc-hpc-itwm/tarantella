@@ -2,6 +2,7 @@
 set(TFOPS_SOURCES
     ${SRC_DIR}/gpi_comm_lib/tf_ops/AllreduceOps.cpp
     ${SRC_DIR}/gpi_comm_lib/tf_ops/SendRecvOps.cpp
+    ${SRC_DIR}/gpi_comm_lib/tf_ops/AllgatherOps.cpp
 )
 
 set(TFOPS_BUILD_DIR ${CMAKE_BINARY_DIR}/tnt_tfops)
