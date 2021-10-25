@@ -14,7 +14,23 @@ from tarantella import logger
 
 import atexit
 
-class Model(tf.keras.models.Model):
+def Model(model, should_pipeline = True):
+  if should_pipeline(model):
+    model = PipeliningModel(model)
+  return DataParallelModel(model)
+
+
+class PipeliningModel(tf.keras.models.Model):
+  def __init__(self, model):
+    self.core_model = build_core(model)
+
+  def fit():
+    micro_batch_model = build_mb(core_model)
+    micro_batch_model.fit()
+
+
+
+class DataParallelModel(tf.keras.models.Model):
   def __init__(self, model):
     super().__init__()
     self.rank = tnt.get_rank()
