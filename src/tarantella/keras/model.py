@@ -12,29 +12,37 @@ import tarantella.keras.utilities as utilities
 import tarantella.utilities.tf_version as version_utils
 from tarantella import logger
 
+import tarantella.strategy.pipelining.partitioned_model as pm
+import tarantella.strategy.pipelining.partition_generator as pgen
+import tarantella.strategy.pipelining.rank_mapper as rmapper
 import atexit
 
-def Model(model, should_pipeline = True):
-  if should_pipeline(model):
-    model = PipeliningModel(model)
-  return DataParallelModel(model)
 
+def Model(model, should_pipeline = True, num_pipeline_stages = 2):
+  rank = tnt.get_rank()
 
-class PipeliningModel(tf.keras.models.Model):
-  def __init__(self, model):
-    self.core_model = build_core(model)
+  partition_generator = pgen.GraphPartitionGenerator(model)
+  num_partitions = partition_generator.get_number_partitions()
 
-  def fit():
-    micro_batch_model = build_mb(core_model)
-    micro_batch_model.fit()
+  rank_mapper = rmapper.RankMapper(num_ranks = tnt.get_size(),
+                                   num_partitions = num_partitions,
+                                   pipeline_graph = partition_generator.get_pipeline_graph())
+  pipeline_group, dp_group = rank_mapper.get_groups_for_rank(rank)
 
-
+  if should_pipeline:
+    logger.info(f"Creating pipelined model with {num_partitions} partitions")
+    # get my partition
+    model = pm.PartitionedModel(model, pipeline_group, partition_generator, rank_mapper,
+                                num_pipeline_stages)
+  
+  # replicate my partition across the data parallel group
+  return DataParallelModel(model, group = dp_group)
 
 class DataParallelModel(tf.keras.models.Model):
-  def __init__(self, model):
+  def __init__(self, model, group = tnt.Group()):
     super().__init__()
-    self.rank = tnt.get_rank()
-    self.comm_size = tnt.get_size()
+    self.rank = group.rank
+    self.group = group
 
     self.model = model
     self.input_shapes = None
@@ -147,7 +155,7 @@ class DataParallelModel(tf.keras.models.Model):
               **kwargs):
     self.done_broadcast = False
     self.compiled = True
-
+    logger.warn("[DataParallelModel] compile")
     if isinstance(optimizer, dict):
       optimizer = deserialize(optimizer)
     elif isinstance(optimizer, six.string_types):
@@ -182,7 +190,7 @@ class DataParallelModel(tf.keras.models.Model):
 
     if tnt_distribute_dataset:
       test_dataset = tnt.data.Dataset(dataset = x,
-                                      num_ranks = self.comm_size,
+                                      num_ranks = self.group.size,
                                       rank = self.rank,
                                       shuffle_seed = self.default_shuffle_seed)
       x = test_dataset.distribute_dataset_across_ranks(
@@ -235,7 +243,7 @@ class DataParallelModel(tf.keras.models.Model):
       #         => last batch can be considered a new `batch_size`, which will be handled as above (in 1.),
       #            both for computing the `micro_batch_size` and the `scaling_factor`
       distributed_x = tnt.data.Dataset(dataset = x,
-                                       num_ranks = self.comm_size,
+                                       num_ranks = self.group.size,
                                        rank = self.rank,
                                        shuffle_seed = self.default_shuffle_seed)
       x = distributed_x.distribute_dataset_across_ranks(
@@ -258,7 +266,7 @@ class DataParallelModel(tf.keras.models.Model):
     if validation_data:
       if tnt_distribute_validation_dataset:
         distributed_validation_data = tnt.data.Dataset(dataset = validation_data,
-                                                       num_ranks = self.comm_size,
+                                                       num_ranks = self.group.size,
                                                        rank = self.rank,
                                                        shuffle_seed = self.default_shuffle_seed)
         validation_data = distributed_validation_data.distribute_dataset_across_ranks(
@@ -317,7 +325,7 @@ class DataParallelModel(tf.keras.models.Model):
 
     if tnt_distribute_dataset:
       test_dataset = tnt.data.Dataset(dataset = x,
-                                      num_ranks = self.comm_size,
+                                      num_ranks = self.group.size,
                                       rank = self.rank,
                                       shuffle_seed = self.default_shuffle_seed)
       x = test_dataset.distribute_dataset_across_ranks(
@@ -428,14 +436,13 @@ class DataParallelModel(tf.keras.models.Model):
       self._broadcast_weights()
 
   def _broadcast_weights(self):
-    root_rank = tnt.get_master_rank()
+    root_rank = 0 # rank 0 within the group
     if not self.broadcaster:
-      weights = self.get_weights()
-      self.broadcaster = tnt.TensorBroadcaster(weights, root_rank)
+      self.broadcaster = tnt.TensorBroadcaster(inputs = self.get_weights(),
+                                               group = self.group, root_rank = root_rank)
 
     if self.rank == root_rank:
-      weights = self.get_weights()
-      self.broadcaster.broadcast(weights)
+      self.broadcaster.broadcast(self.get_weights())
     else:
       new_weights = self.broadcaster.broadcast()
       self.model.set_weights(new_weights)
