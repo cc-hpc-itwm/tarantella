@@ -110,11 +110,6 @@ namespace tarantella
                                   elem = idx * nranks * (nranks + 1.) / 2.;
                                   break;
                                 }
-                                case gaspi::collectives::ReductionOp::AVERAGE:
-                                {
-                                  elem = idx * (nranks + 1.) / 2.;
-                                  break;
-                                }
                                 default:
                                 {
                                   throw std::runtime_error(
