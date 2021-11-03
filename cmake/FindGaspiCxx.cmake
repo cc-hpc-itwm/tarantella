@@ -39,6 +39,7 @@ The following cache variables may also be set:
 
 set(GaspiCxx_LIBRARY_NAME "GaspiCxx")
 set(GaspiCxx_INCLUDE_NAME "GaspiCxx/Runtime.hpp")
+set(pygpi_wrappers_LIBRARY_NAME "pygpi_wrappers")
 
 find_path (GaspiCxx_INCLUDE_DIR ${GaspiCxx_INCLUDE_NAME}
               PATHS ${GaspiCxx_ROOT} ${GaspiCxx_DIR} ${GaspiCxx_INCLUDE_PATH}
@@ -46,6 +47,11 @@ find_path (GaspiCxx_INCLUDE_DIR ${GaspiCxx_INCLUDE_NAME}
               PATH_SUFFIXES include)
 
 find_library (GaspiCxx_LIBRARY ${GaspiCxx_LIBRARY_NAME}
+              PATHS ${GaspiCxx_ROOT} ${GaspiCxx_DIR} ${GaspiCxx_LIBRARY_PATH}
+              PATHS ENV LD_LIBRARY_PATH DYLD_LIBRARY_PATH
+              PATH_SUFFIXES lib lib64)
+
+find_library (pygpi_wrappers_LIBRARY ${pygpi_wrappers_LIBRARY_NAME}
               PATHS ${GaspiCxx_ROOT} ${GaspiCxx_DIR} ${GaspiCxx_LIBRARY_PATH}
               PATHS ENV LD_LIBRARY_PATH DYLD_LIBRARY_PATH
               PATH_SUFFIXES lib lib64)
@@ -65,7 +71,7 @@ find_package_handle_standard_args(GaspiCxx DEFAULT_MSG
 
 mark_as_advanced(GaspiCxx_LIBRARY GaspiCxx_INCLUDE_DIR)
 set(GaspiCxx_INCLUDE_DIRS ${GaspiCxx_INCLUDE_DIR} )
-set(GaspiCxx_LIBRARIES ${GaspiCxx_LIBRARY} )
+set(GaspiCxx_LIBRARIES ${GaspiCxx_LIBRARY})
 
 message(STATUS "Found GaspiCxx: " ${GaspiCxx_FOUND})
 
@@ -78,4 +84,10 @@ if(GaspiCxx_FOUND AND NOT TARGET GaspiCxx::GaspiCxx)
                                     debug GPI2::GPI2dbg)
     target_include_directories(GaspiCxx::GaspiCxx INTERFACE ${GaspiCxx_INCLUDE_DIRS})
     set_property(TARGET GaspiCxx::GaspiCxx PROPERTY IMPORTED_LOCATION ${GaspiCxx_LIBRARIES})
+
+    add_library(GaspiCxx::pygpi SHARED IMPORTED GLOBAL)
+    target_link_libraries(GaspiCxx::pygpi
+                          INTERFACE GaspiCxx::GaspiCxx)
+    target_include_directories(GaspiCxx::pygpi INTERFACE ${GaspiCxx_INCLUDE_DIRS})
+    set_property(TARGET GaspiCxx::pygpi PROPERTY IMPORTED_LOCATION ${pygpi_wrappers_LIBRARY})
 endif()
