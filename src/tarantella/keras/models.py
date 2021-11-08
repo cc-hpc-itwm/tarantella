@@ -30,7 +30,7 @@ def load_model(filepath, compile = True, **kwargs):
         logger.info("Set `experimental_run_tf_function` to False.")
     except:
       logger.info("The loaded model was not pre-compiled.")
-  tnt_model.barrier.synchronize()
+  tnt_model.barrier.execute()
   return tnt_model
 
 def model_from_config(config, **kwargs):
