@@ -184,15 +184,6 @@ PYBIND11_MODULE(GPICommLib, m)
           return output_list;
         });
 
-  py::class_<gaspi::collectives::blocking::Barrier>(m, "Barrier")
-    .def(py::init(
-        []()
-        {
-          gaspi::group::Group group_all;
-          return std::make_unique<gaspi::collectives::blocking::Barrier>(group_all);
-        }))
-    .def("blocking_barrier_all_ranks", &gaspi::collectives::blocking::Barrier::execute);
-
   py::class_<tarantella::PipelineCommunicator>(m, "PipelineCommunicator")
     .def(py::init(
         [](std::unordered_map<tarantella::PipelineCommunicator::ConnectionID,
