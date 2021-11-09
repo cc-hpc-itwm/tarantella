@@ -8,7 +8,7 @@ import math
 import pytest
 
 class TestTensorAllreducer:
-  @pytest.mark.parametrize("array_length", [8, 35, 67])
+  @pytest.mark.parametrize("array_length", [0, 8, 35, 67])
   @pytest.mark.parametrize("dtype", [np.float32, np.int32])
   def test_single_array_identical_inputs(self, array_length, dtype):
     input_array = np.ones(shape=(array_length, 1), dtype=dtype)
@@ -16,7 +16,6 @@ class TestTensorAllreducer:
 
     allreducer = tnt.TensorAllreducer(input_array)
     output_array = allreducer.allreduce(input_array)
-
     assert isinstance(output_array, np.ndarray)
     assert np.array_equal(output_array, expected_output_array)
 
@@ -34,7 +33,7 @@ class TestTensorAllreducer:
     assert isinstance(output_array, np.ndarray)
     assert np.array_equal(output_array, expected_output_array)
 
-  @pytest.mark.parametrize("list_length", [1, 5, 12])
+  @pytest.mark.parametrize("list_length", [0, 1, 5, 12])
   @pytest.mark.parametrize("dtype", [np.float32, np.int32])
   def test_list_of_arrays_identical_inputs(self, list_length, dtype):
     array_length = 50
@@ -78,7 +77,7 @@ class TestTensorAllreducer:
     assert isinstance(output_list, list)
     assert all(np.array_equal(array, expected_output_array) for array in output_list)
 
-  @pytest.mark.parametrize("length", [5, 56, 89])
+  @pytest.mark.parametrize("length", [0, 5, 56, 89])
   def test_dict_many_keys(self, length):
     input_value = 4.2
     input_dict = dict.fromkeys(("key " + str(i) for i in range(length)), input_value)
@@ -125,18 +124,6 @@ class TestTensorAllreducer:
     assert isinstance(output, float)
     assert expected_output == output
 
-  def test_single_array_empty(self):
-    input_array = np.empty(shape=0, dtype=np.float32)
-
-    with pytest.raises(TypeError):
-      tnt.TensorAllreducer(input_array)
-
-  def test_list_empty(self):
-    input_list = []
-
-    with pytest.raises(TypeError):
-      tnt.TensorAllreducer(input_list)
-
   def test_unsupported_type(self):
     string = "sample input"
 
@@ -163,10 +150,10 @@ class TestTensorAllreducer:
     input_array = np.ones(shape=input_shape, dtype=dtype)
     expected_output_array = input_array * tnt.get_size()
 
-    input = tf.constant(input_array)
+    inputs = tf.constant(input_array)
 
-    allreducer = tnt.TensorAllreducer(input)
-    output = allreducer.allreduce(input)
+    allreducer = tnt.TensorAllreducer(inputs)
+    output = allreducer.allreduce(inputs)
 
     assert tf.is_tensor(output)
     assert np.array_equal(output.numpy(), expected_output_array)
