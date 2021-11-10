@@ -150,6 +150,7 @@ gaspicxx-gpi1.5.0-ib-build:
   variables:
     CACHE_KEY: gpi1.5.0-ib-${GASPICXX_SHA1}
   extends:
+    - .tnt_cluster_tf2.4_job
     - .tnt_cluster_gcc10.1.0_job
     - .ib_job
     - .tnt_cluster_gpi1.5.0_job
@@ -160,6 +161,7 @@ gaspicxx-gpi1.4.0-ib-build:
   variables:
     CACHE_KEY: gpi1.4.0-ib-${GASPICXX_SHA1}
   extends:
+    - .tnt_cluster_tf2.4_job
     - .tnt_cluster_gcc8.4.0_job
     - .ib_job
     - .tnt_cluster_gpi1.4.0_job
@@ -170,6 +172,7 @@ gaspicxx-gpi1.5.0-eth-build:
   variables:
     CACHE_KEY: gpi1.5.0-eth-${GASPICXX_SHA1}
   extends:
+    - .tnt_cluster_tf2.4_job
     - .tnt_cluster_gcc10.1.0_job
     - .eth_job
     - .tnt_cluster_gpi1.5.0_job
@@ -180,6 +183,7 @@ gaspicxx-gpi1.4.0-eth-build:
   variables:
     CACHE_KEY: gpi1.4.0-eth-${GASPICXX_SHA1}
   extends:
+    - .tnt_cluster_tf2.4_job
     - .tnt_cluster_gcc8.4.0_job
     - .eth_job
     - .tnt_cluster_gpi1.4.0_job
