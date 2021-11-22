@@ -12,6 +12,7 @@ import tarantella.keras.utilities as utilities
 import tarantella.utilities.tf_version as version_utils
 from tarantella import logger
 
+import atexit
 
 class Model(tf.keras.models.Model):
   def __init__(self, model):
@@ -35,6 +36,7 @@ class Model(tf.keras.models.Model):
                                'predict' : utilities.TF_verbose.SILENT.value,
                               }
     self.progbar_necessary = False
+    atexit.register(self.close)
 
   ##############
   # Attributes #
@@ -531,7 +533,13 @@ class Model(tf.keras.models.Model):
           logger.warn("Micro batch size should be at least 16 when using Batch Normalization.")
           return
 
+  def close(self):
+    del self.broadcaster
+    del self.barrier
+    del self.dist_optimizer
+
 def connect_ancillary_layers(model, created_layers):
   raise AttributeError('Not supported by tarantella model. '
                        'Call `connect_ancillary_layers` on keras '
                        ' model before calling `tnt.Model()` instead.')
+
