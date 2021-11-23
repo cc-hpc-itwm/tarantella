@@ -15,7 +15,7 @@ variables:
   TNT_BUILD_DIR: ${CI_PROJECT_DIR}/build
   TNT_LD_LIBRARY_PATH: ${CI_PROJECT_DIR}/build
   GASPICXX_DIR: tmp/gaspicxx
-  GASPICXX_SHA1: 78c3ec2b11e2825a5d5bff0d1ed4ef3560dc9c7a # explicitely set the commit SHA1 (default: master)
+  GASPICXX_SHA1: e9cd600254d73823d17aaf2f878497c873eb4587 # explicitely set the commit SHA1 (default: master)
   RUNNER_HOME: /home/gitlab-runner
 
 include: 
