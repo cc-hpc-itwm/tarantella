@@ -1,3 +1,4 @@
+import atexit
 import copy
 import tensorflow as tf
 import numpy as np
@@ -11,6 +12,7 @@ class LogsAverager(object):
     super().__init__()
     self.num_ranks = num_ranks
     self.allreducer = None
+    atexit.register(self.close)
 
   def create_allreducer(self, logs):
     self.allreducer = tnt.TensorAllreducer(logs)
@@ -33,6 +35,9 @@ class LogsAverager(object):
       logs[k] = averaged_logs[k]
 
     return logs
+
+  def close(self):
+    del self.allreducer
 
 def _construct_from_keras_object(obj, keras_callback):
   for k, v in keras_callback.__dict__.items():

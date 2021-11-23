@@ -7,11 +7,17 @@ import GPICommLib
 
 import tensorflow as tf
 
-class SynchCommunicator():
+import atexit
+
+class SynchCommunicator:
   def __init__(self):
     self.weight_to_index = dict()
     self.comm = None
     self.threshold = tnt.global_tnt_config.fusion_threshold
+    atexit.register(self.close)
+
+  def close(self):
+    del self.comm
 
   def setup_infrastructure(self, gradients_and_weights):
     """ Setup state and allocate GPI segments
