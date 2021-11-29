@@ -23,7 +23,7 @@ Tarantella is designed to meet the following goals:
 
 To build Tarantella from source, the following dependencies are required:
 
-* [TensorFlow](https://www.tensorflow.org/install) (supported versions TensorFLow 2.0-2.4)
+* [TensorFlow](https://www.tensorflow.org/install) (supported versions TensorFLow 2.0-2.7)
 * [GaspiCxx](https://github.com/cc-hpc-itwm/GaspiCxx) (version 1.0)
 * [GPI-2](https://github.com/cc-hpc-itwm/GPI-2) (from version 1.4.0)
 * [pybind11](https://github.com/pybind/pybind11) (from version 2.4.3)
