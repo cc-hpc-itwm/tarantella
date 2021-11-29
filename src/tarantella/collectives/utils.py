@@ -1,7 +1,4 @@
-import GPICommLib
-
 import numpy as np
-import tensorflow as tf
 
 def is_nonEmptyList(input):
   return isinstance(input, list) and len(input) != 0
@@ -17,14 +14,3 @@ def is_int(input):
 
 def is_scalar(input):
   return is_int(input) or is_floatOrDouble(input)
-
-def is_tensor(input):
-  return tf.is_tensor(input)
-
-def is_nonEmptyDict(input):
-  return isinstance(input, dict) and len(input) != 0
-
-def get_tensor_info(tensor_id, tensor):
-  return GPICommLib.TensorInfo(tensor_id,
-                               int(np.prod(tensor.shape)),
-                               np.dtype(tf.dtypes.as_dtype(tensor.dtype).as_numpy_dtype()))
