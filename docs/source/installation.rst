@@ -118,7 +118,7 @@ Installing TensorFlow
 ^^^^^^^^^^^^^^^^^^^^^
 
 Next you will need to install TensorFlow.
-Tarantella supports TensorFlow versions ``2.0`` to ``2.4``.
+Tarantella supports TensorFlow versions ``2.0`` to ``2.7``.
 Either version can be installed in a conda environment using pip,
 as recommended on the `TensorFlow website <https://www.tensorflow.org/install>`_.
 
@@ -134,8 +134,8 @@ Now, you can install the latest supported TensorFlow version with:
 
 .. code-block:: bash
 
-  conda install python=3.8
-  pip install --upgrade tensorflow==2.4.*
+  conda install python=3.9
+  pip install --upgrade tensorflow==2.7.*
 
 Tarantella requires at least Python ``3.7``. Make sure the selected version also matches
 the `TensorFlow requirements <https://www.tensorflow.org/install>`_.
@@ -172,6 +172,8 @@ To download the source code, simply clone the
 .. code-block:: bash
 
   git clone https://github.com/cc-hpc-itwm/tarantella.git
+  cd tarantella
+  git checkout tags/v0.7.0 -b v0.7.0
 
 Next, we need to configure the build system using CMake.
 For a standard out-of-source build, we create a separate ``build`` folder and run ``cmake``
