@@ -18,10 +18,10 @@ class TensorBroadcaster():
       self._raise_input_error()
     for tensor in inputs:
       self.shapes.append(tensor.shape)
-      self.broadcasts.append(pygpi.Broadcast(group, int(np.prod(tensor.shape)),
-                             self.root_rank,
-                             algorithm = self.algorithm,
-                             dtype = tensor.dtype))
+      self.broadcasts.append(pygpi.Broadcast(group = group, nelems = int(np.prod(tensor.shape)),
+                                             root = self.root_rank,
+                                             algorithm = self.algorithm,
+                                             dtype = tensor.dtype))
 
   def broadcast(self, inputs = None):
     outputs = list()
