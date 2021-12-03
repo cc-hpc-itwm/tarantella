@@ -23,6 +23,17 @@ class DistributedDataset:
     self.batching_info = ops_helpers.get_batching_info(self.dataset_transformations)
 
 
+  def clone_preprocessing(self, new_dataset):
+    dist_dataset = DistributedDataset(new_dataset,
+                                      num_ranks = self.num_ranks, rank = self.rank,
+                                      shuffle_seed = self.shuffle_seed)
+    dist_dataset.base_dataset = new_dataset
+    dist_dataset.num_samples = self.num_samples
+    dist_dataset._micro_batch_size = self._micro_batch_size
+    dist_dataset.dataset_transformations = self.dataset_transformations
+    dist_dataset.batching_info = self.batching_info
+    return dist_dataset
+
   @property
   def micro_batch_size(self):
     return self._micro_batch_size
