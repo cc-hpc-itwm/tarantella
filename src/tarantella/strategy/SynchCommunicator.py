@@ -1,13 +1,17 @@
 import tarantella as tnt
-import tarantella.collectives.utils as utils
 import tarantella.utilities.tf_version as version_utils
 
 from tnt_tfops import tnt_ops
 import GPICommLib
 
+import atexit
+import numpy as np
 import tensorflow as tf
 
-import atexit
+def get_tensor_info(tensor_id, tensor):
+  return GPICommLib.TensorInfo(tensor_id,
+                               int(np.prod(tensor.shape)),
+                               np.dtype(tf.dtypes.as_dtype(tensor.dtype).as_numpy_dtype()))
 
 class SynchCommunicator:
   def __init__(self):
@@ -34,7 +38,7 @@ class SynchCommunicator:
     # initialize the internal `SynchCommunicator` corresponding to the provided list of gradients
     grad_infos = list()
     for grad, weight in gradients_and_weights:
-      grad_infos.append(utils.get_tensor_info(self.weight_to_index[weight.name], grad))
+      grad_infos.append(get_tensor_info(self.weight_to_index[weight.name], grad))
     self.comm = GPICommLib.SynchDistCommunicator(grad_infos, self.threshold)
 
   def reduce_gradients(self, gradients_and_weights):

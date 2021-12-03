@@ -1,4 +1,3 @@
-import GPICommLib
 import tarantella as tnt
 from tarantella import logger
 
@@ -55,7 +54,6 @@ def setup_gpus(rank, ngpus = None):
   logger.debug("Using device: {}".format(tf.config.experimental.get_visible_devices()))
 
 def init():
-  GPICommLib.initGaspiCxx()
   logging_config.setup_logging(logger, tnt.global_tnt_config.log_level,
                                 tnt.get_rank(), tnt.is_master_rank(),
                                 tnt.global_tnt_config.log_on_all_devices)

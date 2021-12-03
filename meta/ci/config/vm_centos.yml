@@ -112,6 +112,7 @@ gaspicxx-gpi1.5.0-eth-vmcentos-build:
   variables:
     CACHE_KEY: gpi1.5.0-eth-${GASPICXX_SHA1}
   extends:
+    - .vm_centos_tf2.3_job
     - .vm_centos_gcc8.3.0_job  
     - .eth_job
     - .vm_centos_gpi1.5.0_job
@@ -122,6 +123,7 @@ gaspicxx-gpi1.4.0-eth-vmcentos-build:
   variables:
     CACHE_KEY: gpi1.4.0-eth-${GASPICXX_SHA1}
   extends:
+    - .vm_centos_tf2.3_job
     - .vm_centos_gcc8.3.0_job  
     - .eth_job
     - .vm_centos_gpi1.4.0_job

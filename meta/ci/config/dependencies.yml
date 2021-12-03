@@ -17,7 +17,7 @@
         rm -rf build;
         mkdir -p build;
         cd build;
-        cmake -DCMAKE_INSTALL_LIBDIR=lib -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=${GASPICXX_INSTALL_DIR} ../ ;
+        cmake -DCMAKE_INSTALL_LIBDIR=lib -DBUILD_PYTHON_BINDINGS=ON -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=${GASPICXX_INSTALL_DIR} ../ ;
         make -j$(nproc) install;
         echo ${GASPICXX_SHA1} >> ${CI_PROJECT_DIR}/${CACHE_DIR}/${CACHE_KEY}/gaspicxx.lock;
       fi;
@@ -26,7 +26,7 @@
     - env | grep CACHE_KEY >> ${BUILD_GASPICXX_ENV} # required because the `cache` artifact is overriden
     - echo "GASPICXX_INSTALL_DIR=${GASPICXX_INSTALL_DIR}" >> ${BUILD_GASPICXX_ENV}
     - echo "LD_LIBRARY_PATH=${GASPICXX_INSTALL_DIR}/lib:${LD_LIBRARY_PATH}" >> ${BUILD_GASPICXX_ENV}
-    - echo "PYTHONPATH=${GASPICXX_INSTALL_DIR}/lib:${PYTHONPATH}" >> ${BUILD_GASPICXX_ENV}
+    - echo "PYTHONPATH=${GASPICXX_INSTALL_DIR}/lib:${GASPICXX_INSTALL_DIR}/lib/python:${PYTHONPATH}" >> ${BUILD_GASPICXX_ENV}
     - echo "CMAKE_PREFIX_PATH=${GASPICXX_INSTALL_DIR}:${CMAKE_PREFIX_PATH}" >> ${BUILD_GASPICXX_ENV}
   artifacts:
     when: always

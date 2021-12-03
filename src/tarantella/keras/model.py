@@ -287,7 +287,7 @@ class Model(tf.keras.models.Model):
     # loaded weights from the same source will be identical on all ranks
     self.done_broadcast = True
     result = self.model.load_weights(filepath = filepath, **kwargs)
-    self.barrier.synchronize()
+    self.barrier.execute()
     return result
   
   def predict(self,
@@ -355,7 +355,7 @@ class Model(tf.keras.models.Model):
       if tnt.is_master_rank():
         save_function(filepath, kwargs)
     # make sure that every rank can load the model after function exit
-    self.barrier.synchronize()
+    self.barrier.execute()
 
   def _save_tnt_model(self, filepath, args_dict):
     if self.compiled == False:
