@@ -5,6 +5,7 @@ set(GPI_LIB_MODULE "GPICommLib")
 set (GPICOMMLIB_SOURCES
     ${SRC_DIR}/gpi_comm_lib/PipelineCommunicator.cpp
     ${SRC_DIR}/gpi_comm_lib/SynchCommunicator.cpp
+    ${SRC_DIR}/gpi_comm_lib/TensorAllgatherver.cpp
     ${SRC_DIR}/gpi_comm_lib/TensorInfo.cpp
     ${SRC_DIR}/gpi_comm_lib/FusedTensorInfo.cpp
     ${SRC_DIR}/gpi_comm_lib/BufferElementType.cpp
