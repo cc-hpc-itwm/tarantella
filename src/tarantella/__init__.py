@@ -28,6 +28,7 @@ from tarantella.keras.sequential import Sequential
 
 from tarantella.collectives.TensorAllreducer import TensorAllreducer
 from tarantella.collectives.TensorBroadcaster import TensorBroadcaster
+from tarantella.collectives.TensorAllgatherer import TensorAllgatherer
 
 from tarantella.strategy.SynchCommunicator import SynchCommunicator
 from tarantella.strategy.PipelineCommunicator import PipelineCommunicator

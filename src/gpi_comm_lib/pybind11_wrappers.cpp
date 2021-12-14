@@ -66,7 +66,6 @@ PYBIND11_MODULE(GPICommLib, m)
         },
         py::return_value_policy::reference_internal);
 
-
   py::class_<tarantella::PipelineCommunicator>(m, "PipelineCommunicator")
     .def(py::init(
         [](std::unordered_map<tarantella::PipelineCommunicator::ConnectionID,
