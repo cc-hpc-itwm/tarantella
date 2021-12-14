@@ -22,6 +22,7 @@ tnt_initializer.init()
 
 from tarantella import data
 
+from tarantella.keras import layers
 from tarantella.keras import models
 from tarantella.keras.model import Model
 from tarantella.keras.sequential import Sequential

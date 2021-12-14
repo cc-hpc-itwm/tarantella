@@ -1,5 +1,15 @@
 import tensorflow as tf
 
+from tensorflow.python.framework import ops
+from tnt_tfops import tnt_ops
+import GPICommLib
+
+import tarantella as tnt
+
+import atexit
+import logging
+import numpy as np
+
 class P2PLayer(tf.keras.layers.Layer):
   def __init__(self, pipeline_communicator):
     super().__init__()
@@ -191,3 +201,39 @@ class SplitLayer(tf.keras.layers.Layer):
   def is_split_layer(cls, model, name):
     layer = model.get_layer(name = name)
     return isinstance(layer, cls)
+
+
+class BatchNormalization(tf.keras.layers.BatchNormalization):
+
+  def __init__(self, *args, local_batch_size = None, **kwargs):
+    super().__init__(*args, **kwargs)
+    self.local_batch_size = local_batch_size
+    self.allgatherer = None
+    atexit.register(self.close)
+
+  def close(self):
+    del self.allgatherer
+
+  def _moments(self, inputs, reduction_axes, keep_dims):
+    sample_shape = inputs.shape[1:]
+    if not self.allgatherer:
+      self.allgatherer = GPICommLib.TensorAllgatherver(int(np.prod(sample_shape)) * self.local_batch_size,
+                                                  np.dtype(tf.dtypes.as_dtype(inputs.dtype).as_numpy_dtype()))
+
+    @tf.custom_gradient
+    def calculate_mean_and_var(inputs):
+      gathered_inputs = tnt_ops.allgather_op(input_tensor = inputs,
+                                             batch_size = self.allgatherer.get_output_count(),
+                                             tnt_gatherer = self.allgatherer.get_raw_ptr())
+      mean, variance = self._calculate_mean_and_var(gathered_inputs,
+                                            reduction_axes,
+                                            keep_dims)
+
+      def _mean_and_var_grad(mean, var):
+        return tf.zeros_like(inputs)
+      return [mean, variance], _mean_and_var_grad
+
+    # wrap [mean, variance] computation to keep the inputs modification (using the full mini-batch instead of the
+    # micro-batch) opaque to the gradient computation of the BatchNorm operation
+    mean, variance = calculate_mean_and_var(inputs)
+    return mean, variance
