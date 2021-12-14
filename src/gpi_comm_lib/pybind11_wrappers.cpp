@@ -2,6 +2,7 @@
 #include "TensorInfo.hpp"
 #include "PipelineCommunicator.hpp"
 #include "SynchCommunicator.hpp"
+#include "TensorAllgatherver.hpp"
 
 #include <GaspiCxx/Runtime.hpp>
 
@@ -79,4 +80,29 @@ PYBIND11_MODULE(GPICommLib, m)
           return reinterpret_cast<uint64_t>(&comm);
         },
         py::return_value_policy::reference_internal);
+  py::class_<tarantella::TensorAllgatherver>(m, "TensorAllgatherver")
+    .def(py::init(
+        [](std::size_t nelems, py::dtype tensdtype)
+        {
+          gaspi::group::Group group_all;
+          tarantella::collectives::BufferElementType elemtype;
+          if (tensdtype.is(py::dtype::of<float>()))
+          {
+            elemtype = tarantella::collectives::BufferElementType::FLOAT;
+          }
+          else if (tensdtype.is(py::dtype::of<double>()))
+          {
+            elemtype = tarantella::collectives::BufferElementType::DOUBLE;
+          }
+          return std::make_unique<tarantella::TensorAllgatherver>(nelems, elemtype, group_all);
+        }))
+    .def("get_raw_ptr", [](tarantella::TensorAllgatherver& allgatherver)
+        {
+          return reinterpret_cast<uint64_t>(&allgatherver);
+        },
+        py::return_value_policy::reference_internal)
+    .def("get_output_count", [](tarantella::TensorAllgatherver& allgatherver)
+        {
+          return allgatherver.getOutputCount();
+        });
 }
