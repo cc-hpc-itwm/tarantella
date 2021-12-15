@@ -2,9 +2,9 @@
 #include "tensorflow/core/framework/shape_inference.h"
 #include "tensorflow/core/framework/op_kernel.h"
 
-#include "TensorAllgatherver.hpp"
+#include "op_utils.hpp"
 
-#include <string.h>
+#include "TensorAllgatherver.hpp"
 
 using namespace tensorflow;
 
@@ -15,7 +15,7 @@ REGISTER_OP("AllgatherOp")
     .Output("output_tensor: float")
     .SetShapeFn([](::tensorflow::shape_inference::InferenceContext *c)
     {
-      int batch_size;
+      TFLongIntType batch_size;
       c->GetAttr("batch_size", &batch_size);
 
       shape_inference::ShapeHandle sample_shape;
@@ -35,7 +35,7 @@ class AllgatherOp : public OpKernel
     explicit AllgatherOp(OpKernelConstruction* context)
         : OpKernel(context)
     {
-      tensorflow::int64 context_ptr;
+      TFLongIntType context_ptr;
       OP_REQUIRES_OK(context,
                     context->GetAttr("tnt_gatherer", &context_ptr));
       allgatherer = reinterpret_cast<tarantella::TensorAllgatherver *>(context_ptr);
@@ -47,7 +47,7 @@ class AllgatherOp : public OpKernel
       auto* inputs = input_tensor.flat<float>().data();
 
       // construct shape using output size
-      long long int size = allgatherer->getOutputCount();
+      TFLongIntType size = allgatherer->getOutputCount();
       TensorShape output_shape{size};
 
       //allocate output
