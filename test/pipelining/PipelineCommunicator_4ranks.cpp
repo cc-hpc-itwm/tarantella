@@ -16,6 +16,7 @@ namespace tarantella
   using LayerEdges = PipelineCommunicator::LayerEdges;
   using ConnectionID = std::size_t;
   using Rank = gaspi::group::GlobalRank;
+  using MessageSizeBytes = std::size_t;
   using T = int;
 
   // list of partitions for each rank
@@ -25,9 +26,11 @@ namespace tarantella
   class Partition
   {
     public:
-      explicit Partition(PartitionTestCase test_case, Rank current_rank)
+      explicit Partition(PartitionTestCase test_case, Rank current_rank,
+                         MessageSizeBytes micro_batch_size)
       : edges(test_case.second[current_rank]),
-        num_microbatches(test_case.first)
+        num_microbatches(test_case.first),
+        micro_batch_size(micro_batch_size)
       { }
 
       auto get_num_microbatches()
@@ -50,7 +53,7 @@ namespace tarantella
         {
           throw std::runtime_error("Buffer size is not a multiple of type size");
         }
-        return edges[connection_id].second/sizeof(T);
+        return edges[connection_id].second  * micro_batch_size / sizeof(T);
       }
 
       Rank get_other_rank(ConnectionID const connection_id)
@@ -74,7 +77,8 @@ namespace tarantella
 
     private:
       LayerEdges edges;
-      std::size_t  num_microbatches;
+      std::size_t num_microbatches;
+      MessageSizeBytes micro_batch_size;
   };
 }
 
@@ -153,10 +157,12 @@ namespace tarantella
 
     BOOST_DATA_TEST_CASE(pipelinecomm_send_all_connections, partition_test_cases, test_case)
     {
+      MessageSizeBytes micro_batch_size = 16;
       auto rank = gaspi::getRuntime().global_rank();
-      Partition<T> partition(test_case, rank);
+      Partition<T> partition(test_case, rank, micro_batch_size);
       auto pipeline_comm = PipelineCommunicator(partition.get_edges(),
                                                 partition.get_num_microbatches());
+      pipeline_comm.setup_infrastructure(micro_batch_size);
 
       // send from all connections
       for (auto connection_id : partition.get_connection_ids())
