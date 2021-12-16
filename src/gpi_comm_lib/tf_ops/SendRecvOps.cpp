@@ -39,7 +39,7 @@ class P2POp : public OpKernel
     explicit P2POp(OpKernelConstruction* context)
     : OpKernel(context)
     {
-      tensorflow::int64 context_ptr;
+      long long int context_ptr;
       OP_REQUIRES_OK(context, context->GetAttr("tnt_pipeline_comm", &context_ptr));
       pipeline_communicator = reinterpret_cast<tarantella::PipelineCommunicator*>(context_ptr);
     }
