@@ -79,8 +79,11 @@ class PartitionedModel(tf.keras.models.Model):
     self.compile_properties = None
     self.rank = group.rank
     self.num_pipeline_stages = num_pipeline_stages
-    self.connection_table = rank_mapper.get_connections_for_rank(self.rank)
-    
+
+    connection_table = rank_mapper.get_connections_for_rank(self.rank)
+    self.pipeline_communicator = tnt.PipelineCommunicator(connection_table, self.num_pipeline_stages)
+    self.initialized = False
+
     partition_id = rank_mapper.get_partition_for_rank(self.rank)
     partition_graph = partition_generator.get_partition_graph(partition_id)
     self.partition_info = pinfo.PartitionInfo(partition_id, partition_graph)
@@ -91,12 +94,12 @@ class PartitionedModel(tf.keras.models.Model):
 
 
   def _get_microbatched_model_builder(self, micro_batch_size):
-    pipeline_communicator = tnt.PipelineCommunicator(self.connection_table,
-                                                     micro_batch_size,
-                                                     self.num_pipeline_stages)
 
+    if not self.initialized:
+      self.pipeline_communicator.setup_infrastructure(micro_batch_size)
+      self.initialized = True
     shared_model_builder = sm_builder.SharedModelBuilder(self.partition_info, self.model,
-                                                                   pipeline_communicator, micro_batch_size)
+                                                         self.pipeline_communicator, micro_batch_size)
     shared_model = shared_model_builder.get_model()
     microbatched_model_builder = mbm_builder.MicrobatchedModelBuilder(self.partition_info,
                                                                        shared_model,
