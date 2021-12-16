@@ -78,5 +78,9 @@ PYBIND11_MODULE(GPICommLib, m)
         {
           return reinterpret_cast<uint64_t>(&comm);
         },
-        py::return_value_policy::reference_internal);
+        py::return_value_policy::reference_internal)
+    .def("setup_infrastructure", [](tarantella::PipelineCommunicator& comm, std::size_t micro_batch_size)
+        {
+          comm.setup_infrastructure(micro_batch_size);
+        });
 }
