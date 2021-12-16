@@ -46,7 +46,7 @@ class CommunicateTensorOp : public OpKernel
     explicit CommunicateTensorOp(OpKernelConstruction* context)
         : OpKernel(context)
     {
-      tensorflow::int64 context_ptr;
+      long long int context_ptr;
       OP_REQUIRES_OK(context,
                     context->GetAttr("tnt_synchcomm", &context_ptr));
       synch_communicator = reinterpret_cast<tarantella::SynchCommunicator *>(context_ptr);
@@ -60,7 +60,7 @@ class CommunicateTensorOp : public OpKernel
     }
 
   protected:
-    tensorflow::int64 tensor_id;
+    long long int tensor_id;
     tarantella::SynchCommunicator *synch_communicator;
 };
 
