@@ -150,8 +150,8 @@ class TestPipelineSimpleModel:
     micro_batch_size = batch_size // num_micro_batches
 
     ### CREATE MODEL
-    pipeline_communicator = get_pipeline_communicator(micro_batch_size = micro_batch_size,
-                                                      num_micro_batches = num_micro_batches)
+    pipeline_communicator = get_pipeline_communicator(num_micro_batches)
+    pipeline_communicator.setup_infrastructure(micro_batch_size)
 
     core_model = get_partitioned_core_model()
     shared_model = get_partitioned_shared_model(core_model, pipeline_communicator, micro_batch_size)
@@ -214,8 +214,8 @@ class TestPipelineSimpleModel:
     micro_batch_size = batch_size // num_micro_batches
 
     ### CREATE MODEL
-    pipeline_communicator = get_pipeline_communicator(micro_batch_size = micro_batch_size,
-                                                      num_micro_batches = num_micro_batches)
+    pipeline_communicator = get_pipeline_communicator(num_micro_batches)
+    pipeline_communicator.setup_infrastructure(micro_batch_size)
 
     core_model = get_partitioned_core_model()
     shared_model = get_partitioned_shared_model(core_model, pipeline_communicator, micro_batch_size)

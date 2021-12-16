@@ -33,8 +33,8 @@ class TestPipelineSimpleModel:
     micro_batch_size = batch_size // num_micro_batches
 
     # create pipelined model and load datasets
-    pipeline_communicator = get_pipeline_communicator(micro_batch_size = micro_batch_size,
-                                                      num_micro_batches = num_micro_batches)
+    pipeline_communicator = get_pipeline_communicator(num_micro_batches)
+    pipeline_communicator.setup_infrastructure(micro_batch_size)
     core_model = get_partitioned_core_model()
     
     partition_info = get_partition_info(core_model)

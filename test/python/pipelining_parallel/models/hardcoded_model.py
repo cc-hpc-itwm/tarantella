@@ -71,10 +71,10 @@ def get_partitioned_core_model():
   elif rank == p_1_rank:
     return p_1_core
 
-def get_pipeline_communicator(micro_batch_size, num_micro_batches):
+def get_pipeline_communicator(num_micro_batches):
   connection_table = { 0 : cinfo.ConnectionInfo((p_0_rank, p_1_rank), fc_units * elem_type.itemsize),
                        1 : cinfo.ConnectionInfo((p_0_rank, p_1_rank), fc_units * elem_type.itemsize) }
-  ppl_comm = tnt.PipelineCommunicator(connection_table, micro_batch_size, num_micro_batches)
+  ppl_comm = tnt.PipelineCommunicator(connection_table, num_micro_batches)
   return ppl_comm
 
 def get_partition_info(core_model):

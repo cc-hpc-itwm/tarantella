@@ -5,7 +5,7 @@ import tarantella.strategy.pipelining.shared_model_builder as shared
 import tarantella.strategy.pipelining.microbatched_model_builder as microbatched
 
 import tarantella.strategy.pipelining.rank_mapper as rmapper
-import tarantella.strategy.pipelining.core_model_builder as core_model_builder
+import tarantella.strategy.pipelining.core_model_builder as cm_builder
 import tarantella.strategy.pipelining.partition_generator as pgen
 import tarantella.keras.layers as tnt_layers
 
@@ -39,26 +39,29 @@ def simple_model_generator():
 def to_microbatched(model, micro_batch_size, num_micro_batches, num_batches, num_test_batches):
   rank = tnt.get_rank()
   partition_generator = pgen.GraphPartitionGenerator(model)
-  rank_mapper = rmapper.RankMapper(partition_generator.get_pipeline_graph(), tnt.get_size())
-  cm_builder = core_model_builder.CoreModelBuilder(model, partition_generator,
-                                                    rank_mapper, rank)
-  core_model = cm_builder.get_model()
-
-  connection_table = rank_mapper.get_connections_for_rank(rank)
-  pipeline_communicator = tnt.PipelineCommunicator(connection_table, micro_batch_size, num_micro_batches)
+  rank_mapper = rmapper.RankMapper(tnt.get_size(), num_micro_batches,
+                                   partition_generator.get_pipeline_graph())
 
   partition_id = rank_mapper.get_partition_for_rank(rank)
+  partition_graph = partition_generator.get_partition_graph(partition_id)
   partition_info = pinfo.PartitionInfo(partition_id = partition_id,
-                                       partition_graph = partition_generator.get_partition_graph(partition_id))
+                                       partition_graph = partition_graph)
+
+  core_model_builder = cm_builder.CoreModelBuilder(model, partition_id, partition_graph)
+  core_model = core_model_builder.get_model()
+
+  connection_table = rank_mapper.get_connections_for_rank(rank)
+  pipeline_communicator = tnt.PipelineCommunicator(connection_table, num_micro_batches)
 
   shared_model_builder = shared.SharedModelBuilder(partition_info, core_model,
-                                                    pipeline_communicator, micro_batch_size)
+                                                   pipeline_communicator, micro_batch_size)
   shared_model = shared_model_builder.get_model()
 
   microbatched_model_builder = microbatched.MicrobatchedModelBuilder(partition_info, shared_model,
                                                                      micro_batch_size, num_micro_batches)
   ds = load_microbatched_datasets(micro_batch_size, num_micro_batches,
                                   num_batches, num_test_batches, partition_info)
+  pipeline_communicator.setup_infrastructure(micro_batch_size)
   return microbatched_model_builder, ds
 
 @pytest.mark.min_tfversion('2.2')

@@ -53,9 +53,11 @@ class TestPipelineCommunicator:
   @pytest.mark.parametrize("num_micro_batches", [1,2,3])
   def test_send_all_connections(self, partition, num_micro_batches):
     elem_type = np.dtype(np.float32)
-    micro_batch_size = 1
-    pipeline_comm = tnt.PipelineCommunicator(partition, micro_batch_size, num_micro_batches)
-        
+    pipeline_comm = tnt.PipelineCommunicator(partition, num_micro_batches)
+
+    micro_batch_size = 4
+    pipeline_comm.setup_infrastructure(micro_batch_size)
+
     # send on all connections
     for micro_batch_id in range(num_micro_batches):
       for conn_id in pipeline_comm.get_local_connection_ids():
@@ -63,7 +65,7 @@ class TestPipelineCommunicator:
         if conn_info.get_other_rank(tnt.get_rank()) < tnt.get_rank():
           continue
 
-        array_length = conn_info.get_size_in_bytes() // elem_type.itemsize
+        array_length = micro_batch_size * conn_info.get_size_in_bytes() // elem_type.itemsize
         input_array = np.empty(shape=(array_length, 1), dtype=elem_type)
         input_array.fill(tnt.get_rank())
 
@@ -78,7 +80,7 @@ class TestPipelineCommunicator:
         if conn_info.get_other_rank(tnt.get_rank()) > tnt.get_rank():
           continue
 
-        array_length = conn_info.get_size_in_bytes() // elem_type.itemsize
+        array_length = micro_batch_size * conn_info.get_size_in_bytes() // elem_type.itemsize
         expected_array = np.empty(shape=(array_length, 1), dtype=elem_type)
         expected_array.fill(conn_info.get_other_rank(tnt.get_rank()))
 
