@@ -39,8 +39,9 @@ def simple_model_generator():
 def to_microbatched(model, micro_batch_size, num_micro_batches, num_batches, num_test_batches):
   rank = tnt.get_rank()
   partition_generator = pgen.GraphPartitionGenerator(model)
-  rank_mapper = rmapper.RankMapper(tnt.get_size(), num_micro_batches,
-                                   partition_generator.get_pipeline_graph())
+  rank_mapper = rmapper.RankMapper(num_ranks = tnt.get_size(),
+                                   num_partitions = partition_generator.get_number_partitions(),
+                                   pipeline_graph = partition_generator.get_pipeline_graph())
 
   partition_id = rank_mapper.get_partition_for_rank(rank)
   partition_graph = partition_generator.get_partition_graph(partition_id)
