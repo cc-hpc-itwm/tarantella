@@ -2,6 +2,8 @@
 #include "tensorflow/core/framework/shape_inference.h"
 #include "tensorflow/core/framework/op_kernel.h"
 
+#include "op_utils.hpp"
+
 #include "SynchCommunicator.hpp"
 
 using namespace tensorflow;
@@ -39,14 +41,14 @@ REGISTER_OP("BarrierOp")
       return Status::OK();
     });
 
-template <typename T>
+template <typename Derived>
 class CommunicateTensorOp : public OpKernel
 {
   public:
     explicit CommunicateTensorOp(OpKernelConstruction* context)
         : OpKernel(context)
     {
-      long long int context_ptr;
+      TFLongIntType context_ptr;
       OP_REQUIRES_OK(context,
                     context->GetAttr("tnt_synchcomm", &context_ptr));
       synch_communicator = reinterpret_cast<tarantella::SynchCommunicator *>(context_ptr);
@@ -56,11 +58,11 @@ class CommunicateTensorOp : public OpKernel
 
     void Compute(OpKernelContext* context) override
     {
-      static_cast<T&>(*this).compute_impl(context);
+      static_cast<Derived&>(*this).compute_impl(context);
     }
 
   protected:
-    long long int tensor_id;
+    TFLongIntType tensor_id;
     tarantella::SynchCommunicator *synch_communicator;
 };
 

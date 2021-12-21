@@ -2,6 +2,8 @@
 #include "tensorflow/core/framework/shape_inference.h"
 #include "tensorflow/core/framework/op_kernel.h"
 
+#include "op_utils.hpp"
+
 #include "PipelineCommunicator.hpp"
 
 using namespace tensorflow;
@@ -39,7 +41,7 @@ class P2POp : public OpKernel
     explicit P2POp(OpKernelConstruction* context)
     : OpKernel(context)
     {
-      long long int context_ptr;
+      TFLongIntType context_ptr;
       OP_REQUIRES_OK(context, context->GetAttr("tnt_pipeline_comm", &context_ptr));
       pipeline_communicator = reinterpret_cast<tarantella::PipelineCommunicator*>(context_ptr);
     }
