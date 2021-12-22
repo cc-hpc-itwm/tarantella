@@ -51,9 +51,7 @@ def get_tnt_model_compiled(model):
 
 class TestsModelLoadSave:
   model_configuration_checks = [pytest.param(util.check_model_configuration_identical,
-                                             marks=[pytest.mark.tfversion('2.2'),
-                                                    pytest.mark.tfversion('2.3'),
-                                                    pytest.mark.tfversion('2.4'),]),
+                                             marks=[pytest.mark.min_tfversion('2.2')]),
                                 pytest.param(util.check_model_configuration_identical_legacy,
                                              marks=[pytest.mark.tfversion('2.0'),
                                                     pytest.mark.tfversion('2.1')]),

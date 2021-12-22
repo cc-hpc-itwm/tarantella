@@ -21,6 +21,7 @@ class TestsModelSaveLoadInMemory:
     tnt_model = tnt.Model(model)
     assert tnt_model.to_json() == model.to_json()
 
+  @pytest.mark.max_tfversion('2.5') # method deprecated later
   def test_model_to_yaml(self, model):
     tnt_model = tnt.Model(model)
     assert tnt_model.to_yaml() == model.to_yaml()
@@ -41,6 +42,7 @@ class TestsModelSaveLoadInMemory:
     assert isinstance(json_model, tnt.Model)
     util.check_model_configuration_identical(json_model, model)
 
+  @pytest.mark.max_tfversion('2.5') # method deprecated later
   def test_model_from_yaml(self, model):
     tnt_model = tnt.Model(model)
     yaml = tnt_model.to_yaml()
