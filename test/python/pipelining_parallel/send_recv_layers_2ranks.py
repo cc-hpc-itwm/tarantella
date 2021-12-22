@@ -1,6 +1,7 @@
 import tarantella as tnt
 import tarantella.keras.layers as tnt_layers
 import tarantella.keras.losses as tnt_losses
+import tarantella.strategy.pipelining.connection_info as cinfo
 
 import tensorflow as tf
 from tensorflow import keras
@@ -9,7 +10,7 @@ from tensorflow.keras import layers
 import numpy as np
 import pytest
 
-@pytest.mark.tfversion(['2.2', '2.3'])
+@pytest.mark.min_tfversion('2.2')
 class TestPipelineLayers:
 
   test_case_list = [
@@ -52,8 +53,9 @@ class TestPipelineLayers:
     for mbatch_id in range(num_micro_batches):
       tags_dataset = tags_dataset + micro_batch_size * [[mbatch_id, connection_id]]
 
-    partition_table = {connection_id: ((rank_0, rank_1), tensor_size * micro_batch_size * elem_type.itemsize)}
-    pipeline_comm = tnt.PipelineCommunicator(partition_table, num_micro_batches)
+    connection_table = {connection_id: cinfo.ConnectionInfo((rank_0, rank_1),
+                                                            tensor_size * elem_type.itemsize)}
+    pipeline_comm = tnt.PipelineCommunicator(connection_table, micro_batch_size, num_micro_batches)
 
     if rank == rank_0:
       input_tags = keras.Input(shape=(number_tags,), name="tags", dtype = tf.int32)
@@ -101,8 +103,9 @@ class TestPipelineLayers:
 
     labels_dataset = micro_batch_size * num_micro_batches * [0.]
 
-    partition_table = {connection_id: ((rank_0, rank_1), tensor_size * micro_batch_size * elem_type.itemsize)}
-    pipeline_comm = tnt.PipelineCommunicator(partition_table, num_micro_batches)
+    connection_table = {connection_id: cinfo.ConnectionInfo((rank_0, rank_1),
+                                                            tensor_size * elem_type.itemsize)}
+    pipeline_comm = tnt.PipelineCommunicator(connection_table, micro_batch_size, num_micro_batches)
 
     if rank == rank_0:
       input_tags = keras.Input(shape=(number_tags,), name="tags", dtype = tf.int32)

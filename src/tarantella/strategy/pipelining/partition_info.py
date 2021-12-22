@@ -37,26 +37,76 @@ class EndpointInfo:
   def dtype(self):
     return self.dtype
 
+  def __eq__(self, other):
+    if not isinstance(other, EndpointInfo):
+      return False
+    return self.endpoint_id == other.endpoint_id and \
+           self.shape[1:] == other.shape[1:] and \
+           self.dtype == other.dtype
 
-# Endpoint: a keras tensor (either `keras.Input` or the output of a layer)
-# Input/Output ID: the index of the Endpoint within the (ordered) list of inputs/outputs in a model
+  def __str__(self):
+    return f"Endpoint id={self.endpoint_id}, shape={self.shape}, dtype={self.dtype}"
+
+def build_endpoint_info(partition_graph, node_name, id_field_name):
+  node = partition_graph.get_node(node_name)
+  shape = node.info_dict.get('shape', None)
+  dtype = node.info_dict['config'].get('dtype', None)
+  endpoint_id = node.info_dict.get(id_field_name, node_name)
+  return EndpointInfo(endpoint_id, shape, dtype)
+
+
 class PartitionInfo:
-  #  real_input_infos = list(EndpointInfo)
-  #  edge_input_infos = list(EndpointInfo)
-  # real_output_infos = list(EndpointInfo),
-  # edge_output_infos = list(EndpointInfo)
-  def __init__(self, partition_id, keras_model_with_split_layers):
-    # build input/output info lists based on the user keras model
-    # TODO: fill based on the keras model
+  def __init__(self, partition_id, partition_graph = None):
+    # build input/output info dicts for each Endpoint based on the partition graph of a keras model
+    # Endpoint: a keras tensor (either `keras.Input` or the output of a layer)
+    # [real|edge]_[in|out]_infos = { id : endpoint_info }, where
+    #                                id = index of the Endpoint within the (ordered) list of
+    #                                     inputs/outputs in the local partition
     self.partition_id = partition_id
-    self.real_input_infos = []
-    self.edge_input_infos = []
-    self.real_output_infos = []
-    self.edge_output_infos = []
+    self.real_input_infos = dict()
+    self.edge_input_infos = dict()
+    self.real_output_infos = dict()
+    self.edge_output_infos = dict()
+    self._fill_in_endpoint_infos(partition_graph)
 
   @property
   def pid(self):
     return self.partition_id
+
+  def _fill_in_endpoint_infos(self, partition_graph):
+    if partition_graph is None:
+      return
+
+    index_input = 0
+    index_output = 0
+    for node in sorted(partition_graph.get_nodes()):
+      node_info = node.info_dict
+
+      if 'connection_id' in node_info:  # edge node in the partitions graph
+        endpoint_info = build_endpoint_info(partition_graph, node.name, 'connection_id')
+        if partition_graph.in_degree(node.name) == 0: # input node
+          assert node_info['class_name'] == 'InputLayer'
+          self.edge_input_infos[index_input] = endpoint_info
+          index_input += 1
+        elif partition_graph.out_degree(node.name) == 0: # output node
+          self.edge_output_infos[index_output] = endpoint_info
+          index_output += 1
+
+      elif 'original_input_id' in node_info:
+        endpoint_info = build_endpoint_info(partition_graph, node.name, 'original_input_id')
+        assert partition_graph.in_degree(node.name) == 0 # input node
+        assert node_info['class_name'] == 'InputLayer'
+        self.real_input_infos[index_input] = endpoint_info
+        index_input += 1
+
+      elif 'original_output_id' in node_info:
+        import logging
+        logging.getLogger().info(f"{node.name}, {partition_graph.in_degree(node.name)}")
+
+        endpoint_info = build_endpoint_info(partition_graph, node.name, 'original_output_id')
+        assert partition_graph.out_degree(node.name) == 0 # output node
+        self.real_output_infos[index_output] = endpoint_info
+        index_output += 1
 
   def get_real_ids(self, endpoint_direction):
     if endpoint_direction == EndpointDirection.inp:
@@ -65,7 +115,7 @@ class PartitionInfo:
       partition_infos = self.real_output_infos
     else:
       partition_infos = []
-    return [endpoint_info.endpoint_id for endpoint_info in partition_infos]
+    return [endpoint_info.endpoint_id for endpoint_info in partition_infos.values()]
 
   def get_edge_ids(self, endpoint_direction):
     if endpoint_direction == EndpointDirection.inp:
@@ -74,7 +124,7 @@ class PartitionInfo:
       partition_infos = self.edge_output_infos
     else:
       partition_infos = []
-    return [endpoint_info.endpoint_id for endpoint_info in partition_infos]
+    return [endpoint_info.endpoint_id for endpoint_info in partition_infos.values()]
 
   def get_infos(self, endpoint_type):
     if endpoint_type == EndpointType.inp:
@@ -86,5 +136,23 @@ class PartitionInfo:
     elif endpoint_type == EndpointType.out_edge:
       return self.edge_output_infos
 
+  def get_endpoint_type(self, endpoint_direction, endpoint_index_in_partition):
+    if endpoint_direction == EndpointDirection.inp:
+      if endpoint_index_in_partition in self.real_input_infos:
+        return EndpointType.inp
+      elif endpoint_index_in_partition in self.edge_input_infos:
+        return EndpointType.inp_edge
+    else:
+      if endpoint_index_in_partition in self.real_output_infos:
+        return EndpointType.out
+      elif endpoint_index_in_partition in self.edge_output_infos:
+        return EndpointType.out_edge
+    raise ValueError("[get_endpoint_type] Incorrect endpoint index:"
+                    f"{endpoint_index_in_partition} within the partition")
 
+  def __eq__(self, other):
+    return self.real_input_infos == other.real_input_infos and \
+           self.edge_input_infos == other.edge_input_infos and \
+           self.real_output_infos == other.real_output_infos and \
+           self.edge_output_infos == other.edge_output_infos
 
