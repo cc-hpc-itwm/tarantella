@@ -22,103 +22,15 @@ Compiler and build system
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Tarantella can be built using a recent `gcc <https://gcc.gnu.org/>`_
-compiler (from version ``7.4.0``).
-You will also need the build tool `CMake <https://cmake.org/>`_ (from version ``3.8``).
-
-.. _gpi2-install-label:
-
-Installing GPI-2
-^^^^^^^^^^^^^^^^
-
-Next, you will need to download, compile and install the GPI-2 library.
-GPI-2 is an API for high-performance, asynchronous communication for large scale
-applications, based on the
-`GASPI (Global Address Space Programming Interface) standard <http://www.gaspi.de>`_.
-
-
-The currently supported versions are ``v1.4-1.5``, which need to be built with
-position independent flags (``-fPIC``).
-To download the required version, clone the
-`GPI-2 git repository <https://github.com/cc-hpc-itwm/GPI-2.git>`_
-and checkout the correct ``tag``:
-
-.. code-block:: bash
-
-  git clone https://github.com/cc-hpc-itwm/GPI-2.git
-  cd GPI-2
-  git fetch --tags
-  git checkout -b v1.5.0 v1.5.0
-
-Now, use `autotools <https://www.gnu.org/software/automake/>`_ to configure and compile the code:
-
-.. code-block:: bash
-
-  ./autogen.sh 
-  export GPI2_INSTALLATION_PATH=/your/installation/path
-  CFLAGS="-fPIC" CPPFLAGS="-fPIC" ./configure --with-ethernet --prefix=${GPI2_INSTALLATION_PATH}
-  make
-
-where ``${GPI2_INSTALLATION_PATH}`` needs to be replaced with the path where you want to install
-GPI-2. Note the ``--with-ethernet`` option, which will use standard TCP sockets for communication.
-This is the correct option for laptops and workstations.
-
-.. _gpi-build-infiniband-label:
-
-In case you want to use Infiniband, replace the above option with ``--with-infiniband``.
-Now you are ready to install GPI-2 with:
-
-.. code-block:: bash
-
-  make install
-  export PATH=${GPI2_INSTALLATION_PATH}/bin:$PATH
-  export LD_LIBRARY_PATH=${GPI2_INSTALLATION_PATH}/lib64:$LD_LIBRARY_PATH
-
-where the last two commands make the library visible to your system.
-If required, GPI-2 can be removed from the target directory by using ``make uninstall``.
-
-.. _gaspicxx-install-label:
-
-Installing GaspiCxx
-^^^^^^^^^^^^^^^^^^^
-
-GaspiCxx is a C++ abstraction layer built on top of the GPI-2 library,
-which provides easy-to-use point-to-point and collective communication primitives.
-Tarantella's communication layer is based on GaspiCxx.
-Currently we support GaspiCxx version v1.0.0.
-
-To install GaspiCxx, first download the latest release from the
-`git repository <https://github.com/cc-hpc-itwm/GaspiCxx>`_:
-
-.. code-block:: bash
-
-  git clone https://github.com/cc-hpc-itwm/GaspiCxx.git
-  cd GaspiCxx
-  git fetch --tags
-  git checkout -b v1.0.0 v1.0.0
-
-GaspiCxx requires an already installed version of GPI-2, which should be detected at
-configuration time (as long as ``${GPI2_INSTALLATION_PATH}/bin`` is added to the current
-``${PATH}`` as shown :ref:`above <gpi2-install-label>`).
-
-Compile and install the library as follows:
-
-.. code-block:: bash
-
-  mkdir build && cd build
-  export GASPICXX_INSTALLATION_PATH=/your/installation/path
-  cmake -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=${GASPICXX_INSTALLATION_PATH} ../
-  make
-  make install
-
-where ``${GASPICXX_INSTALLATION_PATH}`` needs to be set to the path where you want to install
-the library.
-
+compiler with support for C++17 (tested starting with ``gcc 7.4.0``).
+You will also need the build tool `CMake <https://cmake.org/>`_ (from version ``3.12``).
 
 Installing TensorFlow
 ^^^^^^^^^^^^^^^^^^^^^
 
-Next you will need to install TensorFlow.
-Tarantella supports TensorFlow versions ``2.0`` to ``2.7``.
+First you will need to install TensorFlow.
+Tarantella supports TensorFlow versions ``2.0`` to ``2.7`` (some features are only available
+in versions above ``2.2``).
 Either version can be installed in a conda environment using pip,
 as recommended on the `TensorFlow website <https://www.tensorflow.org/install>`_.
 
@@ -148,11 +60,102 @@ Installing pybind11
 The last dependency you will need to install is
 `pybind11 <https://pybind11.readthedocs.io/en/stable/index.html>`__,
 which is available through pip and conda.
-We recommend installing pybind11 via conda:
+We recommend installing ``pybind11`` via conda:
 
 .. code-block:: bash
 
   conda install pybind11 -c conda-forge
+
+
+.. _gpi2-install-label:
+
+Installing GPI-2
+^^^^^^^^^^^^^^^^
+
+Next, you will need to download, compile and install the GPI-2 library.
+GPI-2 is an API for high-performance, asynchronous communication for large scale
+applications, based on the
+`GASPI (Global Address Space Programming Interface) standard <http://www.gaspi.de>`_.
+
+
+The currently supported versions are ``v1.4-1.5``, which need to be built with
+position independent flags (``-fPIC``).
+To download the required version, clone the
+`GPI-2 git repository <https://github.com/cc-hpc-itwm/GPI-2.git>`_
+and checkout the latest ``tag``:
+
+.. code-block:: bash
+
+  git clone https://github.com/cc-hpc-itwm/GPI-2.git
+  cd GPI-2
+  git fetch --tags
+  git checkout -b v1.5.1 v1.5.1
+
+Now, use `autotools <https://www.gnu.org/software/automake/>`_ to configure and compile the code:
+
+.. code-block:: bash
+
+  ./autogen.sh 
+  export GPI2_INSTALLATION_PATH=/your/gpi2/installation/path
+  CFLAGS="-fPIC" CPPFLAGS="-fPIC" ./configure --with-ethernet --prefix=${GPI2_INSTALLATION_PATH}
+  make
+
+where ``${GPI2_INSTALLATION_PATH}`` needs to be replaced with the path where you want to install
+GPI-2. Note the ``--with-ethernet`` option, which will use standard TCP sockets for communication.
+This is the correct option for laptops and workstations.
+
+.. _gpi-build-infiniband-label:
+
+In case you want to use Infiniband, replace the above option with ``--with-infiniband``.
+Now you are ready to install GPI-2 with:
+
+.. code-block:: bash
+
+  make install
+  export PATH=${GPI2_INSTALLATION_PATH}/bin:$PATH
+
+where the last two commands make the library visible to your system.
+If required, GPI-2 can be removed from the target directory by using ``make uninstall``.
+
+.. _gaspicxx-install-label:
+
+Installing GaspiCxx
+^^^^^^^^^^^^^^^^^^^
+
+GaspiCxx is a C++ abstraction layer built on top of the GPI-2 library,
+which provides easy-to-use point-to-point and collective communication primitives.
+Tarantella's communication layer is based on GaspiCxx and its PyGPI API for Python. 
+Currently we support GaspiCxx version v1.1.0.
+
+To install GaspiCxx and PyGPI, first download the latest release from the
+`git repository <https://github.com/cc-hpc-itwm/GaspiCxx>`_:
+
+.. code-block:: bash
+
+  git clone https://github.com/cc-hpc-itwm/GaspiCxx.git
+  cd GaspiCxx
+  git fetch --tags
+  git checkout -b v1.1.0 v1.1.0
+
+GaspiCxx requires an already installed version of GPI-2, which should be detected at
+configuration time (as long as ``${GPI2_INSTALLATION_PATH}/bin`` is added to the current
+``${PATH}`` as shown :ref:`above <gpi2-install-label>`).
+
+Compile and install the library as follows, making sure the previously created conda
+environment is activated:
+
+.. code-block:: bash
+  conda activate tarantella
+
+  mkdir build && cd build
+  export GASPICXX_INSTALLATION_PATH=/your/gaspicxx/installation/path
+  cmake -DBUILD_PYTHON_BINDINGS=ON    \
+        -DBUILD_SHARED_LIBS=ON        \
+        -DCMAKE_INSTALL_PREFIX=${GASPICXX_INSTALLATION_PATH} ../
+  make install
+
+where ``${GASPICXX_INSTALLATION_PATH}`` needs to be set to the path where you want to install
+the library.
 
 SSH key-based authentication
 ----------------------------
@@ -173,13 +176,15 @@ To download the source code, simply clone the
 
   git clone https://github.com/cc-hpc-itwm/tarantella.git
   cd tarantella
-  git checkout tags/v0.7.0 -b v0.7.0
+  git checkout tags/v0.7.1 -b v0.7.1
 
 Next, we need to configure the build system using CMake.
 For a standard out-of-source build, we create a separate ``build`` folder and run ``cmake``
 in it:
 
 .. code-block:: bash
+
+  conda activate tarantella
 
   cd tarantella
   mkdir build && cd build
@@ -207,6 +212,8 @@ Now, we can compile and install Tarantella to ``TARANTELLA_INSTALLATION_PATH``:
 In order to build Tarantella with tests, you will also need to install
 `Boost <https://www.boost.org/>`_
 (for C++ tests), and `pytest <https://www.pytest.org/>`_ (for Python tests).
+Additionally, the `PyYAML <https://pypi.org/project/PyYAML/>`_ and
+`NetworkX <https://networkx.org/>`_ libraries are required by some tests.
 
 To install boost with the required `devel`-packages, under Ubuntu you can use
 
@@ -220,11 +227,14 @@ while in Fedora you can use
 
   sudo dnf install boost boost-devel
 
-To install pytest you can use pip:
+The other dependencies can be installed in the existing conda environment:
 
 .. code-block:: bash
 
   pip install -U pytest
+  pip install PyYAML==3.13
+  conda install networkx
+
 
 After having installed these libraries, make sure to configure Tarantella with testing switched on:
 
@@ -233,6 +243,12 @@ After having installed these libraries, make sure to configure Tarantella with t
   cd tarantella
   mkdir build && cd build
   export LD_LIBRARY_PATH=`pwd`:${LD_LIBRARY_PATH}
+  export LD_LIBRARY_PATH=${GPI2_INSTALLATION_PATH}/lib64:${LD_LIBRARY_PATH}
+  export LD_LIBRARY_PATH=${GASPICXX_INSTALLATION_PATH}/lib:${LD_LIBRARY_PATH}
+
+  export PYTHONPATH=`pwd`:${PYTHONPATH}
+  export PYTHONPATH=${GASPICXX_INSTALLATION_PATH}/lib:${PYTHONPATH}
+
   cmake -DENABLE_TESTING=ON ../
 
 Now you can compile Tarantella and run its tests in the ``build`` directory:

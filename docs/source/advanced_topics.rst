@@ -10,8 +10,8 @@ performance, reproducibility and user customization.
 GASPI ranks
 ^^^^^^^^^^^
 
-In order to execute distributed DNN training, Tarantella starts multiple processes
-on different devices. These processes will be assigned different IDs by the GASPI
+To distribute the DNN training, Tarantella starts multiple processes
+on different devices. These processes will be assigned different IDs by the GPI-2
 communication library, in order to organize communication and synchronization between
 the different devices. These IDs are called *ranks*. Usually, Tarantella abstracts away
 the concept of *ranks*, in such a way that Tarantella's user interface is essentially
@@ -19,7 +19,7 @@ the same as Keras' user interface.
 
 However, sometimes it is useful, to execute a specific part of code only on one
 or a subgroup of all ranks. In particular, one sometimes wants to execute a code
-block on the devices that started ``tarantella``, the so-called *master rank*.
+block on the device that started ``tarantella``, the so-called *master rank*.
 
 To access ranks, Tarantella provides the following functions
 
@@ -33,7 +33,7 @@ To access ranks, Tarantella provides the following functions
 ``tnt.get_master_rank()`` and ``tnt.is_master_rank()`` return the ID of the master rank
 and a boolean for whether the local rank is the master rank or not, respectively.
 
-Here is a simple example, when using the master rank can be useful to print notifications
+Here is a simple example, where using the master rank can be useful to print notifications
 only once to ``stdout``:
 
 .. code-block:: python
@@ -104,7 +104,7 @@ For more information, please also read :ref:`using distributed datasets <using-d
 
 .. _tensor-fusion-threshold-label:
 
-Setting Tensor Fusion threshold
+Setting tensor fusion threshold
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Tarantella automatically uses :ref:`Tensor Fusion <tensor-fusion-label>` with a default
@@ -167,6 +167,7 @@ the following requirements:
 * set the ``deterministic`` parameter to ``True`` in ``Dataset`` transformations such as ``interleave`` and ``map``
 
 Additionally, Python-specific random generators might need to be seeded, in particular:
+
 * ``random.seed(seed)``
 * ``numpy.random.seed(seed)``
 * ``os.environ['PYTHONHASHSEED'] = str(seed)``

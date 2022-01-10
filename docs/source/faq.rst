@@ -45,7 +45,7 @@ Please make sure to execute your code with ``tarantella my_script.py`` instead.
 
    I get an execution error ``GPI library initialization general error``. What shall I do?
 
-This error occurs when the GASPI library tries to connect to a previously used socket, that is not yet released.
+This error occurs when the GPI-2 library tries to connect to a previously used socket, which is not yet released.
 Try to re-run your code after a short while so that the port becomes available again.
 
 .. admonition:: Question
@@ -66,7 +66,7 @@ by using ``Ctrl+c``.
    | What shall I do?
 
 This error occurs when pybind11 is installed using pip.
-Please instead use conda, as recommended in the :ref:`installation guide <installation-pybind11-label>`.
+Please use conda instead, as recommended in the :ref:`installation guide <installation-pybind11-label>`.
 
 .. admonition:: Question
 
