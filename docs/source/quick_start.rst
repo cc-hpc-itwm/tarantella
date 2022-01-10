@@ -5,10 +5,10 @@ Quick Start
 
 This section explains how to get started using Tarantella to distributedly
 train an existing TensorFlow model.
-First, we will examine what changes have to be made to your code, before we will look into
-the execution of your script with ``tarantella`` on the command line.
+First, we will examine what changes have to be made to your code,
+before executing it on the command line with ``tarantella``.
 Finally, we will present the features Tarantella currently supports and
-what important points need to be taken into account when using Tarantella.
+what important points need to be taken into account when using the framework.
 
 Code example: LeNet-5 on MNIST
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -95,8 +95,8 @@ The simplest way to run the model is by passing its Python script to ``tarantell
 
 This will execute our model distributedly on a single node, using all the available GPUs.
 In case no GPUs can be found, ``tarantella`` will be executed in serial mode on the CPU,
-and a ``WARNING`` message will be issued. In case you have GPUs available, but
-want to execute ``tarantella`` on CPUs nonetheless, you can specify the ``--no-gpu`` option.
+and a ``WARNING`` message will be issued. In case there are available GPUs, but we
+want to execute ``tarantella`` on CPUs nonetheless, we can add the ``--no-gpu`` option.
 
 .. code-block:: bash
 
@@ -116,10 +116,10 @@ we want to use. This is done with the ``-n`` option:
 
    tarantella -n 4 -- model.py --batch_size=64
 
-Here, ``tarantella`` would try to execute distributedly on 4 GPUs.
+Here, ``tarantella`` will try to execute distributedly on 4 GPUs.
 If there are not enough GPUs available, ``tarantella`` will print a ``WARNING``
 and run 4 instances of TensorFlow on the CPU instead.
-If there are no GPUs installed or the ``--no-gpu`` option is use,
+If there are no GPUs installed or the ``--no-gpu`` option is used,
 ``tarantella`` will not print a ``WARNING``.
 
 Next, let's run ``tarantella`` on multiple nodes. In order to do this,
@@ -157,7 +157,7 @@ of each node specified in ``hostfile``.
 .. caution::
 
    ``tarantella`` requires all the names in the ``hostfile`` be **unique**,
-   and all nodes be **homogeneous** (number and type of CPUs and GPUs).
+   and all nodes be **homogeneous** (same number and type of CPUs and GPUs).
 
 In addition, ``tarantella`` can be run with different levels of logging output.
 The log-levels that are available are ``INFO``, ``WARNING``, ``DEBUG`` and ``ERROR``,
@@ -168,7 +168,7 @@ and can be set with ``--log-level``:
    tarantella --hostfile hostfile --log-level INFO -- model.py
 
 By default, ``tarantella`` will log on the :ref:`master rank <ranks-label>` only.
-This can be changed by using the ``--log-on-all-devices`` option which will print
+This can be changed by using the ``--log-on-all-devices`` option, which will print
 log messages for each :ref:`rank <ranks-label>` individually.
 
 Similarly, by default ``tarantella`` will print outputs from functions like ``fit``,
@@ -196,7 +196,7 @@ before executing ``model.py``, in the same order they were specified to the comm
 Additionally, you can overwrite the *Tensor Fusion* threshold ``tarantella`` uses
 with ``--fusion-threshold FUSION_THRESHOLD_KB``
 (cf. :ref:`here <tensor-fusion-label>` and :ref:`here <tensor-fusion-threshold-label>`),
-and set and number of environment variables, most notably
+and set any number of environment variables, most notably
 ``TNT_TENSORBOARD_ON_ALL_DEVICES``, as explained
 :ref:`here <callbacks-label>`.
 
@@ -223,7 +223,7 @@ Save and load Tarantella models
 
 Storing and loading your trained ``Tarantella.Model`` is very simple.
 
-Tarantella supports all the different ways, in which you can load and store a ``keras.Model``
+Tarantella supports all the different ways in which you can load and store a ``keras.Model``
 (for a guide look for instance `here <https://www.tensorflow.org/guide/keras/save_and_serialize>`__).
 In particular, you can:
 
@@ -255,7 +255,7 @@ which will return an instance of ``tnt.Model``.
 
 If the saved model was previously compiled, ``load_model`` will also return a compiled model.
 Alternatively, you can deliberately load the model in an uncompiled state by passing 
-the ``compile=False`` flag to ``load_model``.
+the ``compile = False`` flag to ``load_model``.
 
 
 Architecture saving and loading
@@ -266,14 +266,15 @@ If you only want to save the configuration (that is the architecture) of your mo
 
 * ``tnt.Model.get_config``
 * ``tnt.Model.to_json``
-* ``tnt.Model.to_yaml``
+* ``tnt.Model.to_yaml`` [`supported up to TF 2.6 <https://www.tensorflow.org/api_docs/python/tf/keras/Model#to_yaml>`__]
 
 The architecture without its original weights and optimizer can then be restored
 using:
 
 * ``tnt.models.model_from_config`` / ``tnt.Model.from_config``
 * ``tnt.models.model_from_json``
-* ``tnt.models.model_from_yaml``
+* ``tnt.models.model_from_yaml`` [`supported up to TF 2.6 <https://www.tensorflow.org/api_docs/python/tf/keras/Model#to_yaml>`__]
+
 
 respectively.
 Here is an example:
@@ -381,8 +382,8 @@ when no ``seed`` is given, which is necessary for consistency.
 However, when a random ``seed`` is provided by the user, Tarantella will use that one instead.
 
 Tarantella also supports batched and unbatched ``Dataset`` s in ``tnt.Model.fit``
-when setting the ``tnt_micro_batch_size`` argument. This can be useful to obtain
-maximal performance in multi-node execution, as explained
+when setting the ``tnt_micro_batch_size`` argument. This can be useful to
+maximize performance in multi-node executions, as explained
 :ref:`here <using-local-batch-sizes-label>`. Keep in mind however, that Tarantella still expects
 the ``Dataset`` to be batched with the global batch size, and that the micro-batch
 size has to be consistent with the global batch size. [#footnote_consistent]_
@@ -393,11 +394,11 @@ Tarantella does not support any other way to feed data to ``fit`` at the moment.
 In particular, Numpy arrays, TensorFlow tensors and generators are not supported.
 
 Tarantella's automatic data distribution can be switched off by passing
-``tnt_distribute_dataset=False`` in ``tnt.Model.fit``, in which case Tarantella
+``tnt_distribute_dataset = False`` in ``tnt.Model.fit``, in which case Tarantella
 will issue an ``INFO`` message.
 If a validation dataset is passed to ``tnt.Model.fit``, it should also be batched
 with the global batch size. You can similarly switch off its automatic 
-micro-batching mechanism by setting ``tnt_distribute_validation_dataset=False``.
+micro-batching mechanism by setting ``tnt_distribute_validation_dataset = False``.
 
 .. _callbacks-label:
 
@@ -418,10 +419,11 @@ Tarantella fully supports all pre-defined
 * ``tf.keras.callbacks.TensorBoard``
 * ``tf.keras.callbacks.TerminateOnNaN``
 
-All of these callbacks are implemented in such a way, that the device-local,
+All of these callbacks are implemented in such a way that the device-local,
 micro-batch information is accumulated over all devices. This leads to the same
-callback behavior as in serial execution. That is, users do not need to
-make any modifications to their code when using Keras callbacks with Tarantella.
+callback behavior as in a serial execution (using the full batch).
+That is, users do not need to make any modifications to their code when using
+Keras callbacks with Tarantella.
 
 However, when using the `TensorBoard <https://www.tensorflow.org/tensorboard>`__ callback,
 by default, Tarantella will only collect device-local information *on one device*.
@@ -434,47 +436,70 @@ environment variable ``TNT_TENSORBOARD_ON_ALL_DEVICES``:
 
 .. note::
 
-   At the moment, the generic Keras callbacks (Callback, CallbackList, LambdaCallback) will be executed
-   on each device independently using local (micro-batch) information only.
-
-.. note::
-
    The explicit addition of ``BaseLogger`` callbacks is not supported in Tarantella.
 
 Custom Callbacks
 ^^^^^^^^^^^^^^^^
 
-Any Keras callback can be used to create a Tarantella callback.
+Any custom Keras callback can be used in a distributed fashion with Tarantella.
+To this end, define your own custom Keras callback as explained in the
+`Writing Custom Callbacks guide <https://www.tensorflow.org/guide/keras/custom_callback>`__.
 
-First, a custom keras callback needs to be defined, as explained in
-`Writing Custom Callback <https://www.tensorflow.org/guide/keras/custom_callback>`__
+Next, all you need to do is wrap the ``keras_callback`` into a
+``tnt.keras.callbacks.Callback`` object and simply add it to the list of callbacks provided
+in the model training or inference methods:
 
-Next, we need to wrap the ``keras.callbacks.Callback`` object into a ``tnt.keras.callbacks.Callback`` object.
-Like keras, a list of tnt_callbacks can then be passed to Model.fit(...) function.
+.. code-block:: python
 
-.. code-block:: Python
+  class CustomCallback(keras.callbacks.Callback):
+    def on_train_begin(self, logs = None):
+      keys = list(logs.keys())
+      print("Starting training; got log keys: {}".format(keys))
+    ...
 
-   tnt_callback = tnt.keras.callbacks.Callback(keras_callback, aggregate_logs=True, run_on_all_ranks=True)
-   tnt_callbacks = [tnt_callback]
-   Model.fit(..., callbacks=tnt_callbacks)
+  keras_callback = CustomCallback()
 
-``tnt.keras.callbacks.Callback`` accepts three parameters:
-keras_callback: ``keras.callbacks.Callback`` object.
-aggregate_logs: Defines if the logs need to be aggregated from all devices. Aggregates from all devices by default.
-run_on_all_ranks: Defines if the callback need to be run on all devices or just the master rank. Runs on all ranks by default.
+  tnt_callback = tnt.keras.callbacks.Callback(keras_callback,
+                                              aggregate_logs = True,
+                                              run_on_all_ranks = True)
+  model.fit(train_dataset,
+            epochs = 2,
+            callbacks = [tnt_callback])
 
-The ``keras.callbacks.Callback`` object can also be directly passed (without the wrapper) inside fit function and the 
+``tnt.keras.callbacks.Callback`` can be configured through the following parameters:
+* ``keras_callback`` - the ``keras.callbacks.Callback`` object.
+* ``aggregate_logs`` - specifies whether the logs need to be aggregated from all devices
+(defaults to ``True``). For instance, ``loss`` values have to be aggregated across all
+micro-batches to provide the relevant batch-level information. Logs counting the number
+of ``iterations`` do not require aggregation, as the iteration counter is identical on
+all participationg devices.
+* ``run_on_all_ranks`` - defines whether the callback will be run on all devices or just
+the master rank (defaults to ``True``). While most callbacks need to collect data from
+all the used devices, there are cases when this behavior is not desirable (e.g., a profiling
+callback might only need to measure timings on the master rank).
+
+The ``keras.callbacks.Callback`` object can also be directly passed (without the wrapper) to the
+list of callbacks provided to the ``model.fit`` function. In this case, the
 ``tnt.keras.callbacks.Callback`` object is automatically created with the default parameter values.
 
 Lambda Callback
 ^^^^^^^^^^^^^^^
 
-Lambda callback provides the functionality to create simple custom callbacks using lambda function.
+A ``Lambda callback`` allows users to create simple custom callbacks using a lambda function.
+To use this feature in Tarantella, create a Keras lambda callback as explained in
+`Lambda Callback <https://www.tensorflow.org/api_docs/python/tf/keras/callbacks/LambdaCallback>`__.
 
-First, create a Keras lambda callback, as explained in 
-`Lambda Callback <https://www.tensorflow.org/api_docs/python/tf/keras/callbacks/LambdaCallback>`__
+Then, wrap the callback object into a ``tnt.keras.callbacks.Callback`` as shown in the previous section.
 
-Then, wrap the ``keras.callbacks.Callback`` object into a ``tnt.keras.callbacks.Callback`` object as explained in the previous section.
+.. code-block:: python
+
+  # Print the batch number at the beginning of every batch.
+  batch_print_callback = LambdaCallback(on_batch_begin = lambda batch,logs: print(batch))
+
+  # Run the callback on the master rank only
+  tnt_print_callback = tnt.keras.callbacks.Callback(batch_print_callback,
+                                                    aggregate_logs = False,
+                                                    run_on_all_ranks = False)
 
 Important points
 ^^^^^^^^^^^^^^^^
