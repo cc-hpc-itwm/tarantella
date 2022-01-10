@@ -1,6 +1,6 @@
 # CustomLearningRateScheduler:
 #   Copyright (C) 2021 keras.io <https://www.tensorflow.org/guide/keras/custom_callback#learning_rate_scheduling>
-#   Modifications Copyright (C) 2021 Fraunhofer ITWM <http://www.itwm.fraunhofer.de/>
+#   Modifications Copyright (C) 2022 Fraunhofer ITWM <http://www.itwm.fraunhofer.de/>
 
 from models import mnist_models as mnist
 import training_runner as base_runner

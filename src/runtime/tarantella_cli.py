@@ -114,7 +114,7 @@ def parse_args():
 def generate_version_message():
   msg = ["Tarantella {}".format(tnt_version),
          "Path: {}".format(os.path.dirname(os.path.abspath(__file__))),
-         "Copyright (C) 2021 Fraunhofer"]
+         "Copyright (C) 2022 Fraunhofer"]
   return "\n".join(msg)
 
 def tnt_run_message(command_list, hostfile_path, exec_script_path):
