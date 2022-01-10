@@ -33,8 +33,8 @@ The tutorial models can be downloaded from the
 
 To use these models, install the the following dependencies:
 
-* TensorFlow 2.2.1
-* Tarantella 0.6.2
+* TensorFlow 2.7
+* Tarantella 0.7.1
 
 For a step-by-step installation, follow the :ref:`installation-label` guide.
 In the following we will assume that TensorFlow was installed in a ``conda`` 
@@ -46,7 +46,7 @@ Now we can install the final dependency,
 .. code-block:: bash
 
     conda activate tarantella
-    pip install tf-models-official==2.2.1
+    pip install tf-models-official==2.7
 
 
 .. _resnet50-label:
@@ -130,7 +130,7 @@ In particular, the ImageNet dataset is loaded and preprocessed as follows:
 
 The
 `imagenet_preprocessing.input_fn
-<https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/resnet/imagenet_preprocessing.py#L20>`_
+<https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/resnet/imagenet_preprocessing.py#L31>`_
 function reads the input files in ``data_dir``, loads the training samples, and processes
 them into TensorFlow datasets.
 
@@ -140,20 +140,20 @@ such that:
 
   * each device will process an independent set of samples
   * each device will group the samples into micro batches, where the micro-batch
-    size will be computed as ``batch_size / num_devices``
-  * each device will apply the same set of transformations to its imput samples as
+    size will be roughly equal to ``batch_size / num_devices``.
+    If the batch size is not a multiple of the number of ranks, the remainder samples
+    will be equally distributed among the participating ranks, such that some ranks
+    will use a micro-batch of ``(batch_size / num_devices) + 1``.
+  * each device will apply the same set of transformations to its input samples as
     specified in the ``input_fn`` function.
 
 The advantage of using the *automatic dataset distribution* mechanism of Tarantella
 is that users can reason about their I/O pipeline without taking care of the details
 about how to distribute it.
-Note however, that the batch size has to be a multiple of the number of ranks, so
-that it can be efficiently divided into micro-batches.
-
-.. todo:: 
-
-  Re-write the above sentence when this is not a requirement anymore
-
+To disable the *automatic dataset distribution* and ensure each rank will use the
+same micro-batch size equal to ``batch_size / num_devices``, run the code with the
+following flag: ``--auto_distributed=False``. Make sure the provided ``batch_size``
+is a multiple of the number of ranks in this case.
 
 Before starting the training, the model is compiled using a standard Keras optimizer
 and loss.
