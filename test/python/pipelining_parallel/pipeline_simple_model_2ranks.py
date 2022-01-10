@@ -19,6 +19,7 @@ def setup_tf_threading_before_tests():
   yield
 
 @pytest.mark.min_tfversion('2.2')
+@pytest.mark.max_tfversion('2.6')
 class TestPipelineSimpleModel:
 
   @pytest.mark.parametrize("num_micro_batches", [2, 1, 3])
