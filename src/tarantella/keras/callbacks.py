@@ -89,7 +89,7 @@ class Callback(LogsAverager, tf.keras.callbacks.Callback):
     if self.run_on_all_ranks:
       callback_func(**kwargs_copy)
     else:
-      if tnt.is_master_rank:
+      if tnt.is_master_rank():
         callback_func(**kwargs_copy)
   
   def on_epoch_begin(self, epoch, logs=None):
