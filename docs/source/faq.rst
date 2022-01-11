@@ -39,7 +39,7 @@ More details can be found for instance
    trying to run my script. What shall I do?
 
 Most likely you are running your program with ``python my_script.py`` or ``./my_script.py``.
-Please make sure to execute your code with ``tarantella my_script.py`` instead.
+Please make sure to execute your code with ``tarantella -- my_script.py`` instead.
 
 .. admonition:: Question
 
