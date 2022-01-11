@@ -412,6 +412,8 @@ a customized evaluation of the trained model.
 Important points
 ^^^^^^^^^^^^^^^^
 
+.. _customized-behavior-per-rank-label:
+
 Customized behavior based on **rank**
 """""""""""""""""""""""""""""""""""""
 
@@ -438,18 +440,23 @@ perform several tasks:
 
 .. code-block:: python
 
-    if tnt.is_master_rank():
-      if self.flags_obj.enable_time_history:
-        time_callback = keras_utils.TimeHistory(self.params["batch_size"],
-                                                self.params["num_sentences"],
-                                                logdir = None)
-        callbacks.append(time_callback)
+    if self.flags_obj.enable_time_history:
+      time_callback = keras_utils.TimeHistory(self.params["batch_size"],
+                                              self.params["num_sentences"],
+                                              logdir = None)
+      tnt_time_callback = tnt.keras.callbacks.Callback(time_callback,
+                                                       aggregate_logs = False,
+                                                       run_on_all_ranks = False)
+      callbacks.append(tnt_time_callback)
 
 Such callbacks only collect local data corresponding to the specific rank where they are executed.
-In this example, the `TimeHistory` callback will measure timings only on the `master_rank`. While
+In this example, the `TimeHistory` callback will measure timings only on the ``master_rank``. While
 iteration and epoch runtimes should be the same on all ranks (as all ranks train in sync), other
 metrics such as accuracy will only be computed based on the local data available to the rank.
 
+A callback that should be executed on a single rank has to be wrapped within
+a ``tnt.keras.callbacks.Callback``, to explicitely disable distributed execution (as described in
+the :ref:`callbacks guide <custom-callbacks-label>`).
 
 .. _manually-distributed-datasets-label:
 
@@ -474,7 +481,7 @@ This is how it is done in the case of the Transformer:
                                    tnt_distribute_dataset = False,
                                    initial_epoch = epoch,
                                    epochs = epoch + min(self.params["epochs_between_evals"],
-                                                       self.params["train_epochs"]-epoch),
+                                                        self.params["train_epochs"]-epoch),
                                    verbose = 2)
 
 Also note the use of ``initial_epoch`` and ``epochs``. This combination of parameters
@@ -509,8 +516,8 @@ each device instructed to select its own shard:
   # Batch the sentences and select only the shard (subset)
   # corresponding to the current rank
   dataset = dataset.padded_batch(micro_batch_size,
-                                ([max_length], [max_length]),
-                                drop_remainder=True)
+                                 ([max_length], [max_length]),
+                                 drop_remainder=True)
   dataset = dataset.shard(num_ranks, rank)
 
 

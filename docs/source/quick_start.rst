@@ -68,7 +68,7 @@ feed datasets to Tarantella are explained in more detail below.
 Lastly, we can evaluate the final accuracy of our ``model`` on the ``test_dataset`` using
 ``model.evaluate``.
 
-To test and run ``tarantella`` in the next section, you can find a full version of the above example
+To test and run Tarantella in the next section, you can find a full version of the above example
 `here <https://github.com/cc-hpc-itwm/tarantella/blob/master/docs/source/model.py>`__.
 
 Executing your model with ``tarantella``
@@ -221,7 +221,7 @@ You can also enable the ``--force`` flag to immediately terminate unresponsive p
 Save and load Tarantella models
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Storing and loading your trained ``Tarantella.Model`` is very simple.
+Storing and loading your trained ``tnt.Model`` is very simple.
 
 Tarantella supports all the different ways in which you can load and store a ``keras.Model``
 (for a guide look for instance `here <https://www.tensorflow.org/guide/keras/save_and_serialize>`__).
@@ -438,8 +438,10 @@ environment variable ``TNT_TENSORBOARD_ON_ALL_DEVICES``:
 
    The explicit addition of ``BaseLogger`` callbacks is not supported in Tarantella.
 
+.. _custom-callbacks-label:
+
 Custom Callbacks
-^^^^^^^^^^^^^^^^
+----------------
 
 Any custom Keras callback can be used in a distributed fashion with Tarantella.
 To this end, define your own custom Keras callback as explained in the
@@ -466,28 +468,28 @@ in the model training or inference methods:
             epochs = 2,
             callbacks = [tnt_callback])
 
-``tnt.keras.callbacks.Callback`` can be configured through the following parameters:
-* ``keras_callback`` - the ``keras.callbacks.Callback`` object.
-* ``aggregate_logs`` - specifies whether the logs need to be aggregated from all devices
-(defaults to ``True``). For instance, ``loss`` values have to be aggregated across all
-micro-batches to provide the relevant batch-level information. Logs counting the number
-of ``iterations`` do not require aggregation, as the iteration counter is identical on
-all participationg devices.
+The execution of a ``tnt.keras.callbacks.Callback`` can be configured through the following parameters:
+
 * ``run_on_all_ranks`` - defines whether the callback will be run on all devices or just
-the master rank (defaults to ``True``). While most callbacks need to collect data from
-all the used devices, there are cases when this behavior is not desirable (e.g., a profiling
-callback might only need to measure timings on the master rank).
+  the master rank (defaults to ``True``). While most callbacks need to collect data from
+  all the used devices, there are cases when this behavior is not desirable (e.g., a profiling
+  callback might only need to measure timings on the master rank).
+* ``aggregate_logs`` - specifies whether the logs need to be aggregated from all devices
+  (defaults to ``True``). For instance, ``loss`` values have to be aggregated across all
+  micro-batches to provide the relevant batch-level information. Conversely, logs counting
+  the number of ``iterations`` do not require aggregation, as the iteration counter is
+  identical on all participating devices.
 
 The ``keras.callbacks.Callback`` object can also be directly passed (without the wrapper) to the
 list of callbacks provided to the ``model.fit`` function. In this case, the
 ``tnt.keras.callbacks.Callback`` object is automatically created with the default parameter values.
 
-Lambda Callback
-^^^^^^^^^^^^^^^
+Lambda Callbacks
+----------------
 
-A ``Lambda callback`` allows users to create simple custom callbacks using a lambda function.
-To use this feature in Tarantella, create a Keras lambda callback as explained in
-`Lambda Callback <https://www.tensorflow.org/api_docs/python/tf/keras/callbacks/LambdaCallback>`__.
+A ``LambdaCallback`` allows users to create simple custom callbacks using a lambda function.
+To use this feature in Tarantella, create a Keras lambda callback as explained in the TensorFlow
+`guide <https://www.tensorflow.org/api_docs/python/tf/keras/callbacks/LambdaCallback>`__.
 
 Then, wrap the callback object into a ``tnt.keras.callbacks.Callback`` as shown in the previous section.
 
@@ -500,6 +502,29 @@ Then, wrap the callback object into a ``tnt.keras.callbacks.Callback`` as shown 
   tnt_print_callback = tnt.keras.callbacks.Callback(batch_print_callback,
                                                     aggregate_logs = False,
                                                     run_on_all_ranks = False)
+
+Rank-Local Callbacks
+--------------------
+
+There are cases when user-defined callbacks do not require distributed processing,
+such as callbacks that print information or measure runtimes.
+To configure a callback to run only on the *master rank*, wrap it as a
+``tnt.keras.callbacks.Callback`` and set the constructor parameters as follows:
+
+.. code-block:: python
+
+  class MyCustomCallback(keras.callbacks.Callback):
+    ...
+
+  keras_callback = MyCustomCallback()
+  tnt_callback = tnt.keras.callbacks.Callback(keras_callback,
+                                              aggregate_logs = False,
+                                              run_on_all_ranks = False)
+
+Note that callbacks running on a single rank will only have access to local data corresponding
+to that rank. For instance, even though the models are identical on all ranks, a logging callback
+that displays metrics will only be aware of locally collected metrics, that is, metrics generated
+based on the micro-batches that the rank has processed.
 
 Important points
 ^^^^^^^^^^^^^^^^
