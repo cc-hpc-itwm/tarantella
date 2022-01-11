@@ -10,7 +10,7 @@ def get_tnt_variables_from_args(args):
               TNTConfig.TNT_OUTPUT_ON_ALL_DEVICES.name : str(args.output_all)}
 
   if args.fusion_threshold_kb is not None:
-    tnt_vars[TNTConfig.TNT_FUSION_THRESHOLD.name] = int(args.fusion_threshold_kb) * 1024
+    tnt_vars[TNTConfig.TNT_FUSION_THRESHOLD.name] = int(args.fusion_threshold_kb)
   return tnt_vars
 
 def get_tnt_gpus(gpus_per_node):

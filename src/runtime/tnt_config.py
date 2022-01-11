@@ -10,13 +10,13 @@ class TNTConfig(enum.Enum):
   TNT_TENSORBOARD_ON_ALL_DEVICES = 'TNT_TENSORBOARD_ON_ALL_DEVICES'
   TNT_LOG_DIR = 'TNT_LOG_DIR'
   TNT_LOG_LEVEL = 'TNT_LOG_LEVEL'
-  TNT_FUSION_THRESHOLD = 'TNT_FUSION_THRESHOLD'
+  TNT_FUSION_THRESHOLD = 'TNT_FUSION_THRESHOLD_KB'
 
 class TarantellaConfigurationDefaults:
   @classmethod
   def config(self):
     default_config = { TNTConfig.TNT_GPUS_PER_NODE : None,  # use all devices on the node (one per rank)
-                       TNTConfig.TNT_FUSION_THRESHOLD : 32 * 1024,
+                       TNTConfig.TNT_FUSION_THRESHOLD : 32, # in kB
                        TNTConfig.TNT_OUTPUT_ON_ALL_DEVICES : 'False',
                        TNTConfig.TNT_LOG_ON_ALL_DEVICES : 'False',
                        TNTConfig.TNT_TENSORBOARD_ON_ALL_DEVICES : "False",
@@ -79,4 +79,4 @@ class TarantellaConfiguration:
 
   @property
   def fusion_threshold(self):
-    return int(self.get_variable_or_default(TNTConfig.TNT_FUSION_THRESHOLD))
+    return int(self.get_variable_or_default(TNTConfig.TNT_FUSION_THRESHOLD)) * 1024
