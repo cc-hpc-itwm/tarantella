@@ -22,7 +22,7 @@ Compiler and build system
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Tarantella can be built using a recent `gcc <https://gcc.gnu.org/>`_
-compiler with support for C++17 (tested starting with ``gcc 7.4.0``).
+compiler with support for C++17 (starting with ``gcc 7.4.0``).
 You will also need the build tool `CMake <https://cmake.org/>`_ (from version ``3.12``).
 
 Installing TensorFlow
@@ -57,7 +57,7 @@ the `TensorFlow requirements <https://www.tensorflow.org/install>`_.
 Installing pybind11
 ^^^^^^^^^^^^^^^^^^^
 
-The last dependency you will need to install is
+The next dependency you will need to install is
 `pybind11 <https://pybind11.readthedocs.io/en/stable/index.html>`__,
 which is available through pip and conda.
 We recommend installing ``pybind11`` via conda:
@@ -122,9 +122,11 @@ If required, GPI-2 can be removed from the target directory by using ``make unin
 Installing GaspiCxx
 ^^^^^^^^^^^^^^^^^^^
 
-GaspiCxx is a C++ abstraction layer built on top of the GPI-2 library,
-which provides easy-to-use point-to-point and collective communication primitives.
-Tarantella's communication layer is based on GaspiCxx and its PyGPI API for Python. 
+`GaspiCxx <https://github.com/cc-hpc-itwm/GaspiCxx>`_ is a C++ abstraction layer built
+on top of the GPI-2 library, designed to provide easy-to-use point-to-point and collective
+communication primitives.
+Tarantella's communication layer is based on GaspiCxx and its
+`PyGPI <https://github.com/cc-hpc-itwm/GaspiCxx/blob/v1.1.0/src/python/README.md>`_ API for Python.
 Currently we support GaspiCxx version v1.1.0.
 
 To install GaspiCxx and PyGPI, first download the latest release from the
@@ -145,6 +147,7 @@ Compile and install the library as follows, making sure the previously created c
 environment is activated:
 
 .. code-block:: bash
+
   conda activate tarantella
 
   mkdir build && cd build

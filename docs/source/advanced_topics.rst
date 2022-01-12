@@ -41,19 +41,7 @@ only once to ``stdout``:
    if tnt.is_master_rank():
      print("Printing from the master rank")
 
-In the same vein, you might want to use ranks to execute :ref:`callbacks <callbacks-label>` for logging 
-only on one rank:
-
-.. code-block:: python
-
-   history_callback = tf.keras.callbacks.History()
-   tnt_model.fit(train_dataset,
-                 callbacks = [history_callback] if tnt.is_master_rank() else [])
-
-Note that callbacks running on a single rank will only have access to local data corresponding
-to that rank. For instance, even though the models are identical on all ranks, a logging callback
-that displays metrics will only be aware of locally collected metrics, that is, metrics generated
-based on the micro-batches that the rank has processed.
+More usage examples can be found in the :ref:`Tutorials <customized-behavior-per-rank-label>` section.
 
 .. _using-local-batch-sizes-label:
 
