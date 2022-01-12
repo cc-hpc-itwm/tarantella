@@ -179,7 +179,7 @@ To download the source code, simply clone the
 
   git clone https://github.com/cc-hpc-itwm/tarantella.git
   cd tarantella
-  git checkout tags/v0.7.1 -b v0.7.1
+  git checkout tags/v0.8.0 -b v0.8.0
 
 Next, we need to configure the build system using CMake.
 For a standard out-of-source build, we create a separate ``build`` folder and run ``cmake``
