@@ -171,12 +171,6 @@ def get_numa_prefix(npernode):
     command += f"numactl --cpunodebind=$socket --membind=$socket"
   return command
 
-def path_to_gaspi_run():
-  path_to_gpi = shutil.which("gaspi_run")
-  if path_to_gpi is None:
-    sys.exit("[TNT_CLI] Cannot execute `gaspi_run`; make sure it is added to the current `PATH`.")
-  return path_to_gpi
-
 class TarantellaCLI:
   def __init__(self, hostlist, num_gpus_per_node, num_cpus_per_node, args):
     self.args = args
@@ -258,7 +252,7 @@ class TarantellaCLI:
 
   def execute_with_gaspi_run(self, nranks, hostfile, executable_script, dry_run = False):
     with hostfile, executable_script:
-      command_list = [path_to_gaspi_run(),
+      command_list = [env_config.path_to_gaspi_run(),
                       "-n", str(nranks),
                       "-m", hostfile.name,
                       executable_script.filename]

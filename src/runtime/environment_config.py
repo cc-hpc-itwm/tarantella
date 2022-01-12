@@ -1,8 +1,27 @@
 import os
+import shutil
 import sys
 
 import runtime.tnt_config as tnt_config
 from runtime.tnt_config import TNTConfig
+
+def path_to_gaspi_run():
+  path_to_gpi = shutil.which("gaspi_run")
+  if path_to_gpi is None:
+    sys.exit("[TNT_LIB] Cannot execute `gaspi_run`; make sure it is added to the current `PATH`.")
+  return path_to_gpi
+
+def path_to_gpi2_libs():
+  gpi2_install_root = os.path.dirname(os.path.dirname(path_to_gaspi_run()))
+  for libdir in ["lib", "lib64"]:
+    gpi2_libdir = os.path.join(gpi2_install_root, libdir)
+    if os.path.isdir(gpi2_libdir):
+      break
+  if not os.path.isdir(gpi2_libdir):
+    sys.exit(f"[TNT_LIB] Cannot find `GPI-2` libraries in `{gpi2_install_root}`; "
+              "make sure GPI-2 is installed using the default directory hierarchy "
+              "or manually add the GPI-2 `lib` directory to `LD_LIBRARY_PATH`")
+  return gpi2_libdir
 
 def get_tnt_variables_from_args(args):
   tnt_vars = {TNTConfig.TNT_LOG_LEVEL.name : args.log_level,
