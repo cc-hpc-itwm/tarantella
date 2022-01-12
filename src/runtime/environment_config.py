@@ -46,16 +46,20 @@ def get_environment_vars_from_args(args):
                        "VALUE strings containing spaces must be enclosed in quotes.")
   return envs
 
-def update_environment_paths(libraries_path):
-  os.environ["PYTHONPATH"]=os.pathsep.join(sys.path)
+def add_tnt_to_environment_paths(libraries_path):
+  os.environ["LD_LIBRARY_PATH"] = os.pathsep.join([libraries_path,
+                                                   os.environ.get("LD_LIBRARY_PATH", "")])
 
-  for var_name in ["LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH"]:
-    os.environ[var_name] = os.pathsep.join([libraries_path,
-                                            os.environ.get(var_name, "")])
+def add_dependencies_to_environment_paths():
+  os.environ["LD_LIBRARY_PATH"] = os.pathsep.join([path_to_gpi2_libs(),
+                                                   os.environ.get("LD_LIBRARY_PATH", "")])
+  os.environ["PYTHONPATH"] = os.pathsep.join(sys.path +
+                                             [os.environ.get("LD_LIBRARY_PATH", ""),
+                                              os.environ.get("PYTHONPATH", "")])
 
 def collect_environment_variables():
   env = {}
-  for var in ['PATH', 'PYTHONPATH', 'LD_LIBRARY_PATH', 'DYLD_LIBRARY_PATH']:
+  for var in ['PATH', 'PYTHONPATH', 'LD_LIBRARY_PATH']:
     if var in os.environ:
       env[var] = os.environ[var]
   return env
