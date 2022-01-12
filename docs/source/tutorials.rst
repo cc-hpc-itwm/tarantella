@@ -34,7 +34,7 @@ The tutorial models can be downloaded from the
 To use these models, install the the following dependencies:
 
 * TensorFlow 2.7
-* Tarantella 0.7.1
+* Tarantella 0.8.0
 
 For a step-by-step installation, follow the :ref:`installation-label` guide.
 In the following we will assume that TensorFlow was installed in a ``conda`` 
