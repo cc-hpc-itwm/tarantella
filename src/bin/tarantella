@@ -34,7 +34,8 @@ if __name__ == "__main__":
   nodes_list = platform_config.generate_nodes_list(args.hostfile)
   num_gpus, num_cpus = platform_config.generate_num_devices_per_node(npernode = args.npernode,
                                                                      use_gpus = args.use_gpus)
-  env_config.update_environment_paths(LIB_DIR)
+  env_config.add_dependencies_to_environment_paths()
+  env_config.add_tnt_to_environment_paths(LIB_DIR)
 
   tarantella = TarantellaCLI(nodes_list, num_gpus, num_cpus, args)
   tarantella.run()
