@@ -14,8 +14,9 @@ def get_tensor_info(tensor_id, tensor):
                                np.dtype(tf.dtypes.as_dtype(tensor.dtype).as_numpy_dtype()))
 
 class SynchCommunicator:
-  def __init__(self):
+  def __init__(self, group = None):
     self.weight_to_index = dict()
+    self.group = group
     self.comm = None
     self.threshold = tnt.global_tnt_config.fusion_threshold
     atexit.register(self.close)

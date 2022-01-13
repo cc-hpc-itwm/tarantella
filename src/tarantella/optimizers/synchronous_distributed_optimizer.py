@@ -8,7 +8,7 @@ from tnt_tfops import tnt_ops
 class SynchDistributedOptimizer(wrapper.OptimizerWrapper):
   _HAS_AGGREGATE_GRAD = True
 
-  def __init__(self, optimizer, name = None):
+  def __init__(self, optimizer, name = None, group = None):
     if not isinstance(optimizer, tf.keras.optimizers.Optimizer):
       raise ValueError("Optimizer must be of type `tf.keras.optimizers.Optimizer`")
     self.optimizer = optimizer
@@ -16,7 +16,7 @@ class SynchDistributedOptimizer(wrapper.OptimizerWrapper):
       name = "SynchDistributedOptimizer"
     super(self.__class__, self).__init__(optimizer, name = name)
     # add new attributes after the base object has been initialized
-    self.comm = tarantella.SynchCommunicator()
+    self.comm = tarantella.SynchCommunicator(group)
     self.initialized = False
     #scaling factor to scale gradients
     self._set_hyper("scaling_factor",1.0)
