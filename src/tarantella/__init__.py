@@ -5,6 +5,9 @@ import runtime.tnt_config as tnt_config
 global_tnt_config = tnt_config.TarantellaConfiguration()
 
 import pygpi
+from pygpi import Barrier
+from pygpi import Group
+
 def get_size():
   return pygpi.get_size()
 
@@ -36,5 +39,3 @@ from tarantella.strategy.PipelineCommunicator import PipelineCommunicator
 import tarantella.optimizers as optimizers
 from tarantella.optimizers.synchronous_distributed_optimizer import SynchDistributedOptimizer as Optimizer
 import tarantella.optimizers.synchronous_distributed_optimizer as distributed_optimizers
-
-from pygpi import Barrier

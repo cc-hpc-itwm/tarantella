@@ -8,14 +8,15 @@ import tarantella.keras.utilities as utilities
 import tarantella.utilities.tf_version as version_utils
 
 class LogsAverager(object):
-  def __init__(self, num_ranks = tnt.get_size()):
+  def __init__(self, group = tnt.Group()):
     super().__init__()
-    self.num_ranks = num_ranks
+    self.group = group
+    self.num_ranks = group.size
     self.allreducer = None
     atexit.register(self.close)
 
   def create_allreducer(self, logs):
-    self.allreducer = tnt.TensorAllreducer(logs)
+    self.allreducer = tnt.TensorAllreducer(logs, self.group)
 
   def average_logs(self, logs):
     if self.allreducer is None:
@@ -44,8 +45,10 @@ def _construct_from_keras_object(obj, keras_callback):
     setattr(obj, k, copy.deepcopy(v))
 
 class Callback(LogsAverager, tf.keras.callbacks.Callback):
-  def __init__(self, keras_callback, aggregate_logs=True, run_on_all_ranks=True):
-    super().__init__()
+  def __init__(self, keras_callback,
+               aggregate_logs=True, run_on_all_ranks=True,
+               group = tnt.Group()):
+    super().__init__(group = group)
     self.aggregate_logs = aggregate_logs
     self.run_on_all_ranks = run_on_all_ranks
     self.keras_callback = keras_callback
@@ -183,8 +186,8 @@ class LearningRateScheduler(tf.keras.callbacks.LearningRateScheduler):
         self.verbose = 0
 
 class History(LogsAverager, tf.keras.callbacks.History):
-  def __init__(self, keras_callback):
-    super().__init__()
+  def __init__(self, keras_callback, group = tnt.Group()):
+    super().__init__(group = group)
     _construct_from_keras_object(self, keras_callback)
 
   def on_epoch_end(self, epoch, logs = None):
@@ -197,8 +200,8 @@ class History(LogsAverager, tf.keras.callbacks.History):
       self.model.history = self
 
 class EarlyStopping(LogsAverager, tf.keras.callbacks.EarlyStopping):
-  def __init__(self, keras_callback):
-    super().__init__()
+  def __init__(self, keras_callback, group = tnt.Group()):
+    super().__init__(group = group)
     _construct_from_keras_object(self, keras_callback)
 
     # only master rank should print messages
@@ -209,8 +212,8 @@ class EarlyStopping(LogsAverager, tf.keras.callbacks.EarlyStopping):
     return super().get_monitor_value(averaged_logs)
 
 class RemoteMonitor(LogsAverager, tf.keras.callbacks.RemoteMonitor):
-  def __init__(self, keras_callback):
-    super().__init__()
+  def __init__(self, keras_callback, group = tnt.Group()):
+    super().__init__(group = group)
     _construct_from_keras_object(self, keras_callback)
 
   def on_epoch_end(self, epoch, logs=None):
@@ -219,9 +222,9 @@ class RemoteMonitor(LogsAverager, tf.keras.callbacks.RemoteMonitor):
       super().on_epoch_end(epoch, averaged_logs)
 
 class CSVLogger(tf.keras.callbacks.CSVLogger, LogsAverager):
-  def __init__(self, keras_callback):
+  def __init__(self, keras_callback, group = tnt.Group()):
     tf.keras.callbacks.CSVLogger.__init__(self, keras_callback.filename)
-    LogsAverager.__init__(self)
+    LogsAverager.__init__(self, group = group)
     _construct_from_keras_object(self, keras_callback)
 
   def on_train_begin(self, logs):
@@ -238,8 +241,8 @@ class CSVLogger(tf.keras.callbacks.CSVLogger, LogsAverager):
       super().on_train_end(logs)
 
 class TerminateOnNaN(LogsAverager, tf.keras.callbacks.TerminateOnNaN):
-  def __init__(self, keras_callback):
-    super().__init__()
+  def __init__(self, keras_callback, group = tnt.Group()):
+    super().__init__(group = group)
     _construct_from_keras_object(self, keras_callback)
 
   def on_batch_end(self, batch, logs=None):
@@ -251,8 +254,8 @@ class TerminateOnNaN(LogsAverager, tf.keras.callbacks.TerminateOnNaN):
     super().on_batch_end(batch, averaged_logs)
 
 class ReduceLROnPlateau(LogsAverager, tf.keras.callbacks.ReduceLROnPlateau):
-  def __init__(self, keras_callback):
-    super().__init__()
+  def __init__(self, keras_callback, group = tnt.Group()):
+    super().__init__(group = group)
     _construct_from_keras_object(self, keras_callback)
 
     # only master rank should print messages
@@ -263,11 +266,11 @@ class ReduceLROnPlateau(LogsAverager, tf.keras.callbacks.ReduceLROnPlateau):
     super().on_epoch_end(epoch, averaged_logs)
 
 class ProgbarLogger(LogsAverager, tf.keras.callbacks.ProgbarLogger):
-  def __init__(self, keras_callback):
+  def __init__(self, keras_callback, group = tnt.Group()):
     if version_utils.tf_version_below_equal('2.2'):
       raise EnvironmentError("[tnt.callbacks.ProgbarLogger] "
                              "`ProgbarLogger` support from TF 2.3")
-    super().__init__()
+    super().__init__(group = group)
     _construct_from_keras_object(self, keras_callback)
     self.is_built = False
     self.should_print_progbar = tnt.is_master_rank() # the other ranks only need to participate in averaging logs
