@@ -45,39 +45,12 @@ class CompileProperties:
   def metrics(self):
     return self._metrics
 
-
-def to_microbatched(model, micro_batch_size, num_micro_batches, num_batches, num_test_batches):
-  rank = tnt.get_rank()
-  partition_generator = pgen.GraphPartitionGenerator(model)
-  rank_mapper = rmapper.RankMapper(partition_generator.get_pipeline_graph(), tnt.get_size())
-  core_model_builder = cm_builder.CoreModelBuilder(model, partition_generator,
-                                                    rank_mapper, rank)
-  core_model = core_model_builder.get_model()
-
-  connection_table = rank_mapper.get_connections_for_rank(rank)
-  pipeline_communicator = tnt.PipelineCommunicator(connection_table, micro_batch_size, num_micro_batches)
-
-  partition_id = rank_mapper.get_partition_for_rank(rank)
-  partition_info = pinfo.PartitionInfo(partition_id = partition_id,
-                                       partition_graph = partition_generator.get_partition_graph(partition_id))
-
-  shared_model_builder = sm_builder.SharedModelBuilder(partition_info, core_model,
-                                                    pipeline_communicator, micro_batch_size)
-  shared_model = shared_model_builder.get_model()
-
-  microbatched_model_builder = mbm_builder.MicrobatchedModelBuilder(partition_info, shared_model,
-                                                                     micro_batch_size, num_micro_batches)
-  ds = load_microbatched_datasets(micro_batch_size, num_micro_batches,
-                                  num_batches, num_test_batches, partition_info)
-  return microbatched_model_builder, ds
-
-
 class PartitionedModel(tf.keras.models.Model):
   def __init__(self, model, group, partition_generator, rank_mapper,
                num_pipeline_stages = None):
     super().__init__()
     self.compile_properties = None
-    self.rank = group.rank
+    self.rank = tnt.get_rank()
     self.num_pipeline_stages = num_pipeline_stages
 
     connection_table = rank_mapper.get_connections_for_rank(self.rank)
@@ -94,7 +67,6 @@ class PartitionedModel(tf.keras.models.Model):
 
 
   def _get_microbatched_model_builder(self, micro_batch_size):
-
     if not self.initialized:
       self.pipeline_communicator.setup_infrastructure(micro_batch_size)
       self.initialized = True
@@ -102,9 +74,9 @@ class PartitionedModel(tf.keras.models.Model):
                                                          self.pipeline_communicator, micro_batch_size)
     shared_model = shared_model_builder.get_model()
     microbatched_model_builder = mbm_builder.MicrobatchedModelBuilder(self.partition_info,
-                                                                       shared_model,
-                                                                       micro_batch_size,
-                                                                       self.num_pipeline_stages)
+                                                                      shared_model,
+                                                                      micro_batch_size,
+                                                                      self.num_pipeline_stages)
     return microbatched_model_builder
 
   def _get_microbatched_dataset(self, dataset,
@@ -112,23 +84,23 @@ class PartitionedModel(tf.keras.models.Model):
     dist_dataset = tnt.data.Dataset(dataset = dataset,
                                     num_ranks = 1,
                                     rank = 0)
-    print(tf.data.Dataset.zip(dist_dataset.base_dataset))
-    samples, lables = iter(dist_dataset.base_dataset).next
+    samples = dist_dataset.base_dataset.map(lambda s,_: s)
+    labels = dist_dataset.base_dataset.map( lambda _,l: l)
 
     partition_samples = []
     partition_labels = []
     # assume all inputs are passed to the same start partition and
     # all outputs are generated on the same final partition
     if len(self.partition_info.get_real_ids(pinfo.EndpointDirection.inp)) > 0:
-      partition_samples = [tf.data.Dataset.from_tensor_slices(samples)]
+      partition_samples = [samples]
     if len(self.partition_info.get_real_ids(pinfo.EndpointDirection.out)) > 0:
-      partition_labels = [tf.data.Dataset.from_tensor_slices(labels)]
+      partition_labels = [labels]
 
     return partitioned_dataset.create_micro_batched_dataset(samples = partition_samples,
-                                                  labels = partition_labels,
-                                                  partition_info = self.partition_info,
-                                                  num_micro_batches = num_micro_batches,
-                                                  micro_batch_size = micro_batch_size)
+                                                            labels = partition_labels,
+                                                            partition_info = self.partition_info,
+                                                            num_micro_batches = num_micro_batches,
+                                                            micro_batch_size = micro_batch_size)
 
 
   def compile(self,
@@ -181,7 +153,7 @@ class PartitionedModel(tf.keras.models.Model):
     self.model.compile(**compile_parameters)
 
     ds = self._get_microbatched_dataset(x, micro_batch_size, num_micro_batches = self.num_pipeline_stages)
-    return self.model.fit(ds, callbacks, validation_data, **kwargs)
+    return self.model.fit(x = ds, callbacks = callbacks, validation_data = validation_data, **kwargs)
 
   @property
   def distribute_strategy(self):
