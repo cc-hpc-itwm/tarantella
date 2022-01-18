@@ -48,7 +48,7 @@ class DataParallelModel(tf.keras.models.Model):
     self.done_broadcast = False
     self.compiled = False
     self.broadcaster = None
-    self.barrier = tnt.Barrier()
+    self.barrier = tnt.Barrier(group = self.group)
 
     self.dist_optimizer = None
     self.default_shuffle_seed = 42
