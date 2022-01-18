@@ -15,3 +15,6 @@ class ConnectionInfo:
 
   def get_size_in_bytes(self):
     return self.size_in_bytes
+
+  def __str__(self):
+    return f"ConnectionInfo ranks=({self.rank0}, {self.rank1}), size_in_bytes={self.size_in_bytes}"
