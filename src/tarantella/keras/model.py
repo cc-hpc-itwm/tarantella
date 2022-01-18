@@ -18,20 +18,22 @@ import tarantella.strategy.pipelining.rank_mapper as rmapper
 import atexit
 
 
-def Model(model, should_pipeline = True, num_pipeline_stages = 2):
-  rank = tnt.get_rank()
-
-  partition_generator = pgen.GraphPartitionGenerator(model)
-  rank_mapper = rmapper.RankMapper(num_ranks = tnt.get_size(),
-                                   pipeline_graph = partition_generator.get_pipeline_graph())
-  pipeline_group = rank_mapper.get_pipelining_group_for_rank(rank)
-  replica_group = rank_mapper.get_replica_group_for_rank(rank)
+def Model(model, should_pipeline = True, num_pipeline_stages = 1):
+  replica_group = tnt.Group()
 
   if should_pipeline:
+    rank = tnt.get_rank()
+
+    partition_generator = pgen.GraphPartitionGenerator(model)
+    rank_mapper = rmapper.RankMapper(num_ranks = tnt.get_size(),
+                                    pipeline_graph = partition_generator.get_pipeline_graph())
+    pipeline_group = rank_mapper.get_pipelining_group_for_rank(rank)
+
     logger.info(f"Creating pipelined model with {pipeline_group.size} partitions.")
     # get my partition
     model = pm.PartitionedModel(model, pipeline_group, partition_generator, rank_mapper,
                                 num_pipeline_stages)
+    replica_group = rank_mapper.get_replica_group_for_rank(rank)
   
   # replicate my partition across the data parallel group
   logger.info(f"Replicating local model across {replica_group.group} ranks.")
