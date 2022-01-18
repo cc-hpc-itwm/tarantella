@@ -22,26 +22,25 @@ def Model(model, should_pipeline = True, num_pipeline_stages = 2):
   rank = tnt.get_rank()
 
   partition_generator = pgen.GraphPartitionGenerator(model)
-  num_partitions = partition_generator.get_number_partitions()
-
   rank_mapper = rmapper.RankMapper(num_ranks = tnt.get_size(),
-                                   num_partitions = num_partitions,
                                    pipeline_graph = partition_generator.get_pipeline_graph())
-  pipeline_group, dp_group = rank_mapper.get_groups_for_rank(rank)
+  pipeline_group = rank_mapper.get_pipelining_group_for_rank(rank)
+  replica_group = rank_mapper.get_replica_group_for_rank(rank)
 
   if should_pipeline:
-    logger.info(f"Creating pipelined model with {num_partitions} partitions")
+    logger.info(f"Creating pipelined model with {pipeline_group.size} partitions.")
     # get my partition
     model = pm.PartitionedModel(model, pipeline_group, partition_generator, rank_mapper,
                                 num_pipeline_stages)
   
   # replicate my partition across the data parallel group
-  return DataParallelModel(model, group = dp_group)
+  logger.info(f"Replicating local model across {replica_group.group} ranks.")
+  return DataParallelModel(model, group = replica_group)
 
 class DataParallelModel(tf.keras.models.Model):
   def __init__(self, model, group = tnt.Group()):
     super().__init__()
-    self.rank = group.rank
+    self.rank = tnt.get_rank()
     self.group = group
 
     self.model = model
@@ -161,7 +160,7 @@ class DataParallelModel(tf.keras.models.Model):
     elif isinstance(optimizer, six.string_types):
       config = {'class_name': str(optimizer), 'config': {}}
       optimizer = deserialize(config)
-    self.dist_optimizer = tnt.distributed_optimizers.SynchDistributedOptimizer(optimizer)
+    self.dist_optimizer = tnt.distributed_optimizers.SynchDistributedOptimizer(optimizer, group = self.group)
 
     kwargs = self._preprocess_compile_kwargs(kwargs)
     return self.model.compile(optimizer = self.dist_optimizer,
@@ -499,9 +498,9 @@ class DataParallelModel(tf.keras.models.Model):
             remove_tensorboard_index = index
 
       elif isinstance(callback, tf_callbacks.History):
-        hist_callback = tnt_callbacks.History(keras_callback = callback)
+        hist_callback = tnt_callbacks.History(keras_callback = callback, group = self.group)
         callbacks[index] = hist_callback
-      
+
       elif isinstance(callback, tf_callbacks.EarlyStopping):
         early_stopping_callback = tnt_callbacks.EarlyStopping(keras_callback = callback)
         callbacks[index] = early_stopping_callback
@@ -530,9 +529,8 @@ class DataParallelModel(tf.keras.models.Model):
         callbacks[index] = reducelr_callback
 
       elif isinstance(callback, tf_callbacks.ProgbarLogger):
-        progbar_callback = tnt_callbacks.ProgbarLogger(keras_callback = callback)
+        progbar_callback = tnt_callbacks.ProgbarLogger(keras_callback = callback, group = self.group)
         callbacks[index] = progbar_callback
-      
       elif isinstance(callback, tnt_callbacks.Callback):
         callbacks[index] = callback
 

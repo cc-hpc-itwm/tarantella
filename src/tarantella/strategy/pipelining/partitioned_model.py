@@ -15,7 +15,6 @@ class CompileProperties:
   def __init__(self, model, params):
     # args_names = {'optimizer', 'loss', 'metrics', 'loss_weights',
     #               'sample_loss_weights', 'weighted_metrics'}
-    logger.warn(params['optimizer'])
     self._optimizer = params['optimizer'] #if 'optimizer' in params.keys() else None
     self._loss = [params['loss']] #self._assign_named_attributes_to_outputs(model, 'loss', params)
     self._metrics = params['metrics'] #self._assign_named_attributes_to_outputs(model, 'metrics', params)
@@ -112,15 +111,15 @@ class PartitionedModel(tf.keras.models.Model):
               weighted_metrics=None,
               **kwargs):
     params = dict(locals())
-    logger.warn("[PartitionedModel] compile")
+    logger.info(f"[PartitionedModel] compile.")
     self.compile_properties = CompileProperties(self.model, params)
     return self.model.compile(optimizer='rmsprop',
-                                   loss=None,
-                                   metrics=None,
-                                   loss_weights=None,
-                                   sample_weight_mode=None,
-                                   weighted_metrics=None,
-                                   **kwargs)
+                              loss=None,
+                              metrics=None,
+                              loss_weights=None,
+                              sample_weight_mode=None,
+                              weighted_metrics=None,
+                              **kwargs)
 
 
   def _get_partition_compile_params(self):
