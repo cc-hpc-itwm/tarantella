@@ -39,7 +39,7 @@ class DistributedDataset:
     return self._micro_batch_size
 
 
-  def distribute_dataset_across_ranks(self, user_micro_batch_size = None, is_training = True):
+  def distribute_dataset_across_ranks(self, user_micro_batch_size = None, is_training = True, apply_batch = True):
     dataset = self.base_dataset
 
     # Batched datsets:
@@ -68,7 +68,8 @@ class DistributedDataset:
         if is_training:
           dataset = self.distributed_batch(dataset,
                                            batch_size = batch_size,
-                                           micro_batch_size = self._micro_batch_size)
+                                           micro_batch_size = self._micro_batch_size,
+                                           apply_batch = apply_batch)
         else:
           # FIXME: distribute batch for `evaluate` and `predict`
           dataset = self.batching_info.apply(dataset, new_batch_size = self._micro_batch_size)
@@ -91,7 +92,8 @@ class DistributedDataset:
           batch_size = self._micro_batch_size * self.num_ranks
           dataset = self.distributed_batch(dataset,
                                            batch_size = batch_size,
-                                           micro_batch_size = self._micro_batch_size)
+                                           micro_batch_size = self._micro_batch_size,
+                                           apply_batch = apply_batch)
         else:
           raise ValueError("[DistributedDataset] Unbatched datasets without " \
                            "tnt_micro_batch_size are not supported")
@@ -105,7 +107,7 @@ class DistributedDataset:
       logger.debug("Shuffling with shuffle seed {}.".format(ds_kwargs['seed']))
     return dataset.shuffle(**ds_kwargs)
 
-  def distributed_batch(self, dataset, batch_size, micro_batch_size):
+  def distributed_batch(self, dataset, batch_size, micro_batch_size, apply_batch):
     if self.batching_info.drop_remainder == True:
       dataset = self.batching_info.apply(dataset, new_batch_size = batch_size)
       dataset = dataset.unbatch()
@@ -121,9 +123,10 @@ class DistributedDataset:
                                                      min_last_batch_size = self.num_ranks)
 
     dataset = self._get_dataset_slice_per_rank(dataset, batch_size, micro_batch_size)
-    dataset = self.batching_info.apply(dataset, new_batch_size = micro_batch_size)
 
-    logger.info(f"Using batch size = {batch_size}, micro batch size = {micro_batch_size}.")
+    if apply_batch:
+      dataset = self.batching_info.apply(dataset, new_batch_size = micro_batch_size)
+      logger.info(f"Using batch size = {batch_size}, micro batch size = {micro_batch_size}.")
     return dataset
 
   def _get_dataset_slice_per_rank(self, dataset, batch_size, micro_batch_size):
