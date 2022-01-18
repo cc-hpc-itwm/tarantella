@@ -38,6 +38,9 @@ class DistributedDataset:
   def micro_batch_size(self):
     return self._micro_batch_size
 
+  @property
+  def number_samples(self):
+    return self.num_samples
 
   def distribute_dataset_across_ranks(self, user_micro_batch_size = None, is_training = True, apply_batch = True):
     dataset = self.base_dataset

@@ -96,7 +96,8 @@ class PartitionedModel(tf.keras.models.Model):
                                                             labels = partition_labels,
                                                             partition_info = self.partition_info,
                                                             num_micro_batches = num_pipeline_stages,
-                                                            micro_batch_size = nano_batch_size)
+                                                            micro_batch_size = nano_batch_size,
+                                                            dataset_size = tnt_dataset.number_samples)
 
 
   def compile(self,
