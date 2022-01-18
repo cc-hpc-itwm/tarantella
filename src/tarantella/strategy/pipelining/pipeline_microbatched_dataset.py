@@ -1,8 +1,5 @@
 import tarantella.strategy.pipelining.partition_info as pinfo
 
-import argparse
-import re
-
 import numpy as np
 import tensorflow as tf
 from enum import Enum
@@ -42,7 +39,8 @@ def create_micro_batched_dataset(samples, # list of real inputs on the partition
                                  labels, # list of real labels (outputs) on the partition 
                                  partition_info, # contains list of EndpointInfo's for real/edge inputs/outputs (in same order as above)
                                  num_micro_batches, # number of "replicas"
-                                 micro_batch_size):
+                                 micro_batch_size,
+                                 dataset_size):
   assert isinstance(samples, list)
   assert isinstance(labels, list)
 
@@ -57,7 +55,7 @@ def create_micro_batched_dataset(samples, # list of real inputs on the partition
   real_input_datasets = build_microbatched_datasets_real(
     pinfo.EndpointType.inp, samples, num_micro_batches, micro_batch_size)
   edge_input_datasets = build_microbatched_datasets_edge(
-    pinfo.EndpointType.inp_edge, partition_info, num_micro_batches, micro_batch_size)
+    pinfo.EndpointType.inp_edge, partition_info, num_micro_batches, micro_batch_size, dataset_size)
   recv_tag_datasets = build_microbatched_datasets_tags(
     pinfo.EndpointDirection.inp, partition_info, num_micro_batches)
   send_tag_datasets = build_microbatched_datasets_tags(
@@ -67,7 +65,7 @@ def create_micro_batched_dataset(samples, # list of real inputs on the partition
   real_output_datasets = build_microbatched_datasets_real(
     pinfo.EndpointType.out, labels, num_micro_batches, micro_batch_size)
   edge_output_datasets = build_microbatched_datasets_edge(
-    pinfo.EndpointType.out_edge, partition_info, num_micro_batches, micro_batch_size)
+    pinfo.EndpointType.out_edge, partition_info, num_micro_batches, micro_batch_size, dataset_size)
   seq_output_dataset =  build_microbatched_datasets_seq()
   
   # create generator function that implements an iterator over
@@ -165,15 +163,15 @@ def build_microbatched_datasets_real(endpoint_type, datasets, num_micro_batches,
       microbatched_datasets.append(microbatched_dataset)
   return microbatched_datasets
 
-def build_microbatched_datasets_edge(endpoint_type, partition_info, num_micro_batches, micro_batch_size):
+def build_microbatched_datasets_edge(endpoint_type, partition_info, num_micro_batches, micro_batch_size, dataset_size):
   microbatched_datasets = list()
   edge_data_value = 0.0
   for edge_id, edge_info in sorted(partition_info.get_infos(endpoint_type).items()):
     dataset = tf.data.Dataset.from_tensors(
       tf.constant(edge_data_value, shape=edge_info.shape[1:], dtype=edge_info.dtype))
-    # FIXME:
-    # Need to replace `repeat()` with finite version for "middle" partitions
-    dataset = dataset.repeat().batch(micro_batch_size)
+    # Create `num_micro_batches` mock-up datasets with a total number of `dataset_size` instead of each edge input
+    num_samples = dataset_size // num_micro_batches
+    dataset = dataset.repeat(num_samples).batch(micro_batch_size)
     microbatched_datasets += num_micro_batches * [dataset]
   return microbatched_datasets
 
