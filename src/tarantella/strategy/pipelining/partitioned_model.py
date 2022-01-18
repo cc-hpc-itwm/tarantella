@@ -50,6 +50,7 @@ class PartitionedModel(tf.keras.models.Model):
     super().__init__()
     self.compile_properties = None
     self.rank = tnt.get_rank()
+    self.group = group
     self.num_pipeline_stages = num_pipeline_stages
 
     connection_table = rank_mapper.get_connections_for_rank(self.rank)
@@ -78,13 +79,9 @@ class PartitionedModel(tf.keras.models.Model):
                                                                       self.num_pipeline_stages)
     return microbatched_model_builder
 
-  def _get_microbatched_dataset(self, dataset,
-                                micro_batch_size, num_micro_batches):
-    dist_dataset = tnt.data.Dataset(dataset = dataset,
-                                    num_ranks = 1,
-                                    rank = 0)
-    samples = dist_dataset.base_dataset.map(lambda s,_: s)
-    labels = dist_dataset.base_dataset.map( lambda _,l: l)
+  def _get_microbatched_dataset(self, tnt_dataset, nano_batch_size, num_pipeline_stages):
+    samples = tnt_dataset.base_dataset.map(lambda s,_: s)
+    labels = tnt_dataset.base_dataset.map( lambda _,l: l)
 
     partition_samples = []
     partition_labels = []
@@ -98,8 +95,8 @@ class PartitionedModel(tf.keras.models.Model):
     return partitioned_dataset.create_micro_batched_dataset(samples = partition_samples,
                                                             labels = partition_labels,
                                                             partition_info = self.partition_info,
-                                                            num_micro_batches = num_micro_batches,
-                                                            micro_batch_size = micro_batch_size)
+                                                            num_micro_batches = num_pipeline_stages,
+                                                            micro_batch_size = nano_batch_size)
 
 
   def compile(self,
@@ -143,15 +140,28 @@ class PartitionedModel(tf.keras.models.Model):
           tnt_distribute_dataset = True,
           tnt_distribute_validation_dataset = True,
           **kwargs):
-    micro_batch_size = 2
+    logger.info(f"[PartitionedModel] fit.")
+    dist_dataset = tnt.data.Dataset(dataset = x,
+                                    num_ranks = 1,
+                                    rank = 0)
+    dist_dataset.distribute_dataset_across_ranks(apply_batch = False)
+
+    micro_batch_size = dist_dataset.micro_batch_size
+    nano_batch_size = micro_batch_size // self.num_pipeline_stages
+    if nano_batch_size * self.num_pipeline_stages != micro_batch_size:
+      logger.warn(f"[PartitionedModel] The micro-batch size {micro_batch_size} is not a multiple of "
+                  f" the number of pipeline stages ({self.num_pipeline_stages}); removing the remainder.")
+
+    ds = self._get_microbatched_dataset(tnt_dataset = dist_dataset, nano_batch_size = nano_batch_size,
+                                        num_pipeline_stages = self.num_pipeline_stages)
     
-    self.microbatched_model_builder = self._get_microbatched_model_builder(micro_batch_size)
+    logger.info(f"[PartitionedModel] micro-batching with nano_batch_size={nano_batch_size}")
+    self.microbatched_model_builder = self._get_microbatched_model_builder(nano_batch_size)
     self.model = self.microbatched_model_builder.get_model()
     
     compile_parameters = self._get_partition_compile_params()
     self.model.compile(**compile_parameters)
 
-    ds = self._get_microbatched_dataset(x, micro_batch_size, num_micro_batches = self.num_pipeline_stages)
     return self.model.fit(x = ds, callbacks = callbacks, validation_data = validation_data, **kwargs)
 
   @property
