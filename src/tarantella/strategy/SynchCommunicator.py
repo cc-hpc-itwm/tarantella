@@ -40,7 +40,7 @@ class SynchCommunicator:
     grad_infos = list()
     for grad, weight in gradients_and_weights:
       grad_infos.append(get_tensor_info(self.weight_to_index[weight.name], grad))
-    self.comm = GPICommLib.SynchDistCommunicator(grad_infos, self.threshold)
+    self.comm = GPICommLib.SynchDistCommunicator(self.group, grad_infos, self.threshold)
 
   def reduce_gradients(self, gradients_and_weights):
     gradients_to_reduce = list()
