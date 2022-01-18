@@ -39,7 +39,8 @@ class SynchCommunicator:
     # initialize the internal `SynchCommunicator` corresponding to the provided list of gradients
     grad_infos = list()
     for grad, weight in gradients_and_weights:
-      grad_infos.append(get_tensor_info(self.weight_to_index[weight.name], grad))
+      grad_with_shape = tf.ensure_shape(grad, weight.shape)
+      grad_infos.append(get_tensor_info(self.weight_to_index[weight.name], grad_with_shape))
     self.comm = GPICommLib.SynchDistCommunicator(self.group, grad_infos, self.threshold)
 
   def reduce_gradients(self, gradients_and_weights):
