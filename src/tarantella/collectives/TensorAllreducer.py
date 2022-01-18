@@ -19,30 +19,34 @@ class TensorAllreducer:
   def create_allreduces(self, scalar):
     if not utils.is_scalar(scalar):
       self._raise_input_error()
-    self.allreducer = pygpi.Allreduce(self.group, 1, self.reduction_op,
+    self.allreducer = pygpi.Allreduce(group = self.group,
+                                      nelems = 1,
+                                      op = self.reduction_op,
                                       algorithm = self.algorithm,
                                       dtype = type(scalar))
   @create_allreduces.register
   def _(self, tensor: np.ndarray):
     self.shape = tensor.shape
-    self.allreducer = pygpi.Allreduce(self.group, int(np.prod(tensor.shape)),
-                                      self.reduction_op,
+    self.allreducer = pygpi.Allreduce(group = self.group,
+                                      nelems = int(np.prod(tensor.shape)),
+                                      op = self.reduction_op,
                                       algorithm = self.algorithm,
                                       dtype = tensor.dtype)
   @create_allreduces.register
   def _(self, tensor: tf.Tensor):
     self.shape = tensor.shape
-    self.allreducer = pygpi.Allreduce(self.group, int(np.prod(tensor.shape)),
-                                      self.reduction_op,
+    self.allreducer = pygpi.Allreduce(group = self.group,
+                                      nelems = int(np.prod(tensor.shape)),
+                                      op = self.reduction_op,
                                       algorithm = self.algorithm,
                                       dtype = tensor.numpy().dtype)
   @create_allreduces.register
   def _(self, inputs: dict):
-    self.allreducer = { key : TensorAllreducer(inputs[key]) for key in inputs.keys() }
+    self.allreducer = { key : TensorAllreducer(inputs[key], group = self.group) for key in inputs.keys() }
 
   @create_allreduces.register
   def _(self, inputs: list):
-    self.allreducer = [ TensorAllreducer(element) for element in inputs ]
+    self.allreducer = [ TensorAllreducer(element, group = self.group) for element in inputs ]
 
 
   @singledispatchmethod

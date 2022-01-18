@@ -16,7 +16,7 @@ class LogsAverager(object):
     atexit.register(self.close)
 
   def create_allreducer(self, logs):
-    self.allreducer = tnt.TensorAllreducer(logs, self.group)
+    self.allreducer = tnt.TensorAllreducer(logs, group = self.group)
 
   def average_logs(self, logs):
     if self.allreducer is None:
