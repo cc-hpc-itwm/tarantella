@@ -4,8 +4,10 @@ from tarantella.collectives import utils
 import numpy as np
 
 class TensorBroadcaster():
+  # Broadcast an array or a list of tensors within a `group` starting from the *local* `root_rank`
+  # e.g. root_rank = 0 represents rank 0 within the group
   def __init__(self, inputs, root_rank = tnt.get_master_rank(), group = tnt.Group()):
-    self.root_rank = root_rank
+    self.root_global_rank = group.to_global_rank(root_rank)
     self.shapes = list()
     self.broadcasts = list()
     self.algorithm = "linear"
@@ -17,14 +19,14 @@ class TensorBroadcaster():
     for tensor in inputs:
       self.shapes.append(tensor.shape)
       self.broadcasts.append(tnt.Broadcast(group = group, nelems = int(np.prod(tensor.shape)),
-                                           root = self.root_rank,
+                                           root = root_rank,
                                            algorithm = self.algorithm,
                                            dtype = tensor.dtype))
 
   def broadcast(self, inputs = None):
     outputs = list()
     for i, bcast in enumerate(self.broadcasts):
-      if tnt.get_rank() == self.root_rank:
+      if tnt.get_rank() == self.root_global_rank:
         if utils.is_nonEmptyArray(inputs):
           inputs = [inputs]
         elif not utils.is_nonEmptyList(inputs):

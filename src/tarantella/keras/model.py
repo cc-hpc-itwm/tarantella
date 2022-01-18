@@ -154,7 +154,7 @@ class DataParallelModel(tf.keras.models.Model):
               **kwargs):
     self.done_broadcast = False
     self.compiled = True
-    logger.warn("[DataParallelModel] compile")
+    logger.info("[DataParallelModel] compile.")
     if isinstance(optimizer, dict):
       optimizer = deserialize(optimizer)
     elif isinstance(optimizer, six.string_types):
@@ -243,7 +243,7 @@ class DataParallelModel(tf.keras.models.Model):
       #            both for computing the `micro_batch_size` and the `scaling_factor`
       distributed_x = tnt.data.Dataset(dataset = x,
                                        num_ranks = self.group.size,
-                                       rank = self.rank,
+                                       rank = self.group.to_group_rank(self.rank),
                                        shuffle_seed = self.default_shuffle_seed)
       x = distributed_x.distribute_dataset_across_ranks(
             user_micro_batch_size = tnt_micro_batch_size,
@@ -275,7 +275,7 @@ class DataParallelModel(tf.keras.models.Model):
       else:
         logger.info("Automatic distribution for the validation dataset is disabled.")
 
-    return self.model.fit(x,
+    return self.model.fit(x = x,
                           validation_data = validation_data,
                           callbacks = processed_callbacks,
                           **kwargs)
@@ -440,7 +440,7 @@ class DataParallelModel(tf.keras.models.Model):
       self.broadcaster = tnt.TensorBroadcaster(inputs = self.get_weights(),
                                                group = self.group, root_rank = root_rank)
 
-    if self.rank == root_rank:
+    if self.rank == self.group.to_global_rank(root_rank):
       self.broadcaster.broadcast(self.get_weights())
     else:
       new_weights = self.broadcaster.broadcast()
