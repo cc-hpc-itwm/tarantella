@@ -1,4 +1,4 @@
-import pygpi
+import tarantella as tnt
 from tarantella.collectives import utils
 
 import tensorflow as tf
@@ -6,7 +6,7 @@ import numpy as np
 from functools import singledispatchmethod
 
 class TensorAllgatherer:
-  def __init__(self, inputs, group = pygpi.Group()):
+  def __init__(self, inputs, group = tnt.Group()):
     # TensorAllgather performs a single Allgather operation
     # when the input is a scalar/array/tensor
     self.group = group
@@ -17,20 +17,23 @@ class TensorAllgatherer:
   def create_allgather(self, scalar):
     if not utils.is_scalar(scalar):
       self._raise_input_error()
-    self.allgatherer = pygpi.Allgatherv(self.group, 1,
-                                        algorithm = self.algorithm,
-                                        dtype = type(scalar))
+    self.allgatherer = tnt.Allgatherv(group = self.group,
+                                      nelems = 1,
+                                      algorithm = self.algorithm,
+                                      dtype = type(scalar))
   @create_allgather.register
   def _(self, tensor: np.ndarray):
-    self.allgatherer = pygpi.Allgatherv(self.group, int(np.prod(tensor.shape)),
-                                        algorithm = self.algorithm,
-                                        dtype = tensor.dtype)
+    self.allgatherer = tnt.Allgatherv(group = self.group,
+                                      nelems = int(np.prod(tensor.shape)),
+                                      algorithm = self.algorithm,
+                                      dtype = tensor.dtype)
 
   @create_allgather.register
   def _(self, tensor: tf.Tensor):
-    self.allgatherer = pygpi.Allgatherv(self.group, int(np.prod(tensor.shape)),
-                                        algorithm = self.algorithm,
-                                        dtype = tensor.numpy().dtype)
+    self.allgatherer = tnt.Allgatherv(group = self.group,
+                                      nelems = int(np.prod(tensor.shape)),
+                                      algorithm = self.algorithm,
+                                      dtype = tensor.numpy().dtype)
 
   @singledispatchmethod
   def start(self, scalar):

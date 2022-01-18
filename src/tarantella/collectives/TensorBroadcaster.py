@@ -1,12 +1,10 @@
-import pygpi
-
 import tarantella as tnt
 from tarantella.collectives import utils
 
 import numpy as np
 
 class TensorBroadcaster():
-  def __init__(self, inputs, root_rank = tnt.get_master_rank(), group = pygpi.Group()):
+  def __init__(self, inputs, root_rank = tnt.get_master_rank(), group = tnt.Group()):
     self.root_rank = root_rank
     self.shapes = list()
     self.broadcasts = list()
@@ -18,15 +16,15 @@ class TensorBroadcaster():
       self._raise_input_error()
     for tensor in inputs:
       self.shapes.append(tensor.shape)
-      self.broadcasts.append(pygpi.Broadcast(group = group, nelems = int(np.prod(tensor.shape)),
-                                             root = self.root_rank,
-                                             algorithm = self.algorithm,
-                                             dtype = tensor.dtype))
+      self.broadcasts.append(tnt.Broadcast(group = group, nelems = int(np.prod(tensor.shape)),
+                                           root = self.root_rank,
+                                           algorithm = self.algorithm,
+                                           dtype = tensor.dtype))
 
   def broadcast(self, inputs = None):
     outputs = list()
     for i, bcast in enumerate(self.broadcasts):
-      if pygpi.get_rank() == self.root_rank:
+      if tnt.get_rank() == self.root_rank:
         if utils.is_nonEmptyArray(inputs):
           inputs = [inputs]
         elif not utils.is_nonEmptyList(inputs):

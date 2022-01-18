@@ -5,8 +5,12 @@ import runtime.tnt_config as tnt_config
 global_tnt_config = tnt_config.TarantellaConfiguration()
 
 import pygpi
+from pygpi import Allgatherv
+from pygpi import Allreduce
 from pygpi import Barrier
+from pygpi import Broadcast
 from pygpi import Group
+from pygpi import ReductionOp
 
 def get_size():
   return pygpi.get_size()

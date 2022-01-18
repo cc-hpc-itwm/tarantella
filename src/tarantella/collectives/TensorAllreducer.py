@@ -1,4 +1,4 @@
-import pygpi
+import tarantella as tnt
 from tarantella.collectives import utils
 
 import tensorflow as tf
@@ -6,40 +6,40 @@ import numpy as np
 from functools import singledispatchmethod
 
 class TensorAllreducer:
-  def __init__(self, inputs, group = pygpi.Group()):
+  def __init__(self, inputs, group = tnt.Group()):
     # TensorAllreducer handles either a single Allreduce operation
     # when the input is a scalar/array/tensor
     # or a list/dictionary of `TensorAllreducer`s, respectively
     self.group = group
     self.algorithm = "recursivedoubling"
-    self.reduction_op = pygpi.ReductionOp.SUM
+    self.reduction_op = tnt.ReductionOp.SUM
     self.create_allreduces(inputs)
 
   @singledispatchmethod
   def create_allreduces(self, scalar):
     if not utils.is_scalar(scalar):
       self._raise_input_error()
-    self.allreducer = pygpi.Allreduce(group = self.group,
-                                      nelems = 1,
-                                      op = self.reduction_op,
-                                      algorithm = self.algorithm,
-                                      dtype = type(scalar))
+    self.allreducer = tnt.Allreduce(group = self.group,
+                                    nelems = 1,
+                                    op = self.reduction_op,
+                                    algorithm = self.algorithm,
+                                    dtype = type(scalar))
   @create_allreduces.register
   def _(self, tensor: np.ndarray):
     self.shape = tensor.shape
-    self.allreducer = pygpi.Allreduce(group = self.group,
-                                      nelems = int(np.prod(tensor.shape)),
-                                      op = self.reduction_op,
-                                      algorithm = self.algorithm,
-                                      dtype = tensor.dtype)
+    self.allreducer = tnt.Allreduce(group = self.group,
+                                    nelems = int(np.prod(tensor.shape)),
+                                    op = self.reduction_op,
+                                    algorithm = self.algorithm,
+                                    dtype = tensor.dtype)
   @create_allreduces.register
   def _(self, tensor: tf.Tensor):
     self.shape = tensor.shape
-    self.allreducer = pygpi.Allreduce(group = self.group,
-                                      nelems = int(np.prod(tensor.shape)),
-                                      op = self.reduction_op,
-                                      algorithm = self.algorithm,
-                                      dtype = tensor.numpy().dtype)
+    self.allreducer = tnt.Allreduce(group = self.group,
+                                    nelems = int(np.prod(tensor.shape)),
+                                    op = self.reduction_op,
+                                    algorithm = self.algorithm,
+                                    dtype = tensor.numpy().dtype)
   @create_allreduces.register
   def _(self, inputs: dict):
     self.allreducer = { key : TensorAllreducer(inputs[key], group = self.group) for key in inputs.keys() }
