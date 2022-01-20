@@ -3,6 +3,7 @@ import tarantella.keras.callbacks as tnt_callbacks
 import tarantella.utilities.tf_version as version_utils
 
 import tensorflow.keras.callbacks as tf_callbacks
+import tarantella.keras.pipelining_callbacks
 from enum import Enum
 
 
@@ -34,6 +35,15 @@ def _preprocess_callbacks(callbacks, group, exec_type = 'fit', verbose = None):
   _add_default_History_callback_if_necessary(callbacks)
   _add_default_ProgbarLogger_callback_if_necessary(callbacks, exec_type, verbose)
   _to_tnt_callbacks(callbacks, group)
+  return callbacks
+
+def _preprocess_pipelining_callbacks(callbacks, group, exec_type = 'fit', verbose = None):
+  callbacks = callbacks or []
+  _add_default_History_callback_if_necessary(callbacks)
+  _add_default_ProgbarLogger_callback_if_necessary(callbacks, exec_type, verbose)
+
+  for index, callback in enumerate(callbacks):
+    callbacks[index] = tnt.keras.pipelining_callbacks.callbackFactory(callback)
   return callbacks
 
 def _add_default_History_callback_if_necessary(callbacks):

@@ -8,6 +8,7 @@ import tarantella.strategy.pipelining.partition_info as pinfo
 
 from tarantella import logger
 import tarantella as tnt
+import tarantella.keras.utilities as utilities
 
 import tensorflow as tf
 
@@ -148,6 +149,10 @@ class PartitionedModel(tf.keras.models.Model):
           tnt_distribute_validation_dataset = True,
           **kwargs):
     logger.info(f"[PartitionedModel] fit.")
+    processed_callbacks = utilities._preprocess_pipelining_callbacks(callbacks, self.group,
+                                                                     exec_type = 'fit',
+                                                                     verbose = kwargs.get('verbose', None))
+
     dist_dataset = tnt.data.Dataset(dataset = x,
                                     num_ranks = 1,
                                     rank = 0)
@@ -169,7 +174,9 @@ class PartitionedModel(tf.keras.models.Model):
     compile_parameters = self._get_partition_compile_params()
     self.model.compile(**compile_parameters)
 
-    return self.model.fit(x = ds, callbacks = callbacks, validation_data = validation_data, **kwargs)
+    return self.model.fit(x = ds, callbacks = processed_callbacks,
+                          validation_data = validation_data,
+                          **kwargs)
 
   @property
   def distribute_strategy(self):
