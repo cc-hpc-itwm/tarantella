@@ -13,11 +13,13 @@ import tensorflow as tf
 
 class CompileProperties:
   def __init__(self, model, params):
-    # args_names = {'optimizer', 'loss', 'metrics', 'loss_weights',
-    #               'sample_loss_weights', 'weighted_metrics'}
-    self._optimizer = params['optimizer'] #if 'optimizer' in params.keys() else None
-    self._loss = [params['loss']] #self._assign_named_attributes_to_outputs(model, 'loss', params)
-    self._metrics = params['metrics'] #self._assign_named_attributes_to_outputs(model, 'metrics', params)
+    # params = {'optimizer', 'loss', 'metrics', 'loss_weights',
+    #           'sample_loss_weights', 'weighted_metrics'}
+    self._optimizer = params.get('optimizer', None)
+    self._loss = self._assign_named_attributes_to_outputs(model, 'loss', params)
+    self._loss_weights = self._assign_named_attributes_to_outputs(model, 'loss_weights', params)
+    self._metrics = self._assign_named_attributes_to_outputs(model, 'metrics', params)
+    logger.debug(f"Compile properties: losses = {self._loss}, loss_weights = {self._loss_weights}, metrics = {self._metrics}")
 
   def _assign_named_attributes_to_outputs(self, model, attr_name, compile_params):
     attribute_list = compile_params[attr_name] if attr_name in compile_params.keys() else dict()
@@ -29,12 +31,16 @@ class CompileProperties:
       attribute_list = [attribute_list]
     attr = dict()
     for index, out in enumerate(model.outputs):  
-      attr[out.name] = attribute_list[index]
+      attr[index] = attribute_list[index]
     return attr
 
   @property
   def loss(self):
     return self._loss
+
+  @property
+  def loss_weights(self):
+    return self._loss_weights
 
   @property
   def optimizer(self):
