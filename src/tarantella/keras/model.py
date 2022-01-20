@@ -3,11 +3,9 @@ import tensorflow as tf
 from tensorflow.python.data.ops import iterator_ops
 from tensorflow.python.keras.engine import training_utils
 from tensorflow.keras.optimizers import deserialize
-import tensorflow.keras.callbacks as tf_callbacks
 
 import tarantella as tnt
 import tarantella.optimizers.synchronous_distributed_optimizer as distributed_optimizers
-import tarantella.keras.callbacks as tnt_callbacks
 import tarantella.keras.utilities as utilities
 import tarantella.utilities.tf_version as version_utils
 from tarantella import logger
@@ -58,13 +56,6 @@ class DataParallelModel(tf.keras.models.Model):
 
     self.dist_optimizer = None
     self.default_shuffle_seed = 42
-
-    # support for TF 2.0 -- 2.3
-    self.tf_default_verbose = {'fit' : utilities.TF_verbose.ALL.value,
-                               'evaluate' : utilities.TF_verbose.ALL.value,
-                               'predict' : utilities.TF_verbose.SILENT.value,
-                              }
-    self.progbar_necessary = False
     atexit.register(self.close)
 
   ##############
@@ -191,7 +182,9 @@ class DataParallelModel(tf.keras.models.Model):
                tnt_distribute_dataset = True,
                **kwargs):
     self._setup_for_execution('evaluate', x, y, kwargs)
-    processed_callbacks = self._preprocess_callbacks(callbacks)
+    processed_callbacks = utilities._preprocess_callbacks(callbacks, self.group,
+                                                          exec_type = 'evaluate',
+                                                          verbose = kwargs.get('verbose', None))
 
     if tnt_distribute_dataset:
       test_dataset = tnt.data.Dataset(dataset = x,
@@ -218,7 +211,9 @@ class DataParallelModel(tf.keras.models.Model):
           tnt_distribute_validation_dataset = True,
           **kwargs):
     self._setup_for_execution('fit', x, y, kwargs)
-    processed_callbacks = self._preprocess_callbacks(callbacks)
+    processed_callbacks = utilities._preprocess_callbacks(callbacks, self.group,
+                                                          exec_type = 'fit',
+                                                          verbose = kwargs.get('verbose', None))
 
     if tnt_distribute_dataset:
       # Distribute dataset into micro-batches among ranks by taking into account
@@ -326,7 +321,9 @@ class DataParallelModel(tf.keras.models.Model):
               tnt_distribute_dataset = True,
               **kwargs):
     self._setup_for_execution('predict', x, None, kwargs)
-    processed_callbacks = self._preprocess_callbacks(callbacks)
+    processed_callbacks = utilities._preprocess_callbacks(callbacks, self.group,
+                                                          exec_type = 'predict',
+                                                          verbose = kwargs.get('verbose', None))
 
     if tnt_distribute_dataset:
       test_dataset = tnt.data.Dataset(dataset = x,
@@ -399,7 +396,6 @@ class DataParallelModel(tf.keras.models.Model):
 
   def _setup_for_execution(self, exec_type, x, y, args_dict):
     self._assert_compile_has_been_called()
-    self._set_whether_progbar_is_necessary(exec_type, args_dict)
     self._validate_datasets(x, y)
     self._validate_batch_size_argument(exec_type, args_dict)
     self._set_input_shapes(x)
@@ -409,12 +405,6 @@ class DataParallelModel(tf.keras.models.Model):
     if self.compiled == False:
       raise RuntimeError("`tnt.Model` has to be compiled first "
                          "using `tnt.Model.compile`")
-
-  def _set_whether_progbar_is_necessary(self, exec_type, args_dict):
-    if not 'verbose' in args_dict:
-      self.progbar_necessary = (self.tf_default_verbose[exec_type] != utilities.TF_verbose.SILENT.value)
-    else:
-      self.progbar_necessary = (args_dict['verbose'] != utilities.TF_verbose.SILENT.value)
 
   def _validate_datasets(self, x, y):
     if not isinstance(x, tf.data.Dataset) or not y is None:
@@ -453,99 +443,6 @@ class DataParallelModel(tf.keras.models.Model):
       self.model.set_weights(new_weights)
 
     self.done_broadcast = True
-
-  def _preprocess_callbacks(self, callbacks):
-    callbacks = callbacks or []
-    self._add_default_History_callback_if_necessary(callbacks)
-    self._add_default_ProgbarLogger_callback_if_necessary(callbacks)
-    self._to_tnt_callbacks(callbacks)
-    return callbacks
-
-  def _add_default_History_callback_if_necessary(self, callbacks):
-    callback_exists = False
-
-    for callback in callbacks:
-      if isinstance(callback, tf_callbacks.History):
-        callback_exists = True
-
-    if not callback_exists:
-      callbacks.append(tf_callbacks.History())
-
-  def _add_default_ProgbarLogger_callback_if_necessary(self, callbacks):
-    callback_exists = False
-
-    for callback in callbacks:
-      if isinstance(callback, tf_callbacks.ProgbarLogger):
-        callback_exists = True
-
-    if not callback_exists and self.progbar_necessary \
-    and version_utils.tf_version_above_equal('2.3'):
-      # Always need to use `count_mode` to `steps`
-      callbacks.append(tf_callbacks.ProgbarLogger(count_mode='steps'))
-
-  def _to_tnt_callbacks(self, callbacks):
-    remove_tensorboard_index = None
-
-    for index, callback in enumerate(callbacks):
-      if isinstance(callback, tf_callbacks.ModelCheckpoint):
-        tnt_callback = tnt_callbacks.ModelCheckpoint(keras_callback = callback,
-                                                     tnt_model = self)
-        callbacks[index] = tnt_callback
-
-      elif isinstance(callback, tf_callbacks.LearningRateScheduler):
-        tnt_callback = tnt_callbacks.LearningRateScheduler(keras_callback = callback)
-        callbacks[index] = tnt_callback
-
-      elif isinstance(callback, tf_callbacks.TensorBoard):
-        if tnt.global_tnt_config.tensorboard_on_all_devices:
-          callback.log_dir += '/rank_{}'.format(self.rank)
-        else:
-          if not tnt.is_master_rank():
-            remove_tensorboard_index = index
-
-      elif isinstance(callback, tf_callbacks.History):
-        hist_callback = tnt_callbacks.History(keras_callback = callback, group = self.group)
-        callbacks[index] = hist_callback
-
-      elif isinstance(callback, tf_callbacks.EarlyStopping):
-        early_stopping_callback = tnt_callbacks.EarlyStopping(keras_callback = callback)
-        callbacks[index] = early_stopping_callback
-      
-      elif isinstance(callback, tf_callbacks.RemoteMonitor):
-        remote_monitor_callback = tnt_callbacks.RemoteMonitor(keras_callback = callback)
-        callbacks[index] = remote_monitor_callback
-
-      elif isinstance(callback, tf_callbacks.CSVLogger):
-        csv_logger_callback = tnt_callbacks.CSVLogger(keras_callback = callback)
-        callbacks[index] = csv_logger_callback
-
-      elif isinstance(callback, tf_callbacks.TerminateOnNaN):
-        terminate_callback = tnt_callbacks.TerminateOnNaN(keras_callback = callback)
-        callbacks[index] = terminate_callback
-
-      elif isinstance(callback, tf_callbacks.BaseLogger):
-        # Do not support user-added `BaseLogger`s,
-        # b/c they do not provide any use
-        # and b/c of this issue (https://github.com/tensorflow/tensorflow/issues/46344)
-        raise ValueError("[tnt.Model] Tarantella does not support "
-                         "`tf.keras.callbacks.BaseLogger`")
-      
-      elif isinstance(callback, tf_callbacks.ReduceLROnPlateau):
-        reducelr_callback = tnt_callbacks.ReduceLROnPlateau(keras_callback = callback)
-        callbacks[index] = reducelr_callback
-
-      elif isinstance(callback, tf_callbacks.ProgbarLogger):
-        progbar_callback = tnt_callbacks.ProgbarLogger(keras_callback = callback, group = self.group)
-        callbacks[index] = progbar_callback
-      elif isinstance(callback, tnt_callbacks.Callback):
-        callbacks[index] = callback
-
-      elif isinstance(callback, tf_callbacks.Callback):
-        custom_callback = tnt_callbacks.Callback(keras_callback=callback)
-        callbacks[index] = custom_callback
-
-    if remove_tensorboard_index is not None:
-      del callbacks[remove_tensorboard_index]
 
   def _preprocess_compile_kwargs(self, kwargs):
     if version_utils.tf_version_below_equal('2.1'):
