@@ -42,7 +42,8 @@ class LogsAverager(object):
 
 def _construct_from_keras_object(obj, keras_callback):
   for k, v in keras_callback.__dict__.items():
-    setattr(obj, k, copy.deepcopy(v))
+    if k not in ["group"]:
+      setattr(obj, k, copy.deepcopy(v))
 
 class Callback(LogsAverager, tf.keras.callbacks.Callback):
   def __init__(self, keras_callback,
@@ -92,7 +93,7 @@ class Callback(LogsAverager, tf.keras.callbacks.Callback):
     if self.run_on_all_ranks:
       callback_func(**kwargs_copy)
     else:
-      if tnt.is_master_rank():
+      if tnt.is_group_master_rank(self.group):
         callback_func(**kwargs_copy)
   
   def on_epoch_begin(self, epoch, logs=None):
@@ -152,14 +153,15 @@ class Callback(LogsAverager, tf.keras.callbacks.Callback):
   def _implements_predict_batch_hooks(self):
     return self.keras_callback._implements_predict_batch_hooks()
 
+
 class ModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
-  def __init__(self, keras_callback, tnt_model):
+  def __init__(self, keras_callback, tnt_model, group = tnt.Group()):
     super().__init__(filepath = keras_callback.filepath)
     _construct_from_keras_object(self, keras_callback)
 
     self.tnt_model = tnt_model
     # only master rank should save and thus print messages
-    self.verbose = keras_callback.verbose if tnt.is_master_rank() else utilities.TF_verbose.SILENT.value
+    self.verbose = keras_callback.verbose if tnt.is_group_master_rank(group) else utilities.TF_verbose.SILENT.value
 
   def set_model(self, model):
     # Overriding this method ensures that `ModelCheckpoint` is called on the
@@ -178,11 +180,11 @@ class ModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
 
 class LearningRateScheduler(tf.keras.callbacks.LearningRateScheduler):
   def __init__(self, keras_callback):
-    super().__init__(schedule=keras_callback.schedule, verbose=keras_callback.verbose)
+    super().__init__(schedule=keras_callback.schedule, verbose=keras_callback.verbose, group = tnt.Group())
     _construct_from_keras_object(self, keras_callback)
 
     if not tnt.global_tnt_config.output_on_all_devices:
-      if not tnt.is_master_rank():
+      if not tnt.is_group_master_rank(group):
         self.verbose = 0
 
 class History(LogsAverager, tf.keras.callbacks.History):
@@ -205,7 +207,7 @@ class EarlyStopping(LogsAverager, tf.keras.callbacks.EarlyStopping):
     _construct_from_keras_object(self, keras_callback)
 
     # only master rank should print messages
-    self.verbose = keras_callback.verbose if tnt.is_master_rank() else utilities.TF_verbose.SILENT.value
+    self.verbose = keras_callback.verbose if tnt.is_group_master_rank(group) else utilities.TF_verbose.SILENT.value
 
   def get_monitor_value(self, logs):
     averaged_logs = self.average_logs(logs)
@@ -218,7 +220,7 @@ class RemoteMonitor(LogsAverager, tf.keras.callbacks.RemoteMonitor):
 
   def on_epoch_end(self, epoch, logs=None):
     averaged_logs = self.average_logs(logs)
-    if tnt.is_master_rank():
+    if tnt.is_group_master_rank(self.group):
       super().on_epoch_end(epoch, averaged_logs)
 
 class CSVLogger(tf.keras.callbacks.CSVLogger, LogsAverager):
@@ -228,16 +230,16 @@ class CSVLogger(tf.keras.callbacks.CSVLogger, LogsAverager):
     _construct_from_keras_object(self, keras_callback)
 
   def on_train_begin(self, logs):
-    if tnt.is_master_rank():
+    if tnt.is_group_master_rank(self.group):
       super().on_train_begin(logs)
 
   def on_epoch_end(self, epoch, logs):
     averaged_logs = self.average_logs(logs)
-    if tnt.is_master_rank():
+    if tnt.is_group_master_rank(self.group):
       super().on_epoch_end(epoch, averaged_logs)
 
   def on_train_end(self, logs):
-    if tnt.is_master_rank():
+    if tnt.is_group_master_rank(self.group):
       super().on_train_end(logs)
 
 class TerminateOnNaN(LogsAverager, tf.keras.callbacks.TerminateOnNaN):
@@ -259,7 +261,7 @@ class ReduceLROnPlateau(LogsAverager, tf.keras.callbacks.ReduceLROnPlateau):
     _construct_from_keras_object(self, keras_callback)
 
     # only master rank should print messages
-    self.verbose = keras_callback.verbose if tnt.is_master_rank() else utilities.TF_verbose.SILENT.value
+    self.verbose = keras_callback.verbose if tnt.is_group_master_rank(group) else utilities.TF_verbose.SILENT.value
 
   def on_epoch_end(self, epoch, logs=None):
     averaged_logs = self.average_logs(logs)
@@ -273,7 +275,7 @@ class ProgbarLogger(LogsAverager, tf.keras.callbacks.ProgbarLogger):
     super().__init__(group = group)
     _construct_from_keras_object(self, keras_callback)
     self.is_built = False
-    self.should_print_progbar = tnt.is_master_rank() # the other ranks only need to participate in averaging logs
+    self.should_print_progbar = tnt.is_group_master_rank(group) # the other ranks only need to participate in averaging logs
 
   def _logs_as_tensors(self, logs):
     logs_as_tensors = copy.deepcopy(logs)
