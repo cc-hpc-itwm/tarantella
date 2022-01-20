@@ -18,10 +18,12 @@ import tarantella.strategy.pipelining.rank_mapper as rmapper
 import atexit
 
 
-def Model(model, should_pipeline = True, num_pipeline_stages = 1):
+def Model(model,
+          enable_data_parallelism = True,
+          enable_model_parallelism = True, num_pipeline_stages = 1):
   replica_group = tnt.Group()
 
-  if should_pipeline:
+  if enable_model_parallelism:
     rank = tnt.get_rank()
 
     partition_generator = pgen.GraphPartitionGenerator(model)
@@ -35,9 +37,11 @@ def Model(model, should_pipeline = True, num_pipeline_stages = 1):
                                 num_pipeline_stages)
     replica_group = rank_mapper.get_replica_group_for_rank(rank)
   
-  # replicate my partition across the data parallel group
-  logger.info(f"Replicating local model across {replica_group.group} ranks.")
-  return DataParallelModel(model, group = replica_group)
+  if enable_data_parallelism:
+    # replicate my partition across the data parallel group
+    logger.info(f"Replicating local model across {replica_group.group} ranks.")
+    model = DataParallelModel(model, group = replica_group)
+  return model
 
 class DataParallelModel(tf.keras.models.Model):
   def __init__(self, model, group = tnt.Group()):
