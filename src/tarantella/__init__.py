@@ -24,6 +24,12 @@ def get_master_rank():
 def is_master_rank():
   return get_rank() == get_master_rank()
 
+def is_group_master_rank(group):
+  # use largest rank in the group as master to match partition assignment, such that ranks are assigned
+  # to partition IDs in order starting from 0
+  # All printing of results should happen on the last partition (that has the final outputs/metrics)
+  return get_rank() == group.to_global_rank(group.size - 1)
+
 from tarantella import tnt_initializer
 tnt_initializer.init()
 
