@@ -179,8 +179,8 @@ class ModelCheckpoint(tf.keras.callbacks.ModelCheckpoint):
     super().on_epoch_end(epoch, logs)
 
 class LearningRateScheduler(tf.keras.callbacks.LearningRateScheduler):
-  def __init__(self, keras_callback):
-    super().__init__(schedule=keras_callback.schedule, verbose=keras_callback.verbose, group = tnt.Group())
+  def __init__(self, keras_callback, group = tnt.Group()):
+    super().__init__(schedule=keras_callback.schedule, verbose=keras_callback.verbose)
     _construct_from_keras_object(self, keras_callback)
 
     if not tnt.global_tnt_config.output_on_all_devices:
