@@ -55,6 +55,7 @@ class PartitionedModel(tf.keras.models.Model):
   def __init__(self, model, group, partition_generator, rank_mapper,
                num_pipeline_stages = None):
     super().__init__()
+    self.built = False
     self.compile_properties = None
     self.rank = tnt.get_rank()
     self.group = group
@@ -115,15 +116,16 @@ class PartitionedModel(tf.keras.models.Model):
               sample_weight_mode=None,
               weighted_metrics=None,
               **kwargs):
+    self.built = True
     params = dict(locals())
     logger.info(f"[PartitionedModel] compile.")
     self.compile_properties = CompileProperties(self.model, params)
-    return self.model.compile(optimizer='rmsprop',
-                              loss=None,
-                              metrics=None,
-                              loss_weights=None,
-                              sample_weight_mode=None,
-                              weighted_metrics=None,
+    return self.model.compile(optimizer,
+                              loss,
+                              metrics,
+                              loss_weights,
+                              sample_weight_mode,
+                              weighted_metrics,
                               **kwargs)
 
 
@@ -258,14 +260,37 @@ class PartitionedModel(tf.keras.models.Model):
   def call(self, inputs):
     return self.model.call(inputs)
 
+  def compute_output_shape(self, input_shape):
+    return self.model.compute_output_shape(input_shape)
+
   def get_config(self):
     return self.model.get_config()
 
   def get_layer(self, name=None, index=None):
     return self.model.get_layer(name, index)
-  
+
   def get_weights(self):
+    if not self.model.built:
+      if not self.input_shapes:
+        raise RuntimeError("""Cannot get weights before initializition.
+        Please call "tnt.Model.build()" or "tnt.Model.fit()" first.
+        """)
+      self.model.build(self.input_shapes)
     return self.model.get_weights()
 
   def load_weights(self, filepath, **kwargs):
     return self.model.load_weights(filepath = filepath, **kwargs)
+
+  def reset_metrics(self):
+    self.model.reset_metrics()
+
+  def reset_states(self):
+    self.model.reset_states()
+
+  def summary(self, *args, **kwargs):
+    if tnt.global_tnt_config.output_on_all_devices:
+      self.model.summary(*args, **kwargs)
+    else:
+      # FIXME: print summary on all partitions?
+      if tnt.is_group_master_rank(self.group):
+        self.model.summary(*args, **kwargs)
