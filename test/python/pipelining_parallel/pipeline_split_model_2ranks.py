@@ -40,7 +40,6 @@ def to_microbatched(model, micro_batch_size, num_micro_batches, num_batches, num
   rank = tnt.get_rank()
   partition_generator = pgen.GraphPartitionGenerator(model)
   rank_mapper = rmapper.RankMapper(num_ranks = tnt.get_size(),
-                                   num_partitions = partition_generator.get_number_partitions(),
                                    pipeline_graph = partition_generator.get_pipeline_graph())
 
   partition_id = rank_mapper.get_partition_for_rank(rank)
@@ -66,7 +65,6 @@ def to_microbatched(model, micro_batch_size, num_micro_batches, num_batches, num
   return microbatched_model_builder, ds
 
 @pytest.mark.min_tfversion('2.2')
-@pytest.mark.max_tfversion('2.6')
 class TestPipeline_SplitPartitions_AutoMicrobatching:
 
   @pytest.mark.parametrize("model_generator", [simple_model_generator])

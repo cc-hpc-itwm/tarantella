@@ -118,7 +118,8 @@ def get_microbatched_dataset(samples, labels, micro_batch_size, num_micro_batche
                                                  labels = partition_labels,
                                                  partition_info = partition_info,
                                                  num_micro_batches = num_micro_batches,
-                                                 micro_batch_size = micro_batch_size)
+                                                 micro_batch_size = micro_batch_size,
+                                                 dataset_size = len(samples))
 
 def load_dataset_as_arrays(batch_size, num_batches, num_test_batches):
   train_size = num_batches * batch_size
