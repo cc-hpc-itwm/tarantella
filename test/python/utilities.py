@@ -1,4 +1,5 @@
 import tarantella as tnt
+import tarantella.utilities.tf_version as version_utils
 import models.mnist_models as mnist
 
 import tensorflow as tf
@@ -50,8 +51,13 @@ def set_tf_random_seed(seed = 42):
   tf.random.set_seed(seed)
   random.seed(seed)
   os.environ['PYTHONHASHSEED']=str(seed)
-  os.environ['TF_DETERMINISTIC_OPS']='1'
   os.environ['TF_CUDNN_DETERMINISTIC']='1'
+
+  # from TF 2.7, 'TF_DETERMINISTIC_OPS' was replaced with `enable_op_determinism`
+  # https://www.tensorflow.org/api_docs/python/tf/config/experimental/enable_op_determinism
+  if version_utils.tf_version_below_equal('2.6'):
+    os.environ['TF_DETERMINISTIC_OPS']='1'
+
 
 def same_random_int_all_ranks(low, high):
   set_tf_random_seed()
