@@ -63,7 +63,7 @@ def _add_default_ProgbarLogger_callback_if_necessary(callbacks, exec_type, verbo
 
 def _is_progbar_necessary(exec_type, verbose = None):
   if not verbose:
-    progbar_necessary = (tf_default_verbose[exec_type] != TF_verbose.SILENT.value)
+    progbar_necessary = (TF_DEFAULT_VERBOSE[exec_type] != TF_verbose.SILENT.value)
   else:
     progbar_necessary = (verbose != TF_verbose.SILENT.value)
   return progbar_necessary
