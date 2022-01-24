@@ -182,9 +182,19 @@ class MicrobatchedModelBuilder(model_builder.ModelBuilder):
             microbatched_objectives[output_name] = copy.deepcopy(losses_or_metrics[global_endpoint_id])
           elif objective_type == ObjectiveType.metric:
             # create metric with clean state
-            object_type_of_metric = type(losses_or_metrics[global_endpoint_id])
-            metric_config = losses_or_metrics[global_endpoint_id].get_config()
-            microbatched_objectives[output_name] = object_type_of_metric.from_config(metric_config)
+            if isinstance(losses_or_metrics[global_endpoint_id], str):
+              # loss/metric specified as string; e.g. "mse"
+              # use default configuration
+              object_type_of_metric = getattr(keras.losses, losses_or_metrics[global_endpoint_id], None)   \
+                                      or getattr(keras.metrics, losses_or_metrics[global_endpoint_id], None)
+              if object_type_of_metric is None:
+                raise ValueError("[microbatched_model_builder] Cannot transform provided "
+                                  f"string `{losses_or_metrics[global_endpoint_id]}` in a known Keras loss/metric.")
+              microbatched_objectives[output_name] = object_type_of_metric
+            else:
+              object_type_of_metric = type(losses_or_metrics[global_endpoint_id])
+              metric_config = losses_or_metrics[global_endpoint_id].get_config()
+              microbatched_objectives[output_name] = object_type_of_metric.from_config(metric_config)
         elif endpoint_type == pinfo.EndpointType.out_edge:
           if objective_type == ObjectiveType.loss:
             microbatched_objectives[output_name] = tnt_losses.ZeroLoss()
