@@ -207,11 +207,19 @@ class PartitionedModel(tf.keras.models.Model):
 
   @property
   def metrics(self):
-    return self.model.metrics
+    user_defined_metrics = []
+    for m in self.model.metrics:
+      if not isinstance(m, tnt.keras.metrics.ZeroMetric):
+        user_defined_metrics.append(m)
+    return user_defined_metrics
   
   @property
   def metrics_names(self):
-    return self.model.metrics_names
+    user_defined_metrics = []
+    for m in self.model.metric_names:
+      if not m == "ZeroMetric":
+        user_defined_metrics.append(m)
+    return user_defined_metrics
   
   @property
   def non_trainable_weights(self):
