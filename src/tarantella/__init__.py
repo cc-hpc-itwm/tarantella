@@ -37,6 +37,7 @@ from tarantella import data
 
 from tarantella.keras import models
 from tarantella.keras.model import Model
+from tarantella.keras.model import DataParallelModel
 from tarantella.keras.sequential import Sequential
 
 from tarantella.collectives.TensorAllreducer import TensorAllreducer
