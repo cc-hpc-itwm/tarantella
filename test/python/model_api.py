@@ -55,6 +55,18 @@ class TestsModelAPI:
     tnt_model = tnt.Model(mnist.lenet5_model_generator())
     assert tnt_model.metrics_names == []
 
+  @pytest.mark.min_tfversion('2.2')
+  def test_metrics_names_after_fit(self):
+    tnt_model = tnt.Model(mnist.lenet5_model_generator())
+    tnt_model.compile(optimizer=tf.keras.optimizers.Adam(),
+                      loss="sparse_categorical_crossentropy",
+                      metrics=["sparse_categorical_accuracy"])
+    train_dataset, _ = util.load_dataset(mnist.load_mnist_dataset,
+                                         train_size = 24,
+                                         train_batch_size = 24)
+    tnt_model.fit(train_dataset)
+    assert tnt_model.metrics_names == ["loss", "sparse_categorical_accuracy"]
+
   def test_non_trainable_weights(self):
     tnt_model = tnt.Model(mnist.lenet5_model_generator())
     assert tnt_model.non_trainable_weights == []
@@ -130,9 +142,7 @@ class TestsModelAPI:
                       metrics=["sparse_categorical_accuracy"])
     train_dataset, _ = util.load_dataset(mnist.load_mnist_dataset,
                                          train_size = 60,
-                                         train_batch_size = 60,
-                                         test_size = 1,
-                                         test_batch_size = 1)
+                                         train_batch_size = 60)
     tnt_model.fit(train_dataset)
     assert all(float(m.result()) != 0 for m in tnt_model.metrics)
 
