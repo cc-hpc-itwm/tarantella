@@ -48,15 +48,6 @@ def _construct_from_keras_object(obj, keras_callback):
     if k not in ["group"]:
       setattr(obj, k, copy.deepcopy(v))
 
-def get_element_from_log_name(name, element):
-  # name structure: p_{partition_id}_m_{micro_batch_id}_{real/edge/seq}_output_{output_id}_{metric_name}
-  # e.g.: `p_1_m_1_real_output_0_sparse_categorical_accuracy`
-  assert element in ["micro_batch_id", "", "output_id", "metric_name"]
-
-  m = re.match("p_(?P<partition_id>.+)_m_(?P<micro_batch_id>.+)_(?P<type>.+)_output_(?P<output_id>\d+)_(?P<metric_name>.+)", name)
-  return m.groupdict().get(element, None)
-
-
 def generate_default_callback_with_type(tf_callback_type):
   class Callback(tf_callback_type):
     def __init__(self, keras_callback, *args, **kwargs):
@@ -197,34 +188,15 @@ def callbackFactory(keras_callback, enable_pipelining = True, group = tnt.Group(
         return kwargs
       
       kwargs_copy = copy.deepcopy(kwargs)
-      metrics_per_output = dict()
-      for key, value in kwargs["logs"].items():
-        if not putil.is_real_loss_or_metric(key):
-          continue
-        output_id = get_element_from_log_name(key, "output_id")
-        metric_name = get_element_from_log_name(key, "metric_name")
-        
-        if output_id not in metrics_per_output.keys():
-          metrics_per_output[output_id] = dict()
-        if metric_name not in metrics_per_output[output_id].keys():
-          metrics_per_output[output_id][metric_name] = list()
-        metrics_per_output[output_id][metric_name].append(value)
-
-      logs = dict()
+      metrics_per_output = putil.extract_user_visible_metrics(kwargs_copy["logs"])
       for output_id in metrics_per_output.keys():
-        for metric_name in metrics_per_output[output_id].keys():
-          list_of_values = metrics_per_output[output_id][metric_name]
-
-          new_name = f"output_{output_id}_" if len(metrics_per_output) > 1 else ""
-          # loss is unique, not defined per output
-          new_name = new_name if metric_name != "loss" else ""
-
-          if metric_name == "loss":
-            metric_name = "ploss"
-          new_name = new_name + metric_name
-          logs[new_name] = sum(list_of_values) / len(list_of_values)
+        for metric_name, list_of_values in list(metrics_per_output[output_id].items()):
+          if "loss" in metric_name:
+            del metrics_per_output[output_id][metric_name]
+          else:
+            metrics_per_output[output_id][metric_name] = sum(list_of_values) / len(list_of_values)
       
-      kwargs_copy["logs"] = logs
+      kwargs_copy["logs"] = metrics_per_output
       if "loss" in kwargs["logs"]:
         kwargs_copy["logs"]["loss"] = kwargs["logs"]["loss"]
 

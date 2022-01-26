@@ -134,6 +134,8 @@ class PartitionedModel(tf.keras.models.Model):
     if not self.compile_properties:
       raise LogicError("[PipelinedModel] `model.fit` called before `model.compile`")
 
+    logger.debug(f"[PartitionedModel] Compiled partitioned model with losses={self.compile_properties.loss}, "
+                f"metrics = {self.compile_properties.metrics} {self.model.metrics}")
     return {'optimizer' : self.compile_properties.optimizer,
             'loss' : self.microbatched_model_builder.get_losses(self.compile_properties.loss),
             'loss_weights' : self.microbatched_model_builder.get_loss_weights(),
@@ -176,7 +178,7 @@ class PartitionedModel(tf.keras.models.Model):
     
     compile_parameters = self._get_partition_compile_params()
     self.model.compile(**compile_parameters)
-
+    logger.debug(f"[PartitionedModel] micro-batching with callbacks={processed_callbacks}")
     return self.model.fit(x = ds, callbacks = processed_callbacks,
                           validation_data = validation_data,
                           **kwargs)
@@ -208,19 +210,15 @@ class PartitionedModel(tf.keras.models.Model):
 
   @property
   def metrics(self):
-    user_defined_metrics = []
-    for m in self.model.metrics:
-      if putil.is_real_loss_or_metric(m.name):
-        user_defined_metrics.append(m)
-    return user_defined_metrics
+    metrics_name_and_info = { m.name : m for m in self.model.metrics }
+    user_defined_metrics = putil.extract_user_visible_metrics(metrics_name_and_info)
+    return [v[0] for _,v in user_defined_metrics.items()]
   
   @property
   def metrics_names(self):
-    user_defined_metrics = []
-    for name in self.model.metrics_names:
-      if putil.is_real_loss_or_metric(name):
-        user_defined_metrics.append(name)
-    return user_defined_metrics
+    metrics_name_and_info = { m.name : m for m in self.model.metrics }
+    user_defined_metrics = putil.extract_user_visible_metrics(metrics_name_and_info)
+    return [metric_name for metric_name in user_defined_metrics.keys()]
   
   @property
   def non_trainable_weights(self):
