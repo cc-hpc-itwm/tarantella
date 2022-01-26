@@ -5,6 +5,7 @@ import tarantella.strategy.pipelining.shared_model_builder as sm_builder
 import tarantella.strategy.pipelining.microbatched_model_builder as mbm_builder
 import tarantella.strategy.pipelining.pipeline_microbatched_dataset as partitioned_dataset
 import tarantella.strategy.pipelining.partition_info as pinfo
+import tarantella.strategy.pipelining.utilities as putil
 
 from tarantella import logger
 import tarantella as tnt
@@ -209,16 +210,16 @@ class PartitionedModel(tf.keras.models.Model):
   def metrics(self):
     user_defined_metrics = []
     for m in self.model.metrics:
-      if not isinstance(m, tnt.keras.metrics.ZeroMetric):
+      if putil.is_real_loss_or_metric(m.name):
         user_defined_metrics.append(m)
     return user_defined_metrics
   
   @property
   def metrics_names(self):
     user_defined_metrics = []
-    for m in self.model.metric_names:
-      if not m == "ZeroMetric":
-        user_defined_metrics.append(m)
+    for name in self.model.metrics_names:
+      if putil.is_real_loss_or_metric(name):
+        user_defined_metrics.append(name)
     return user_defined_metrics
   
   @property

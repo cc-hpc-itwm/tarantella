@@ -7,7 +7,7 @@ import re
 import tarantella as tnt
 import tarantella.keras.utilities as utilities
 import tarantella.utilities.tf_version as version_utils
-
+import tarantella.strategy.pipelining.utilities as putil
 
 
 class LogsAverager(object):
@@ -47,9 +47,6 @@ def _construct_from_keras_object(obj, keras_callback):
   for k, v in keras_callback.__dict__.items():
     if k not in ["group"]:
       setattr(obj, k, copy.deepcopy(v))
-
-def is_real_loss_or_metric(name):
-  return "real" in name
 
 def get_element_from_log_name(name, element):
   # name structure: p_{partition_id}_m_{micro_batch_id}_{real/edge/seq}_output_{output_id}_{metric_name}
@@ -202,7 +199,7 @@ def callbackFactory(keras_callback, enable_pipelining = True, group = tnt.Group(
       kwargs_copy = copy.deepcopy(kwargs)
       metrics_per_output = dict()
       for key, value in kwargs["logs"].items():
-        if not is_real_loss_or_metric(key):
+        if not putil.is_real_loss_or_metric(key):
           continue
         output_id = get_element_from_log_name(key, "output_id")
         metric_name = get_element_from_log_name(key, "metric_name")
