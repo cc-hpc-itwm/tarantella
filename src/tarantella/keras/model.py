@@ -15,10 +15,13 @@ import tarantella.strategy.pipelining.partition_generator as pgen
 import tarantella.strategy.pipelining.rank_mapper as rmapper
 import atexit
 
+# Model parallelism not supportted for TF version < 2.3
+TF_DEFAULT_PIPELINING_FLAG = (version_utils.tf_version_above_equal('2.3'))
 
 def Model(model,
           enable_data_parallelism = True,
-          enable_model_parallelism = True, num_pipeline_stages = 1):
+          enable_model_parallelism = TF_DEFAULT_PIPELINING_FLAG,
+          num_pipeline_stages = 1):
   replica_group = tnt.Group()
 
   if enable_model_parallelism:
