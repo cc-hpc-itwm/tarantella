@@ -43,7 +43,7 @@ def _preprocess_pipelining_callbacks(callbacks, group, exec_type = 'fit', verbos
   _add_default_ProgbarLogger_callback_if_necessary(callbacks, exec_type, verbose)
 
   for index, callback in enumerate(callbacks):
-    callbacks[index] = tnt.keras.pipelining_callbacks.callbackFactory(callback)
+    callbacks[index] = tnt.keras.pipelining_callbacks.callbackFactory(callback, group = group)
   return callbacks
 
 def _add_default_History_callback_if_necessary(callbacks):
