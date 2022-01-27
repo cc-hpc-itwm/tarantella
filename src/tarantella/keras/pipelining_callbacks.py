@@ -4,6 +4,7 @@ import tensorflow as tf
 import numpy as np
 import re
 
+from tarantella import logger
 import tarantella as tnt
 import tarantella.keras.utilities as utilities
 import tarantella.utilities.tf_version as version_utils
@@ -50,10 +51,9 @@ def _construct_from_keras_object(obj, keras_callback):
 
 def generate_default_callback_with_type(tf_callback_type):
   class Callback(tf_callback_type):
-    def __init__(self, keras_callback, *args, **kwargs):
-      super().__init__(keras_callback, *args, **kwargs)
-#      super().__init__( *args, **kwargs)
+    def __init__(self, keras_callback):
       self.keras_callback = keras_callback
+      logger.debug(f"Creating generic TNT callback of type={type(keras_callback)}")
       _construct_from_keras_object(self, keras_callback)
     
     def set_params(self, params):
@@ -158,7 +158,6 @@ def callbackFactory(keras_callback, enable_pipelining = True, group = tnt.Group(
         self.is_built = True
 
     def _distribute_callback(self, callback_func, **kwargs):
-      callback_func(**kwargs_copy)
       kwargs_copy = copy.deepcopy(kwargs)
       # Check if logs do not contain None (for tf versions older than 2.1)
       if kwargs_copy['logs'] is not None:
@@ -168,40 +167,31 @@ def callbackFactory(keras_callback, enable_pipelining = True, group = tnt.Group(
             kwargs_copy['logs'] = self.average_logs(kwargs_copy['logs'])
 
       if self.run_on_all_ranks:
-        callback_func(**kwargs_copy)
+        return callback_func(**kwargs_copy)
       else:
         if tnt.is_group_master_rank(self.group):
-          callback_func(**kwargs_copy)
+          return callback_func(**kwargs_copy)
 
 
   class PipeliningCallback(BaseCallback):
     def __init__(self, keras_callback, group = tnt.Group()):
       super().__init__(keras_callback)
       self.group = group
-      
-    # def set_model(self, model):
-    #   super().set_model(model)
-    #   self.keras_callback.set_model(model)
 
     def _distribute_callback(self, callback_func, **kwargs):
       if "logs" not in kwargs.keys():
         return kwargs
-      
       kwargs_copy = copy.deepcopy(kwargs)
-      metrics_per_output = putil.extract_user_visible_metrics(kwargs_copy["logs"])
-      for output_id in metrics_per_output.keys():
-        for metric_name, list_of_values in list(metrics_per_output[output_id].items()):
-          if "loss" in metric_name:
-            del metrics_per_output[output_id][metric_name]
-          else:
-            metrics_per_output[output_id][metric_name] = sum(list_of_values) / len(list_of_values)
+      user_defined_metrics = putil.extract_user_visible_metrics(kwargs_copy["logs"])
+      for metric_name, list_of_values in list(user_defined_metrics.items()):
+        user_defined_metrics[metric_name] = sum(list_of_values) / len(list_of_values)
       
-      kwargs_copy["logs"] = metrics_per_output
+      kwargs_copy["logs"] = user_defined_metrics
       if "loss" in kwargs["logs"]:
         kwargs_copy["logs"]["loss"] = kwargs["logs"]["loss"]
 
       if tnt.is_group_master_rank(self.group):
-        callback_func(**kwargs_copy)
+        return callback_func(**kwargs_copy)
 
   if enable_pipelining:
     return PipeliningCallback(keras_callback, group)
