@@ -4,9 +4,16 @@ from tensorflow import keras
 import tarantella as tnt
 import utilities as util
 
-def generate_tnt_model_runner(model):
-  model_data_par = tnt.Model(model)
-  runner = TrainingRunner(model_data_par)
+import typing
+
+class ModelConfig(typing.NamedTuple):
+    model_generator: callable
+    enable_model_parallelism: bool = False
+
+def generate_tnt_model_runner(model_config):
+  tnt_model = tnt.Model(model_config.model_generator(),
+                        enable_model_parallelism = model_config.enable_model_parallelism)
+  runner = TrainingRunner(tnt_model)
   return runner
 
 # Wrap tarantella model creation and compiling, as they should be executed only once

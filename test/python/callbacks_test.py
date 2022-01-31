@@ -17,11 +17,12 @@ import os
 import pytest
 import shutil
 
-@pytest.fixture(scope="function", params=[mnist.fc_model_generator,
-                                          mnist.subclassed_model_generator])
+@pytest.fixture(scope="function", params=[base_runner.ModelConfig(mnist.fc_model_generator, True),
+                                          base_runner.ModelConfig(mnist.fc_model_generator, False),
+                                          base_runner.ModelConfig(mnist.subclassed_model_generator)])
 def model_runners(request):
-  tnt_model_runner = base_runner.generate_tnt_model_runner(request.param())
-  reference_model_runner = base_runner.TrainingRunner(request.param())
+  tnt_model_runner = base_runner.generate_tnt_model_runner(request.param)
+  reference_model_runner = base_runner.TrainingRunner(request.param.model_generator())
   yield tnt_model_runner, reference_model_runner
 
 

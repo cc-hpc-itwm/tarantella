@@ -14,7 +14,7 @@ def keras_model(request):
 class TestCloneModel:
   def test_clone_keras_model(self, keras_model):
     cloned_model = tnt.models.clone_model(keras_model)
-    tnt_model = tnt.Model(keras_model)
+    tnt_model = tnt.Model(keras_model, enable_data_parallelism = True, enable_model_parallelism = False)
     util.check_model_configuration_identical(tnt_model, cloned_model)
 
   def test_clone_tnt_model(self, keras_model):
