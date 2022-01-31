@@ -24,6 +24,10 @@ def Model(model,
           num_pipeline_stages = 1):
   replica_group = tnt.Group()
 
+  if enable_model_parallelism and isinstance(model, tf.keras.Sequential):
+    logger.warn(f"Cannot pipeline a `tf.keras.Sequential` model; disabling model parallelism.")
+    enable_model_parallelism = False
+
   if enable_model_parallelism:
     rank = tnt.get_rank()
 
