@@ -73,40 +73,8 @@ class PartitionedModel(tf.keras.models.Model):
     core_model_builder = cm_builder.CoreModelBuilder(model, partition_id,
                                                      partition_graph)
     self.model = core_model_builder.get_model()
-
-
-  def _get_microbatched_model_builder(self, micro_batch_size):
-    if not self.initialized:
-      self.pipeline_communicator.setup_infrastructure(micro_batch_size)
-      self.initialized = True
-    shared_model_builder = sm_builder.SharedModelBuilder(self.partition_info, self.model,
-                                                         self.pipeline_communicator, micro_batch_size)
-    shared_model = shared_model_builder.get_model()
-    microbatched_model_builder = mbm_builder.MicrobatchedModelBuilder(self.partition_info,
-                                                                      shared_model,
-                                                                      micro_batch_size,
-                                                                      self.num_pipeline_stages)
-    return microbatched_model_builder
-
-  def _get_microbatched_dataset(self, tnt_dataset, nano_batch_size, num_pipeline_stages):
-    samples = tnt_dataset.base_dataset.map(lambda s,_: s)
-    labels = tnt_dataset.base_dataset.map( lambda _,l: l)
-
-    partition_samples = []
-    partition_labels = []
-    # assume all inputs are passed to the same start partition and
-    # all outputs are generated on the same final partition
-    if len(self.partition_info.get_real_ids(pinfo.EndpointDirection.inp)) > 0:
-      partition_samples = [samples]
-    if len(self.partition_info.get_real_ids(pinfo.EndpointDirection.out)) > 0:
-      partition_labels = [labels]
-
-    return partitioned_dataset.create_micro_batched_dataset(samples = partition_samples,
-                                                            labels = partition_labels,
-                                                            partition_info = self.partition_info,
-                                                            num_micro_batches = num_pipeline_stages,
-                                                            micro_batch_size = nano_batch_size,
-                                                            dataset_size = tnt_dataset.number_samples)
+    self.nano_batch_size = None
+    self.built = False
 
 
   def compile(self,
@@ -130,18 +98,27 @@ class PartitionedModel(tf.keras.models.Model):
                               **kwargs)
 
 
-  def _get_partition_compile_params(self):
-    if not self.compile_properties:
-      raise LogicError("[PipelinedModel] `model.fit` called before `model.compile`")
+  def evaluate(self,
+               x = None,
+               y = None,
+               callbacks = None,
+               **kwargs):
+    self._configure_rebuild(dataset = x)
+    self._build_model_and_compile_if_necessary()
 
-    logger.debug(f"[PartitionedModel] Compiled partitioned model with losses={self.compile_properties.loss}, "
-                f"metrics = {self.compile_properties.metrics} {self.model.metrics}")
-    return {'optimizer' : self.compile_properties.optimizer,
-            'loss' : self.microbatched_model_builder.get_losses(self.compile_properties.loss),
-            'loss_weights' : self.microbatched_model_builder.get_loss_weights(),
-            'metrics' : self.microbatched_model_builder.get_metrics(self.compile_properties.metrics)}
+    processed_callbacks = utilities._preprocess_pipelining_callbacks(callbacks, self.group,
+                                                                     exec_type = 'evaluate',
+                                                                     verbose = kwargs.get('verbose', None))
 
-
+    ds = self._get_microbatched_dataset(dataset = x, nano_batch_size = self.nano_batch_size,
+                                        num_pipeline_stages = self.num_pipeline_stages)
+    test_loss_metrics = self.model.evaluate(x = ds, callbacks = processed_callbacks, **kwargs)
+    user_visible_loss_metrics = putil.extract_user_visible_metrics(
+                                      dict(zip(self.model.metrics_names, test_loss_metrics)))
+    if len(user_visible_loss_metrics) == 1:
+      return user_visible_loss_metrics[0]
+    else:
+      return [i for item in user_visible_loss_metrics.values() for i in item]
 
   def fit(self,
           x = None,
@@ -154,31 +131,14 @@ class PartitionedModel(tf.keras.models.Model):
           tnt_distribute_validation_dataset = True,
           **kwargs):
     logger.info(f"[PartitionedModel] fit.")
+    self._configure_rebuild(dataset = x)
+    self._build_model_and_compile_if_necessary()
     processed_callbacks = utilities._preprocess_pipelining_callbacks(callbacks, self.group,
                                                                      exec_type = 'fit',
                                                                      verbose = kwargs.get('verbose', None))
 
-    dist_dataset = tnt.data.Dataset(dataset = x,
-                                    num_ranks = 1,
-                                    rank = 0)
-    dist_dataset.distribute_dataset_across_ranks(apply_batch = False)
-
-    micro_batch_size = dist_dataset.micro_batch_size
-    nano_batch_size = micro_batch_size // self.num_pipeline_stages
-    if nano_batch_size * self.num_pipeline_stages != micro_batch_size:
-      logger.warn(f"[PartitionedModel] The micro-batch size {micro_batch_size} is not a multiple of "
-                  f" the number of pipeline stages ({self.num_pipeline_stages}); removing the remainder.")
-
-    ds = self._get_microbatched_dataset(tnt_dataset = dist_dataset, nano_batch_size = nano_batch_size,
+    ds = self._get_microbatched_dataset(dataset = x, nano_batch_size = self.nano_batch_size,
                                         num_pipeline_stages = self.num_pipeline_stages)
-    
-    logger.info(f"[PartitionedModel] micro-batching with nano_batch_size={nano_batch_size}")
-    self.microbatched_model_builder = self._get_microbatched_model_builder(nano_batch_size)
-    self.model = self.microbatched_model_builder.get_model()
-    
-    compile_parameters = self._get_partition_compile_params()
-    self.model.compile(**compile_parameters)
-    logger.debug(f"[PartitionedModel] micro-batching with callbacks={processed_callbacks}")
     return self.model.fit(x = ds, callbacks = processed_callbacks,
                           validation_data = validation_data,
                           **kwargs)
@@ -301,3 +261,92 @@ class PartitionedModel(tf.keras.models.Model):
       # FIXME: print summary on all partitions?
       if tnt.is_group_master_rank(self.group):
         self.model.summary(*args, **kwargs)
+
+
+  ####################
+  # Helper functions #
+  ####################
+
+  def _get_microbatched_model_builder(self, micro_batch_size):
+    if not self.initialized:
+      self.pipeline_communicator.setup_infrastructure(micro_batch_size)
+      self.initialized = True
+    shared_model_builder = sm_builder.SharedModelBuilder(self.partition_info, self.model,
+                                                         self.pipeline_communicator, micro_batch_size)
+    shared_model = shared_model_builder.get_model()
+    microbatched_model_builder = mbm_builder.MicrobatchedModelBuilder(self.partition_info,
+                                                                      shared_model,
+                                                                      micro_batch_size,
+                                                                      self.num_pipeline_stages)
+    return microbatched_model_builder
+
+  def _get_microbatched_dataset(self, dataset, nano_batch_size, num_pipeline_stages):
+    tnt_dataset = tnt.data.Dataset(dataset = dataset,
+                                    num_ranks = 1,
+                                    rank = 0)
+    tnt_dataset.distribute_dataset_across_ranks(apply_batch = False)
+
+    samples = tnt_dataset.base_dataset.map(lambda s,_: s)
+    labels = tnt_dataset.base_dataset.map( lambda _,l: l)
+
+    partition_samples = []
+    partition_labels = []
+    # assume all inputs are passed to the same start partition and
+    # all outputs are generated on the same final partition
+    if len(self.partition_info.get_real_ids(pinfo.EndpointDirection.inp)) > 0:
+      partition_samples = [samples]
+    if len(self.partition_info.get_real_ids(pinfo.EndpointDirection.out)) > 0:
+      partition_labels = [labels]
+
+    return partitioned_dataset.create_micro_batched_dataset(samples = partition_samples,
+                                                            labels = partition_labels,
+                                                            partition_info = self.partition_info,
+                                                            num_micro_batches = num_pipeline_stages,
+                                                            micro_batch_size = nano_batch_size,
+                                                            dataset_size = tnt_dataset.number_samples)
+
+
+  def _get_partition_compile_params(self):
+    if not self.compile_properties:
+      raise LogicError("[PipelinedModel] `model.fit` called before `model.compile`")
+
+    logger.debug(f"[PartitionedModel] Compiled partitioned model with losses={self.compile_properties.loss}, "
+                f"metrics = {self.compile_properties.metrics} {self.model.metrics}")
+    return {'optimizer' : self.compile_properties.optimizer,
+            'loss' : self.microbatched_model_builder.get_losses(self.compile_properties.loss),
+            'loss_weights' : self.microbatched_model_builder.get_loss_weights(),
+            'metrics' : self.microbatched_model_builder.get_metrics(self.compile_properties.metrics)}
+
+
+  def _configure_rebuild(self, dataset):
+    self.built = False
+    dist_dataset = tnt.data.Dataset(dataset = dataset,
+                                    num_ranks = 1,
+                                    rank = 0)
+    dist_dataset.distribute_dataset_across_ranks(apply_batch = False)
+
+    # model is already built with the same `nano_batch_size`
+    if self.nano_batch_size == dist_dataset.micro_batch_size // self.num_pipeline_stages:
+      self.built = True
+      return
+
+    micro_batch_size = dist_dataset.micro_batch_size
+    self.nano_batch_size = micro_batch_size // self.num_pipeline_stages
+    if self.nano_batch_size * self.num_pipeline_stages != micro_batch_size:
+      logger.warn(f"[PartitionedModel] The micro-batch size {self.micro_batch_size} is not a multiple of "
+                  f" the number of pipeline stages ({self.num_pipeline_stages}); removing the remainder.")
+
+
+  def _build_model_and_compile_if_necessary(self):
+    if self.built:
+      logger.info(f"[PartitionedModel] Model already built with nano_batch_size={self.nano_batch_size}")
+      return
+
+    logger.info(f"[PartitionedModel] Building pipelined model with nano_batch_size={self.nano_batch_size}")
+    self.microbatched_model_builder = self._get_microbatched_model_builder(self.nano_batch_size)
+    self.model = self.microbatched_model_builder.get_model()
+
+    compile_parameters = self._get_partition_compile_params()
+    self.model.compile(**compile_parameters)
+    self.built = True
+
