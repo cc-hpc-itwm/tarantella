@@ -1,3 +1,4 @@
+import tarantella.strategy.parallel_model as parallel_model
 import tarantella.strategy.pipelining.partition_generator as pgen
 import tarantella.strategy.pipelining.rank_mapper as rmapper
 import tarantella.strategy.pipelining.core_model_builder as cm_builder
@@ -52,14 +53,13 @@ class CompileProperties:
   def metrics(self):
     return self._metrics
 
-class PartitionedModel(tf.keras.models.Model):
+
+class PartitionedModel(parallel_model.ParallelModel):
   def __init__(self, model, group, partition_generator, rank_mapper,
                num_pipeline_stages = None):
-    super().__init__()
+    super().__init__(model = model, group = group)
     self.built = False
     self.compile_properties = None
-    self.rank = tnt.get_rank()
-    self.group = group
     self.num_pipeline_stages = num_pipeline_stages
 
     connection_table = rank_mapper.get_connections_for_rank(self.rank)
@@ -144,31 +144,6 @@ class PartitionedModel(tf.keras.models.Model):
                           **kwargs)
 
   @property
-  def distribute_strategy(self):
-    return tf.distribute.get_strategy()
-
-  @property
-  def dynamic(self):
-    return self.model.dynamic
-  
-  @property
-  def input_spec(self):
-    return self.model.input_spec
-
-  @property
-  def layers(self):
-    if hasattr(self, 'model'):
-      return self.model.layers
-    # condition needed for super(Model, self).__init__() to pass without error, 
-    # as self.model does not exist at the time of init call
-    else:
-      return super().layers
-
-  @property
-  def losses(self):
-    return self.model.losses
-
-  @property
   def metrics(self):
     metrics_name_and_info = { m.name : m for m in self.model.metrics }
     user_defined_metrics = putil.extract_user_visible_metrics(metrics_name_and_info)
@@ -179,62 +154,6 @@ class PartitionedModel(tf.keras.models.Model):
     metrics_name_and_info = { m.name : m for m in self.model.metrics }
     user_defined_metrics = putil.extract_user_visible_metrics(metrics_name_and_info)
     return [metric_name for metric_name in user_defined_metrics.keys()]
-  
-  @property
-  def non_trainable_weights(self):
-    return self.model.non_trainable_weights
-  
-  @property
-  def output(self):
-    return self.model.output
-
-  @output.setter
-  def output(self, value):
-    self.model.output = value
-
-  @property
-  def run_eagerly(self):
-    return self.model.run_eagerly
-  
-  @property
-  def state_updates(self):
-    return self.model.state_updates
-  
-  @property
-  def stateful(self):
-    return self.model.stateful
-  
-  @property
-  def trainable_weights(self):
-    return self.model.trainable_weights
-  
-  @property
-  def weights(self):
-    return self.model.weights
-
-  #############
-  # Functions #
-  #############
-  def add_loss(self, losses, *args, **kwargs):
-    self.model.add_loss(losses, *args, **kwargs)
-  
-  def add_metric(self, value, *args, **kwargs):
-    self.model.add_metric(value, *args, **kwargs)
-  
-  def build(self, input_shape):
-    return self.model.build(input_shape)
-
-  def call(self, inputs):
-    return self.model.call(inputs)
-
-  def compute_output_shape(self, input_shape):
-    return self.model.compute_output_shape(input_shape)
-
-  def get_config(self):
-    return self.model.get_config()
-
-  def get_layer(self, name=None, index=None):
-    return self.model.get_layer(name, index)
 
   def get_weights(self):
     if not self.model.built:
@@ -248,20 +167,22 @@ class PartitionedModel(tf.keras.models.Model):
   def load_weights(self, filepath, **kwargs):
     return self.model.load_weights(filepath = filepath, **kwargs)
 
-  def reset_metrics(self):
-    self.model.reset_metrics()
+  def predict(self,
+              x = None,
+              callbacks = None,
+              tnt_micro_batch_size = None,
+              tnt_distribute_dataset = True,
+              **kwargs):
+    raise NotImplementedError("[PartitionedModel] `predict` not supported")
 
-  def reset_states(self):
-    self.model.reset_states()
+  def save(self, filepath, tnt_save_all_devices = False, **kwargs):
+    raise NotImplementedError("[PartitionedModel] `save` not supported")
 
-  def summary(self, *args, **kwargs):
-    if tnt.global_tnt_config.output_on_all_devices:
-      self.model.summary(*args, **kwargs)
-    else:
-      # FIXME: print summary on all partitions?
-      if tnt.is_group_master_rank(self.group):
-        self.model.summary(*args, **kwargs)
+  def save_weights(self, filepath, tnt_save_all_devices = False, **kwargs):
+    raise NotImplementedError("[PartitionedModel] `save_weights` not supported")
 
+  def set_weights(self, weights):
+    self.model.set_weights(weights)
 
   ####################
   # Helper functions #
@@ -350,3 +271,7 @@ class PartitionedModel(tf.keras.models.Model):
     self.model.compile(**compile_parameters)
     self.built = True
 
+
+  def close(self):
+    del self.model
+    del self.pipeline_communicator
