@@ -37,7 +37,6 @@ from tarantella import data
 
 from tarantella.keras import models
 from tarantella.keras.model import Model
-from tarantella.keras.model import DataParallelModel
 from tarantella.keras.sequential import Sequential
 
 from tarantella.collectives.TensorAllreducer import TensorAllreducer
@@ -50,3 +49,4 @@ from tarantella.strategy.PipelineCommunicator import PipelineCommunicator
 import tarantella.optimizers as optimizers
 from tarantella.optimizers.synchronous_distributed_optimizer import SynchDistributedOptimizer as Optimizer
 import tarantella.optimizers.synchronous_distributed_optimizer as distributed_optimizers
+
