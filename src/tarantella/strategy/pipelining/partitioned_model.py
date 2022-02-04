@@ -173,7 +173,18 @@ class PartitionedModel(parallel_model.ParallelModel):
               tnt_micro_batch_size = None,
               tnt_distribute_dataset = True,
               **kwargs):
-    raise NotImplementedError("[PartitionedModel] `predict` not supported")
+    self._configure_rebuild(dataset = x)
+    self._build_model_and_compile_if_necessary()
+
+    processed_callbacks = utilities._preprocess_pipelining_callbacks(callbacks, self.group,
+                                                                     exec_type = 'predict',
+                                                                     verbose = kwargs.get('verbose', None))
+
+    ds = self._get_microbatched_dataset(dataset = x, nano_batch_size = self.nano_batch_size,
+                                        num_pipeline_stages = self.num_pipeline_stages)
+    test_loss_metrics = self.model.predict(x = ds, callbacks = processed_callbacks, **kwargs)
+    if tnt.is_group_master_rank(self.group):  # last partition
+      return test_loss_metrics
 
   def save(self, filepath, tnt_save_all_devices = False, **kwargs):
     raise NotImplementedError("[PartitionedModel] `save` not supported")
