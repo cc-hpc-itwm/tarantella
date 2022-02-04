@@ -51,7 +51,7 @@ def model_from_yaml(yaml_string, **kwargs):
     raise RuntimeError("[tnt.models.model_from_yaml] Cannot load model")
 
 def clone_model(model, **kwargs):
-  if isinstance(model, tnt.DataParallelModel):
+  if isinstance(model, tnt.strategy.parallel_model.ParallelModel):
     keras_model = tf.keras.models.clone_model(model.model, **kwargs)
     logger.info("clone model from instance of tnt.Model")
   elif isinstance(model, tf.keras.Model):
