@@ -27,6 +27,10 @@ class DataParallelModel(parallel_model.ParallelModel):
   def metrics_names(self):
     return self.model.metrics_names
 
+  @property
+  def name(self):
+    return self.model.name
+
   def compile(self,
               optimizer='rmsprop',
               loss=None,

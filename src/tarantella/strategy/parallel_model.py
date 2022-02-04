@@ -28,6 +28,11 @@ class ParallelModel(tf.keras.models.Model, metaclass = abc.ABCMeta):
   def metrics_names(self):
     pass
 
+  @property
+  @abstractmethod
+  def name(self):
+    pass
+
   @abstractmethod
   def compile(self,
               optimizer='rmsprop',

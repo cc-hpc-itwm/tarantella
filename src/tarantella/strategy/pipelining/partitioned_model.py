@@ -13,6 +13,13 @@ import tarantella as tnt
 import tarantella.keras.utilities as utilities
 
 import tensorflow as tf
+from tensorflow.python.keras.saving.saved_model import json_utils
+import json
+
+try:
+  import yaml
+except ImportError:
+  yaml = None
 
 class CompileProperties:
   def __init__(self, model, params):
@@ -58,6 +65,7 @@ class PartitionedModel(parallel_model.ParallelModel):
   def __init__(self, model, group, partition_generator, rank_mapper,
                num_pipeline_stages = None):
     super().__init__(model = model, group = group)
+    self._model_name = model.name
     self.built = False
     self.compile_properties = None
     self.num_pipeline_stages = num_pipeline_stages
@@ -76,6 +84,22 @@ class PartitionedModel(parallel_model.ParallelModel):
     self.nano_batch_size = None
     self.built = False
 
+
+  @property
+  def metrics(self):
+    metrics_name_and_info = { m.name : m for m in self.model.metrics }
+    user_defined_metrics = putil.extract_user_visible_metrics(metrics_name_and_info)
+    return [v[0] for _,v in user_defined_metrics.items()]
+
+  @property
+  def metrics_names(self):
+    metrics_name_and_info = { m.name : m for m in self.model.metrics }
+    user_defined_metrics = putil.extract_user_visible_metrics(metrics_name_and_info)
+    return [metric_name for metric_name in user_defined_metrics.keys()]
+
+  @property
+  def name(self):
+    return self._model_name
 
   def compile(self,
               optimizer='rmsprop',
@@ -143,17 +167,11 @@ class PartitionedModel(parallel_model.ParallelModel):
                           validation_data = validation_data,
                           **kwargs)
 
-  @property
-  def metrics(self):
-    metrics_name_and_info = { m.name : m for m in self.model.metrics }
-    user_defined_metrics = putil.extract_user_visible_metrics(metrics_name_and_info)
-    return [v[0] for _,v in user_defined_metrics.items()]
-  
-  @property
-  def metrics_names(self):
-    metrics_name_and_info = { m.name : m for m in self.model.metrics }
-    user_defined_metrics = putil.extract_user_visible_metrics(metrics_name_and_info)
-    return [metric_name for metric_name in user_defined_metrics.keys()]
+  def get_config(self):
+    config = super().get_config()
+    if 'name' in config.keys():
+      config['name'] = self.name
+    return config
 
   def get_weights(self):
     if not self.model.built:
@@ -194,6 +212,19 @@ class PartitionedModel(parallel_model.ParallelModel):
 
   def set_weights(self, weights):
     self.model.set_weights(weights)
+
+  def to_json(self, **kwargs):
+    model_config = self.model._updated_config()
+    model_config['config'] = self.get_config()
+    return json.dumps(model_config, default=json_utils.get_json_type, **kwargs)
+
+  def to_yaml(self, **kwargs):
+    if yaml is None:
+      raise ImportError(
+          'Requires yaml module installed (`pip install pyyaml`).')
+    model_config = self.model._updated_config()
+    model_config['config'] = self.get_config()
+    return yaml.dump(model_config, **kwargs)
 
   ####################
   # Helper functions #
