@@ -163,8 +163,15 @@ class PartitionedModel(parallel_model.ParallelModel):
 
     ds = self._get_microbatched_dataset(dataset = x, nano_batch_size = self.nano_batch_size,
                                         num_pipeline_stages = self.num_pipeline_stages)
+
+    distributed_validation_data = None
+    if validation_data:
+      distributed_validation_data = self._get_microbatched_dataset(dataset = validation_data,
+                                                                   nano_batch_size = self.nano_batch_size,
+                                                                   num_pipeline_stages = self.num_pipeline_stages)
+
     return self.model.fit(x = ds, callbacks = processed_callbacks,
-                          validation_data = validation_data,
+                          validation_data = distributed_validation_data,
                           **kwargs)
 
   def get_config(self):
@@ -245,8 +252,8 @@ class PartitionedModel(parallel_model.ParallelModel):
 
   def _get_microbatched_dataset(self, dataset, nano_batch_size, num_pipeline_stages):
     tnt_dataset = tnt.data.Dataset(dataset = dataset,
-                                    num_ranks = 1,
-                                    rank = 0)
+                                   num_ranks = 1,
+                                   rank = 0)
     tnt_dataset.distribute_dataset_across_ranks(apply_batch = False)
 
     samples = tnt_dataset.base_dataset.map(lambda s,_: s)
