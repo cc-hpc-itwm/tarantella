@@ -123,7 +123,8 @@ def generate_default_callback_with_type(tf_callback_type):
       return self.keras_callback._implements_predict_batch_hooks()
   return Callback
 
-def callbackFactory(keras_callback, enable_pipelining = True, group = tnt.Group(),
+def callbackFactory(keras_callback,
+                    parallel_strategy = tnt.ParallelStrategy.PIPELINING, group = tnt.Group(),
                     aggregate_logs=True, run_on_all_ranks=True):
 
   BaseCallback = generate_default_callback_with_type(type(keras_callback))
@@ -193,7 +194,7 @@ def callbackFactory(keras_callback, enable_pipelining = True, group = tnt.Group(
       if tnt.is_group_master_rank(self.group):
         return callback_func(**kwargs_copy)
 
-  if enable_pipelining:
+  if tnt.ParallelStrategy.PIPELINING in parallel_strategy:
     return PipeliningCallback(keras_callback, group)
   else:
     return DataParallelCallback(keras_callback, aggregate_logs, run_on_all_ranks, group)

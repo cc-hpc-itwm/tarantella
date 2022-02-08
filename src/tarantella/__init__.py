@@ -35,6 +35,10 @@ tnt_initializer.init()
 
 from tarantella import data
 
+from tarantella.strategy.parallel_strategy import ParallelStrategy
+from tarantella.strategy.SynchCommunicator import SynchCommunicator
+from tarantella.strategy.PipelineCommunicator import PipelineCommunicator
+
 from tarantella.keras import models
 from tarantella.keras.model import Model
 from tarantella.keras.sequential import Sequential
@@ -42,9 +46,6 @@ from tarantella.keras.sequential import Sequential
 from tarantella.collectives.TensorAllreducer import TensorAllreducer
 from tarantella.collectives.TensorBroadcaster import TensorBroadcaster
 from tarantella.collectives.TensorAllgatherer import TensorAllgatherer
-
-from tarantella.strategy.SynchCommunicator import SynchCommunicator
-from tarantella.strategy.PipelineCommunicator import PipelineCommunicator
 
 import tarantella.optimizers as optimizers
 from tarantella.optimizers.synchronous_distributed_optimizer import SynchDistributedOptimizer as Optimizer

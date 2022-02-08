@@ -18,16 +18,16 @@ class ModelMeta(type):
     return obj
 
   def _create_tnt_model(cls, model,
-              enable_data_parallelism = True,
-              enable_model_parallelism = TF_DEFAULT_PIPELINING_FLAG,
-              num_pipeline_stages = 1):
+                        parallel_strategy = tnt.ParallelStrategy.ALL if TF_DEFAULT_PIPELINING_FLAG \
+                                                                 else tnt.ParallelStrategy.DATA,
+                        num_pipeline_stages = 1):
     replica_group = tnt.Group()
 
-    if enable_model_parallelism and isinstance(model, tf.keras.Sequential):
+    if (tnt.ParallelStrategy.PIPELINING in parallel_strategy) and isinstance(model, tf.keras.Sequential):
       logger.warn(f"Cannot pipeline a `tf.keras.Sequential` model; disabling model parallelism.")
-      enable_model_parallelism = False
+      parallel_strategy = parallel_strategy ^ tnt.ParallelStrategy.PIPELINING
 
-    if enable_model_parallelism:
+    if tnt.ParallelStrategy.PIPELINING in parallel_strategy:
       rank = tnt.get_rank()
 
       partition_generator = pgen.GraphPartitionGenerator(model)
@@ -42,7 +42,7 @@ class ModelMeta(type):
                                   num_pipeline_stages=num_pipeline_stages)
       replica_group = rank_mapper.get_replica_group_for_rank(rank)
 
-    if enable_data_parallelism:
+    if tnt.ParallelStrategy.DATA in parallel_strategy:
       # replicate my partition across the data parallel group
       logger.info(f"Replicating local model across {replica_group.group} ranks.")
       model = dpm.DataParallelModel(model = model, group = replica_group)
