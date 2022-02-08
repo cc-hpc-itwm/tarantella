@@ -19,7 +19,8 @@ def load_model(filepath, compile = True, **kwargs):
   tnt_model = tnt.Model(keras_model)
   if compile:
     try:
-      tnt_optimizer = tnt.distributed_optimizers.SynchDistributedOptimizer(keras_model.optimizer)
+      tnt_optimizer = tnt.distributed_optimizers.SynchDistributedOptimizer(keras_model.optimizer,
+                                                                           group = tnt_model.group)
       tnt_model.dist_optimizer = tnt_optimizer
       tnt_model._set_internal_optimizer(tnt_model.dist_optimizer)
       tnt_model.compiled = True
