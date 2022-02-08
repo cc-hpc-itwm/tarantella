@@ -50,7 +50,7 @@ def get_tnt_model_compiled(model, parallel_strategy):
   return tnt_model
 
 @pytest.mark.parametrize("parallel_strategy", [tnt.ParallelStrategy.DATA,
-                                               pytest.param(tnt.ParallelStrategy.ALL, marks=pytest.mark.xfail),])
+                                               pytest.param(tnt.ParallelStrategy.ALL, marks=pytest.mark.skip),])
 class TestsModelLoadSave:
   model_configuration_checks = [pytest.param(util.check_model_configuration_identical,
                                              marks=[pytest.mark.min_tfversion('2.2')]),
@@ -65,7 +65,7 @@ class TestsModelLoadSave:
     tnt_model.save(save_setup['save_dir'], tnt_save_all_devices = save_setup['all_devices'])
     reloaded_tnt_model = tnt.models.load_model(save_setup['save_dir'])
 
-    assert isinstance(reloaded_tnt_model, tnt.Model)
+    assert isinstance(reloaded_tnt_model, keras.Model)
     check_configuration_identical(reloaded_tnt_model, tnt_model)
     
 
