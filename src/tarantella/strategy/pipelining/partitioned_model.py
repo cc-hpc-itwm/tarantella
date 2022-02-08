@@ -271,7 +271,7 @@ class PartitionedModel(parallel_model.ParallelModel):
 
   def _get_partition_compile_params(self):
     if not self.compile_properties:
-      raise LogicError("[PipelinedModel] `model.fit` called before `model.compile`")
+      raise RuntimeError("[PipelinedModel] `model.fit` called before `model.compile`")
 
     logger.debug(f"[PartitionedModel] Compiled partitioned model with losses={self.compile_properties.loss}, "
                 f"metrics = {self.compile_properties.metrics} {self.model.metrics}")
