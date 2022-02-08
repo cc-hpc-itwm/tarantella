@@ -10,8 +10,9 @@ import logging
 import pytest
 
 # Run tests with multiple models as fixtures
-@pytest.fixture(scope="function", params=[base_runner.ModelConfig(mnist.fc_model_generator, False),
-                                          pytest.param(base_runner.ModelConfig(mnist.fc_model_generator, True),
+@pytest.fixture(scope="function", params=[base_runner.ModelConfig(mnist.fc_model_generator),
+                                          pytest.param(base_runner.ModelConfig(mnist.fc_model_generator,
+                                                                               tnt.ParallelStrategy.ALL),
                                                        marks=pytest.mark.xfail),
                                           base_runner.ModelConfig(mnist.lenet5_model_generator),
                                           base_runner.ModelConfig(mnist.sequential_model_generator),

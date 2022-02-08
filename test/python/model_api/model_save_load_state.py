@@ -43,8 +43,8 @@ def get_compile_params():
   return {'loss'       : keras.losses.SparseCategoricalCrossentropy(),
           'metrics'    :[keras.metrics.SparseCategoricalAccuracy()]}
 
-def get_tnt_model_compiled(model, optimizer):
-  tnt_model = tnt.Model(model)
+def get_tnt_model_compiled(model, parallel_strategy, optimizer):
+  tnt_model = tnt.Model(model, parallel_strategy)
   tnt_model.compile(optimizer = optimizer, **get_compile_params())
   return tnt_model
 
@@ -125,16 +125,18 @@ class TestsModelLoadSaveState:
 
 
   @pytest.mark.xfail
+  @pytest.mark.parametrize("parallel_strategy", [tnt.ParallelStrategy.DATA,
+                                                 pytest.param(tnt.ParallelStrategy.ALL, marks=pytest.mark.xfail),])
   @pytest.mark.parametrize("optimizer_type", [keras.optimizers.SGD,
                                               keras.optimizers.Adam,
                                               keras.optimizers.RMSprop])
   @pytest.mark.parametrize("check_configuration_identical", model_configuration_checks)
-  def test_save_load_train_models(self, model, save_setup, optimizer_type,
+  def test_save_load_train_models(self, model, save_setup, parallel_strategy, optimizer_type,
                                   check_configuration_identical):
     train_dataset, _ = util.train_test_mnist_datasets(nbatches = 10, micro_batch_size = 32,
                                                       shuffle = False)
     # create and train model
-    tnt_model = get_tnt_model_compiled(model, optimizer_type())
+    tnt_model = get_tnt_model_compiled(model, parallel_strategy, optimizer_type())
     tnt_model.fit(train_dataset, epochs = 2, verbose = 0)
     tnt_model.save(save_setup['save_dir'], tnt_save_all_devices = save_setup['all_devices'])
 

@@ -1,4 +1,5 @@
 from models import mnist_models as mnist
+from tarantella.strategy.parallel_strategy import ParallelStrategy
 import training_runner as base_runner
 import utilities as util
 import tarantella as tnt
@@ -162,7 +163,7 @@ class TestsModelAPI:
                                                              ])
   def test_optimizer_with_name(self, optimizer_name, optimizer_type):
     tnt_model = tnt.Model(mnist.lenet5_model_generator(),
-                          enable_data_parallelism = True)
+                          parallel_strategy = tnt.ParallelStrategy.DATA)
     tnt_model.compile(optimizer=optimizer_name,
                       loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
                       metrics=['accuracy'])

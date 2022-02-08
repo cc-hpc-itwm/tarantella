@@ -44,11 +44,13 @@ def get_compile_params():
           'loss'       : keras.losses.SparseCategoricalCrossentropy(),
           'metrics'    :[keras.metrics.SparseCategoricalAccuracy()]}
 
-def get_tnt_model_compiled(model):
-  tnt_model = tnt.Model(model)
+def get_tnt_model_compiled(model, parallel_strategy):
+  tnt_model = tnt.Model(model, parallel_strategy)
   tnt_model.compile(**get_compile_params())
   return tnt_model
 
+@pytest.mark.parametrize("parallel_strategy", [tnt.ParallelStrategy.DATA,
+                                               pytest.param(tnt.ParallelStrategy.ALL, marks=pytest.mark.xfail),])
 class TestsModelLoadSave:
   model_configuration_checks = [pytest.param(util.check_model_configuration_identical,
                                              marks=[pytest.mark.min_tfversion('2.2')]),
@@ -57,9 +59,9 @@ class TestsModelLoadSave:
                                                     pytest.mark.tfversion('2.1')]),
                                 ]
   @pytest.mark.parametrize("check_configuration_identical", model_configuration_checks)
-  def test_save_before_compile(self, model, save_setup,
+  def test_save_before_compile(self, model, save_setup, parallel_strategy,
                                check_configuration_identical):
-    tnt_model = tnt.Model(model)
+    tnt_model = tnt.Model(model, parallel_strategy)
     tnt_model.save(save_setup['save_dir'], tnt_save_all_devices = save_setup['all_devices'])
     reloaded_tnt_model = tnt.models.load_model(save_setup['save_dir'])
 
@@ -68,9 +70,9 @@ class TestsModelLoadSave:
     
 
   @pytest.mark.parametrize("check_configuration_identical", model_configuration_checks)
-  def test_save_load_before_training(self, model, save_setup,
+  def test_save_load_before_training(self, model, save_setup, parallel_strategy,
                                      check_configuration_identical):
-    tnt_model = get_tnt_model_compiled(model)
+    tnt_model = get_tnt_model_compiled(model, parallel_strategy)
     tnt_model.save(save_setup['save_dir'], tnt_save_all_devices = save_setup['all_devices'])
     reloaded_tnt_model = tnt.models.load_model(save_setup['save_dir'], compile = True)
 
@@ -79,8 +81,9 @@ class TestsModelLoadSave:
 
 
   @pytest.mark.parametrize("load_compiled_model", [True, False])
-  def test_load_model_with_compile_flag(self, model, save_setup, load_compiled_model):
-    tnt_model = get_tnt_model_compiled(model)
+  def test_load_model_with_compile_flag(self, model, save_setup, parallel_strategy,
+                                        load_compiled_model):
+    tnt_model = get_tnt_model_compiled(model, parallel_strategy)
     train_dataset, _ = util.train_test_mnist_datasets(nbatches = 1, micro_batch_size = 32)
 
     tnt_model.save(save_setup['save_dir'],
@@ -98,13 +101,14 @@ class TestsModelLoadSave:
 
 
   @pytest.mark.parametrize("tf_format", [True, False])
-  def test_save_weights_after_training(self, model, save_setup, tf_format):
+  def test_save_weights_after_training(self, model, save_setup, parallel_strategy,
+                                       tf_format):
     # create un-shuffling dataset to be able to continue training identically
     # both on the `tnt.Model` and then on the `keras.Model`
     train_dataset, _ = util.train_test_mnist_datasets(nbatches = 10, micro_batch_size = 32,
                                                       shuffle = False)
     # create and train model
-    tnt_model = get_tnt_model_compiled(model)
+    tnt_model = get_tnt_model_compiled(model, parallel_strategy)
     tnt_model.fit(train_dataset, epochs = 1, verbose = 0)
 
     os.makedirs(save_setup['save_dir'], exist_ok = True)

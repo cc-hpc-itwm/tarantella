@@ -13,7 +13,8 @@ import pytest
 @pytest.fixture(scope="function", params=[mnist.fc_model_generator
                                          ])
 def model_runners(request):
-  tnt_model_runner = base_runner.generate_tnt_model_runner(base_runner.ModelConfig(request.param(), False))
+  tnt_model_runner = base_runner.generate_tnt_model_runner(base_runner.ModelConfig(request.param,
+                                                                                   tnt.ParallelStrategy.DATA))
   reference_model_runner = base_runner.TrainingRunner(request.param())
   yield tnt_model_runner, reference_model_runner
 

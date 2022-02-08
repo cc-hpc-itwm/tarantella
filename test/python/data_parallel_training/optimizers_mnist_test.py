@@ -44,8 +44,9 @@ def train_tnt_and_reference_models(model_config, optimizer, micro_batch_size,
 
 class TestsDataParallelOptimizers:
 
-  @pytest.mark.parametrize("model_config", [base_runner.ModelConfig(mnist.lenet5_model_generator, False),
-                                            pytest.param(base_runner.ModelConfig(mnist.lenet5_model_generator, True),
+  @pytest.mark.parametrize("model_config", [base_runner.ModelConfig(mnist.lenet5_model_generator),
+                                            pytest.param(base_runner.ModelConfig(mnist.lenet5_model_generator,
+                                                                                 tnt.ParallelStrategy.ALL),
                                                          marks=pytest.mark.xfail),
                                             base_runner.ModelConfig(mnist.subclassed_model_generator)])
   @pytest.mark.parametrize("optimizer", [keras.optimizers.Adadelta,
@@ -61,8 +62,9 @@ class TestsDataParallelOptimizers:
     assert np.allclose(tnt_history.history['loss'], ref_history.history['loss'], 1e-4)
     assert np.allclose(tnt_history.history[metric], ref_history.history[metric], 1e-6)
 
-  @pytest.mark.parametrize("model_config", [base_runner.ModelConfig(mnist.lenet5_model_generator, False),
-                                            pytest.param(base_runner.ModelConfig(mnist.lenet5_model_generator, True),
+  @pytest.mark.parametrize("model_config", [base_runner.ModelConfig(mnist.lenet5_model_generator),
+                                            pytest.param(base_runner.ModelConfig(mnist.lenet5_model_generator,
+                                                                                 tnt.ParallelStrategy.ALL),
                                                          marks=pytest.mark.xfail),
                                             base_runner.ModelConfig(mnist.subclassed_model_generator)])
   @pytest.mark.parametrize("optimizer", [keras.optimizers.Adam,
@@ -79,7 +81,7 @@ class TestsDataParallelOptimizers:
     assert np.allclose(tnt_history.history['loss'], ref_history.history['loss'], 1e-2)
     assert np.allclose(tnt_history.history[metric], ref_history.history[metric], 1e-2)
 
-  @pytest.mark.parametrize("model_config", [base_runner.ModelConfig(mnist.lenet5_model_generator, False),
+  @pytest.mark.parametrize("model_config", [base_runner.ModelConfig(mnist.lenet5_model_generator),
                                             base_runner.ModelConfig(mnist.sequential_model_generator)])
   @pytest.mark.parametrize("nesterov", [False, True])
   @pytest.mark.parametrize("momentum", [0.9])
