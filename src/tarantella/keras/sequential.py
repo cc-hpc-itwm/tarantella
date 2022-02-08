@@ -1,9 +1,9 @@
-import tensorflow as tf
-
 import tarantella as tnt
 from tarantella import logger
 
-class Sequential:
+import tensorflow as tf
+
+class Sequential(tnt.Model):
   @classmethod
   def from_config(cls, config, **kwargs):
     try:
@@ -12,4 +12,4 @@ class Sequential:
     except:
       raise RuntimeError("""[tnt.keras.Sequential.from_config] Cannot load
             model; provided configuration is not a `keras.Sequential` model.""")
-    return tnt.Model(keras_model)
+    return tnt.Model(keras_model, parallel_strategy = tnt.ParallelStrategy.DATA)
