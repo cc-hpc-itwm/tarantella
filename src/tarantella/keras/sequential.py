@@ -12,4 +12,6 @@ class Sequential(tnt.Model):
     except:
       raise RuntimeError("""[tnt.keras.Sequential.from_config] Cannot load
             model; provided configuration is not a `keras.Sequential` model.""")
+    # FIXME load models with any type of parallelization strategy
+    logger.warning("Loading model with the default `data parallel` strategy.")
     return tnt.Model(keras_model, parallel_strategy = tnt.ParallelStrategy.DATA)

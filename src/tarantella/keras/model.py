@@ -51,6 +51,8 @@ class ModelMeta(type):
 class Model(metaclass = ModelMeta):
   @classmethod
   def from_config(cls, *args, **kwargs):
+    # FIXME load models with any type of parallelization strategy
+    logger.warning("Loading model with the default `data parallel` strategy.")
     return dpm.DataParallelModel.from_config(*args, **kwargs)
 
 
