@@ -3,8 +3,9 @@ import tarantella.keras.callbacks as tnt_callbacks
 import tarantella.utilities.tf_version as version_utils
 
 import tensorflow.keras.callbacks as tf_callbacks
-import tarantella.keras.pipelining_callbacks
+import tarantella.strategy.pipelining.pipelining_callbacks
 from enum import Enum
+from tarantella import logger
 
 
 class TF_verbose(Enum):
@@ -30,21 +31,14 @@ def _set_model_optimizer(model, optimizer):
     "[tnt.keras.utilities._set_model_optimizer] Cannot set optimizer for the provided `keras.Model`.")
 
 
-def _preprocess_callbacks(callbacks, group, exec_type = 'fit', verbose = None):
+def _preprocess_callbacks(callbacks, group, parallel_strategy,
+                          exec_type = 'fit', verbose = None):
   callbacks = callbacks or []
   _add_default_History_callback_if_necessary(callbacks)
   _add_default_ProgbarLogger_callback_if_necessary(callbacks, exec_type, verbose)
-  _to_tnt_callbacks(callbacks, group)
+  _to_parallel_callbacks(callbacks, group, parallel_strategy)
   return callbacks
 
-def _preprocess_pipelining_callbacks(callbacks, group, exec_type = 'fit', verbose = None):
-  callbacks = callbacks or []
-  _add_default_History_callback_if_necessary(callbacks)
-  _add_default_ProgbarLogger_callback_if_necessary(callbacks, exec_type, verbose)
-
-  for index, callback in enumerate(callbacks):
-    callbacks[index] = tnt.keras.pipelining_callbacks.callbackFactory(callback, group = group)
-  return callbacks
 
 def _add_default_History_callback_if_necessary(callbacks):
   for callback in callbacks:
@@ -67,6 +61,13 @@ def _is_progbar_necessary(exec_type, verbose = None):
   else:
     progbar_necessary = (verbose != TF_verbose.SILENT.value)
   return progbar_necessary
+
+def _to_parallel_callbacks(callbacks, group, parallel_strategy):
+  for index, callback in enumerate(callbacks):
+    logger.debug(f"[{parallel_strategy}] Preprocessing callback {callback} of type {type(callback)}")
+    callbacks[index] = tnt.keras.callbacks.Callback(callback, parallel_strategy, group = group)
+  return callbacks
+
 
 def _to_tnt_callbacks(callbacks, group):
   remove_tensorboard_index = None

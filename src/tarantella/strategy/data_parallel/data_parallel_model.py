@@ -67,6 +67,7 @@ class DataParallelModel(parallel_model.ParallelModel):
                **kwargs):
     self._setup_for_execution('evaluate', x, y, kwargs)
     processed_callbacks = utilities._preprocess_callbacks(callbacks, self.group,
+                                                          parallel_strategy = tnt.ParallelStrategy.DATA,
                                                           exec_type = 'evaluate',
                                                           verbose = kwargs.get('verbose', None))
 
@@ -96,6 +97,7 @@ class DataParallelModel(parallel_model.ParallelModel):
           **kwargs):
     self._setup_for_execution('fit', x, y, kwargs)
     processed_callbacks = utilities._preprocess_callbacks(callbacks, self.group,
+                                                          parallel_strategy = tnt.ParallelStrategy.DATA,
                                                           exec_type = 'fit',
                                                           verbose = kwargs.get('verbose', None))
 
@@ -189,6 +191,7 @@ class DataParallelModel(parallel_model.ParallelModel):
               **kwargs):
     self._setup_for_execution('predict', x, None, kwargs)
     processed_callbacks = utilities._preprocess_callbacks(callbacks, self.group,
+                                                          parallel_strategy = tnt.ParallelStrategy.DATA,
                                                           exec_type = 'predict',
                                                           verbose = kwargs.get('verbose', None))
 

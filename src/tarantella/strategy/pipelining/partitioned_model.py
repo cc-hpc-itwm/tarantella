@@ -130,9 +130,10 @@ class PartitionedModel(parallel_model.ParallelModel):
     self._configure_rebuild(dataset = x)
     self._build_model_and_compile_if_necessary()
 
-    processed_callbacks = utilities._preprocess_pipelining_callbacks(callbacks, self.group,
-                                                                     exec_type = 'evaluate',
-                                                                     verbose = kwargs.get('verbose', None))
+    processed_callbacks = utilities._preprocess_callbacks(callbacks, self.group,
+                                                          parallel_strategy = tnt.ParallelStrategy.PIPELINING,
+                                                          exec_type = 'evaluate',
+                                                          verbose = kwargs.get('verbose', None))
 
     ds = self._get_microbatched_dataset(dataset = x, nano_batch_size = self.nano_batch_size,
                                         num_pipeline_stages = self.num_pipeline_stages)
@@ -157,9 +158,10 @@ class PartitionedModel(parallel_model.ParallelModel):
     logger.info(f"[PartitionedModel] fit.")
     self._configure_rebuild(dataset = x)
     self._build_model_and_compile_if_necessary()
-    processed_callbacks = utilities._preprocess_pipelining_callbacks(callbacks, self.group,
-                                                                     exec_type = 'fit',
-                                                                     verbose = kwargs.get('verbose', None))
+    processed_callbacks = utilities._preprocess_callbacks(callbacks, self.group,
+                                                          parallel_strategy = tnt.ParallelStrategy.PIPELINING,
+                                                          exec_type = 'fit',
+                                                          verbose = kwargs.get('verbose', None))
 
     ds = self._get_microbatched_dataset(dataset = x, nano_batch_size = self.nano_batch_size,
                                         num_pipeline_stages = self.num_pipeline_stages)
@@ -201,9 +203,10 @@ class PartitionedModel(parallel_model.ParallelModel):
     self._configure_rebuild(dataset = x)
     self._build_model_and_compile_if_necessary()
 
-    processed_callbacks = utilities._preprocess_pipelining_callbacks(callbacks, self.group,
-                                                                     exec_type = 'predict',
-                                                                     verbose = kwargs.get('verbose', None))
+    processed_callbacks = utilities._preprocess_callbacks(callbacks, self.group,
+                                                          parallel_strategy = tnt.ParallelStrategy.PIPELINING,
+                                                          exec_type = 'predict',
+                                                          verbose = kwargs.get('verbose', None))
 
     ds = self._get_microbatched_dataset(dataset = x, nano_batch_size = self.nano_batch_size,
                                         num_pipeline_stages = self.num_pipeline_stages)
