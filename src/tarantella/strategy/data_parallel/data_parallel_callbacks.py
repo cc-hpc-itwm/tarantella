@@ -67,34 +67,16 @@ def _generate_data_parallel_callback(base_type: Type,
       logger.debug("[DataParallel] Generic callback")
 
     @customize_callback.register
-    def _(self, keras_callback: tf.keras.callbacks.History):
-      logger.debug("[DataParallel] History callback")
+    def _(self, keras_callback: tf.keras.callbacks.BaseLogger):
+      # Do not support user-added `BaseLogger`s,
+      # b/c they do not provide any use
+      # and b/c of this issue (https://github.com/tensorflow/tensorflow/issues/46344)
+      raise ValueError("[DataParallel] Tarantella does not support "
+                        "`tf.keras.callbacks.BaseLogger`")
 
     @customize_callback.register
-    def _(self, keras_callback: tf.keras.callbacks.ProgbarLogger):
-      logger.debug("[DataParallel] ProgbarLogger callback")
-      _customize_progbar_logger(self)
-
-    @customize_callback.register
-    def _(self, keras_callback: tf.keras.callbacks.ModelCheckpoint):
-      logger.debug("[DataParallel] ModelCheckpoint callback")
-      # only master rank should save and thus print messages
-      self.verbose = keras_callback.verbose if tnt.is_group_master_rank(self.group) \
-                                            else utilities.TF_verbose.SILENT.value
-
-      # FIXME: potentially need to pass a reference to the higher level TNT model `tnt_model`
-      def set_model(callback, model):
-        # Overriding this method ensures that `ModelCheckpoint` is called on the
-        # `tnt.Model` within `fit` instead of the internal model
-        callback.model = self.tnt_model
-      self.se_model = set_model
-
-    @customize_callback.register
-    def _(self, keras_callback: tf.keras.callbacks.LearningRateScheduler):
-      logger.debug("[DataParallel] LearningRateScheduler callback")
-      if not tnt.global_tnt_config.output_on_all_devices:
-        if not tnt.is_group_master_rank(self.group):
-          self.verbose = 0
+    def _(self, keras_callback: tf.keras.callbacks.CSVLogger):
+      logger.debug("[DataParallel] CSVLogger callback")
 
     @customize_callback.register
     def _(self, keras_callback: tf.keras.callbacks.EarlyStopping):
@@ -109,19 +91,29 @@ def _generate_data_parallel_callback(base_type: Type,
       self.get_monitor_value = get_monitor_value
 
     @customize_callback.register
-    def _(self, keras_callback: tf.keras.callbacks.RemoteMonitor):
-      logger.debug("[DataParallel] RemoteMonitor callback")
-
-
-    @customize_callback.register
-    def _(self, keras_callback: tf.keras.callbacks.CSVLogger):
-      logger.debug("[DataParallel] CSVLogger callback")
-
+    def _(self, keras_callback: tf.keras.callbacks.History):
+      logger.debug("[DataParallel] History callback")
 
     @customize_callback.register
-    def _(self, keras_callback: tf.keras.callbacks.TerminateOnNaN):
-      logger.debug("[DataParallel] TerminateOnNaN callback")
+    def _(self, keras_callback: tf.keras.callbacks.LearningRateScheduler):
+      logger.debug("[DataParallel] LearningRateScheduler callback")
+      if not tnt.global_tnt_config.output_on_all_devices:
+        if not tnt.is_group_master_rank(self.group):
+          self.verbose = 0
 
+    @customize_callback.register
+    def _(self, keras_callback: tf.keras.callbacks.ModelCheckpoint):
+      logger.debug("[DataParallel] ModelCheckpoint callback")
+      # only master rank should save and thus print messages
+      self.verbose = keras_callback.verbose if tnt.is_group_master_rank(self.group) \
+                                            else utilities.TF_verbose.SILENT.value
+      # FIXME: potentially need to re-write `set_model` to pass a reference to
+      #        the higher level TNT model `tnt_model`
+
+    @customize_callback.register
+    def _(self, keras_callback: tf.keras.callbacks.ProgbarLogger):
+      logger.debug("[DataParallel] ProgbarLogger callback")
+      _customize_progbar_logger(self)
 
     @customize_callback.register
     def _(self, keras_callback: tf.keras.callbacks.ReduceLROnPlateau):
@@ -130,6 +122,25 @@ def _generate_data_parallel_callback(base_type: Type,
       self.verbose = keras_callback.verbose if tnt.is_group_master_rank(self.group) \
                                             else utilities.TF_verbose.SILENT.value
 
+    @customize_callback.register
+    def _(self, keras_callback: tf.keras.callbacks.RemoteMonitor):
+      logger.debug("[DataParallel] RemoteMonitor callback")
+
+    @customize_callback.register
+    def _(self, keras_callback: tf.keras.callbacks.TensorBoard):
+      logger.debug("[DataParallel] TensorBoard callback")
+      if tnt.global_tnt_config.tensorboard_on_all_devices:
+        self.log_dir += f"/rank_{tnt.get_rank()}"
+      else:
+        # only one rank should actually run the Tensorboard hooks
+        def _distribute_callback_tensorboard(callback_func: callable, **kwargs):
+          if tnt.is_group_master_rank(self.group):
+            return callback_func(**kwargs)
+        self._distribute_callback = _distribute_callback_tensorboard
+
+    @customize_callback.register
+    def _(self, keras_callback: tf.keras.callbacks.TerminateOnNaN):
+      logger.debug("[DataParallel] TerminateOnNaN callback")
 
     def _logs_as_tensors(self, logs):
       logs_as_tensors = copy.deepcopy(logs)
