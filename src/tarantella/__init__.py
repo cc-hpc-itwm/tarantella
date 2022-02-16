@@ -12,23 +12,29 @@ from pygpi import Broadcast
 from pygpi import Group
 from pygpi import ReductionOp
 
-def get_size():
+def get_size() -> int:
   return pygpi.get_size()
 
-def get_rank():
+def get_rank() -> int:
   return pygpi.get_rank()
 
-def get_master_rank():
-  return 0
+def get_group_master_rank(group: pygpi.Group) -> int:
+  # use largest rank in the group as master to match partition assignment, such that ranks are assigned
+  # to partition IDs in order starting from 0
+  # All printing of results should happen on the last partition (that has the final outputs/metrics)
+  return group.to_global_rank(group.size - 1)
+
+def get_master_rank() -> int:
+  return get_group_master_rank(pygpi.Group())
 
 def is_master_rank():
   return get_rank() == get_master_rank()
 
-def is_group_master_rank(group):
+def is_group_master_rank(group: pygpi.Group) -> bool:
   # use largest rank in the group as master to match partition assignment, such that ranks are assigned
   # to partition IDs in order starting from 0
   # All printing of results should happen on the last partition (that has the final outputs/metrics)
-  return get_rank() == group.to_global_rank(group.size - 1)
+  return get_rank() == get_group_master_rank(group)
 
 from tarantella import tnt_initializer
 tnt_initializer.init()
