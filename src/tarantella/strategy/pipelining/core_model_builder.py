@@ -1,5 +1,6 @@
 import tensorflow as tf
 import tarantella.strategy.pipelining.partition_info as pinfo
+from tarantella import logger
 
 def get_digraph_endpoints(graph, endpoint_direction):
   if endpoint_direction == pinfo.EndpointDirection.inp:
@@ -95,7 +96,7 @@ class CoreModelBuilder():
     return model_config
 
   def _get_model(self, model):
-    print(f"Creating model for partition {self.partition_id}")
+    logger.debug(f"Creating model for partition {self.partition_id}")
     core_model_config = self._to_model_config(self.partition_id, self.partition_graph)
     core_model = tf.keras.Model().from_config(core_model_config)
 
