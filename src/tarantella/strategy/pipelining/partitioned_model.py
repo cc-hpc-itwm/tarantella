@@ -1,6 +1,4 @@
 import tarantella.strategy.parallel_model as parallel_model
-import tarantella.strategy.pipelining.partition_generator as pgen
-import tarantella.strategy.pipelining.rank_mapper as rmapper
 import tarantella.strategy.pipelining.core_model_builder as cm_builder
 import tarantella.strategy.pipelining.shared_model_builder as sm_builder
 import tarantella.strategy.pipelining.microbatched_model_builder as mbm_builder
@@ -11,8 +9,8 @@ import tarantella.strategy.pipelining.utilities as putil
 from tarantella import logger
 import tarantella as tnt
 import tarantella.keras.utilities as utilities
+import  tarantella.utilities.tf_version as tf_version_utils
 
-import tensorflow as tf
 from tensorflow.python.keras.saving.saved_model import json_utils
 import json
 
@@ -150,10 +148,6 @@ class PartitionedModel(parallel_model.ParallelModel):
           y = None,
           callbacks = None,
           validation_data = None,
-          tnt_micro_batch_size = None,
-          tnt_validation_micro_batch_size = None,
-          tnt_distribute_dataset = True,
-          tnt_distribute_validation_dataset = True,
           **kwargs):
     logger.info(f"[PartitionedModel] fit.")
     self._configure_rebuild(dataset = x)
@@ -197,8 +191,6 @@ class PartitionedModel(parallel_model.ParallelModel):
   def predict(self,
               x = None,
               callbacks = None,
-              tnt_micro_batch_size = None,
-              tnt_distribute_dataset = True,
               **kwargs):
     self._configure_rebuild(dataset = x)
     self._build_model_and_compile_if_necessary()
@@ -226,7 +218,9 @@ class PartitionedModel(parallel_model.ParallelModel):
   def to_json(self, **kwargs):
     model_config = self.model._updated_config()
     model_config['config'] = self.get_config()
-    return json.dumps(model_config, default=json_utils.get_json_type, **kwargs)
+    if tf_version_utils.tf_version_above_equal('2.4'):
+      kwargs['default'] = json_utils.get_json_type
+    return json.dumps(model_config, **kwargs)
 
   def to_yaml(self, **kwargs):
     if yaml is None:
