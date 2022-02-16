@@ -25,6 +25,25 @@ def _generate_pipelining_callback(base_type: Type,
     def _(self, keras_callback: tf.keras.callbacks.History):
       logger.debug("[PipeliningParallel] History callback")
 
+    @customize_callback.register
+    def _(self, keras_callback: tf.keras.callbacks.BaseLogger):
+      # Do not support user-added `BaseLogger`s,
+      # b/c they do not provide any use
+      # and b/c of this issue (https://github.com/tensorflow/tensorflow/issues/46344)
+      raise ValueError("[PipeliningParallel] Tarantella does not support "
+                        "`tf.keras.callbacks.BaseLogger`")
+
+    @customize_callback.register
+    def _(self, keras_callback: tf.keras.callbacks.TensorBoard):
+      logger.debug("[DataParallel] TensorBoard callback")
+      if tnt.global_tnt_config.tensorboard_on_all_devices:
+        self.log_dir += f"/rank_{tnt.get_rank()}"
+      else:
+        # only one rank should actually run the Tensorboard hooks
+        def _distribute_callback_tensorboard(callback_func: callable, **kwargs):
+          if tnt.is_group_master_rank(self.group):
+            return callback_func(**kwargs)
+        self._distribute_callback = _distribute_callback_tensorboard
 
     def _process_callback_logs(self, callback_params: dict):
       if "logs" not in callback_params.keys():
