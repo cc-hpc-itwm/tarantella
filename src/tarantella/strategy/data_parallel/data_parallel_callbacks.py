@@ -132,11 +132,17 @@ def _generate_data_parallel_callback(base_type: Type,
       if tnt.global_tnt_config.tensorboard_on_all_devices:
         self.log_dir += f"/rank_{tnt.get_rank()}"
       else:
-        # only one rank should actually run the Tensorboard hooks
-        def _distribute_callback_tensorboard(callback_func: callable, **kwargs):
-          if tnt.is_group_master_rank(self.group):
-            return callback_func(**kwargs)
-        self._distribute_callback = _distribute_callback_tensorboard
+        self.run_on_all_ranks = False
+        # disable any data logging for all ranks except the master rank
+        if not tnt.is_group_master_rank(self.group):
+          self.histogram_freq = 0
+          self.write_graph = False
+          self.write_images = False
+          self.write_steps_per_second = False
+          self.update_freq = 0
+          self.embeddings_freq = 0
+          self.embeddings_metadata = None
+          self.profile_batch = None
 
     @customize_callback.register
     def _(self, keras_callback: tf.keras.callbacks.TerminateOnNaN):

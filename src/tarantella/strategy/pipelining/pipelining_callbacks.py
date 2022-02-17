@@ -39,11 +39,16 @@ def _generate_pipelining_callback(base_type: Type,
       if tnt.global_tnt_config.tensorboard_on_all_devices:
         self.log_dir += f"/rank_{tnt.get_rank()}"
       else:
-        # only one rank should actually run the Tensorboard hooks
-        def _distribute_callback_tensorboard(callback_func: callable, **kwargs):
-          if tnt.is_group_master_rank(self.group):
-            return callback_func(**kwargs)
-        self._distribute_callback = _distribute_callback_tensorboard
+        # disable any data logging for all ranks except the last partition
+        if not tnt.is_group_master_rank(self.group):
+          self.histogram_freq = 0
+          self.write_graph = False
+          self.write_images = False
+          self.write_steps_per_second = False
+          self.update_freq = 0
+          self.embeddings_freq = 0
+          self.embeddings_metadata = None
+          self.profile_batch = None
 
     def _process_callback_logs(self, callback_params: dict):
       if "logs" not in callback_params.keys():
@@ -60,8 +65,8 @@ def _generate_pipelining_callback(base_type: Type,
       return kwargs_copy
 
     def _distribute_callback(self, callback_func, **kwargs):
-      processed_kwargs = self._process_callback_logs(kwargs)
       if tnt.is_group_master_rank(self.group):
+        processed_kwargs = self._process_callback_logs(kwargs)
         return callback_func(**processed_kwargs)
 
   return PipeliningCallback
