@@ -153,10 +153,14 @@ class TestsDataParallelCallbacks:
 
   @pytest.mark.parametrize("number_epochs", [1])
   def test_tensorboard_callback(self, setup_save_path, model_runners, number_epochs):
-    callbacks = [tf.keras.callbacks.TensorBoard(log_dir = setup_save_path)]
-    self.train_tnt_and_ref_models_with_callbacks(callbacks, model_runners, number_epochs)
-    # FIXME: assert correct file exists
-    assert True
+    (train_dataset, val_dataset) = train_val_dataset_generator()
+    tnt_model_runner, _ = model_runners
+
+    tnt_model_runner.model.fit(train_dataset, validation_data=val_dataset,
+                               epochs = number_epochs,
+                               callbacks = [tf.keras.callbacks.TensorBoard(log_dir = setup_save_path)])
+    assert os.path.isdir(os.path.join(setup_save_path, "train"))
+    assert os.path.isdir(os.path.join(setup_save_path, "validation"))
 
   @pytest.mark.parametrize("number_epochs", [1])
   def test_model_checkpoint_callback(self, setup_save_path, model_runners, number_epochs):
