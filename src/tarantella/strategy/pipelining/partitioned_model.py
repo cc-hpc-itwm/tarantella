@@ -135,13 +135,24 @@ class PartitionedModel(parallel_model.ParallelModel):
 
     ds = self._get_microbatched_dataset(dataset = x, nano_batch_size = self.nano_batch_size,
                                         num_pipeline_stages = self.num_pipeline_stages)
-    test_loss_metrics = self.model.evaluate(x = ds, callbacks = processed_callbacks, **kwargs)
+
+    return_dict = kwargs.pop('return_dict', None)
+    test_loss_metrics = self.model.evaluate(x = ds,
+                                            callbacks = processed_callbacks,
+                                            return_dict = False,
+                                            **kwargs)
     user_visible_loss_metrics = putil.extract_user_visible_metrics(
                                       dict(zip(self.model.metrics_names, test_loss_metrics)))
     if len(user_visible_loss_metrics) == 1:
       return user_visible_loss_metrics[0]
     else:
-      return [i for item in user_visible_loss_metrics.values() for i in item]
+      metrics_dict = putil.avg_metrics_over_pipeline_stages(user_visible_loss_metrics)
+      if return_dict == True:
+        return metrics_dict
+      metrics_values = []
+      for metric in metrics_dict.values():
+        metrics_values += metric if isinstance(metric, list) else [metric]
+      return metrics_values
 
   def fit(self,
           x = None,

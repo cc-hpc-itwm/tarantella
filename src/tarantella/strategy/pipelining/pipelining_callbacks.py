@@ -35,7 +35,7 @@ def _generate_pipelining_callback(base_type: Type,
 
     @customize_callback.register
     def _(self, keras_callback: tf.keras.callbacks.TensorBoard):
-      logger.debug("[DataParallel] TensorBoard callback")
+      logger.debug("[PipeliningParallel] TensorBoard callback")
       if tnt.global_tnt_config.tensorboard_on_all_devices:
         self.log_dir += f"/rank_{tnt.get_rank()}"
       else:
@@ -54,10 +54,7 @@ def _generate_pipelining_callback(base_type: Type,
       if len(user_defined_metrics) == 0: # `evaluate` called from `fit`
         return callback_params
 
-      for metric_name, list_of_values in list(user_defined_metrics.items()):
-        user_defined_metrics[metric_name] = sum(list_of_values) / len(list_of_values)
-
-      kwargs_copy["logs"] = user_defined_metrics
+      kwargs_copy["logs"] = putil.avg_metrics_over_pipeline_stages(user_defined_metrics)
       if "loss" in callback_params["logs"]:
         kwargs_copy["logs"]["loss"] = callback_params["logs"]["loss"]
       return kwargs_copy

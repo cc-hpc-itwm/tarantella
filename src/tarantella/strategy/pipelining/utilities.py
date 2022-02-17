@@ -48,3 +48,12 @@ def extract_user_visible_metrics(metrics_name_and_info):
       new_name += metric_name
       user_defined_metrics[new_name] = list_of_values
   return user_defined_metrics
+
+def avg_metrics_over_pipeline_stages(metrics):
+  avg_metrics = dict()
+  for metric_name, list_of_values in list(metrics.items()):
+    if len(list_of_values) > 0:
+      avg_metrics[metric_name] = sum(list_of_values) / len(list_of_values)
+    else:
+      raise ValueError(f"[Pipelining][utilities] Cannot average an empty list of metrics: {metrics}")
+  return avg_metrics
