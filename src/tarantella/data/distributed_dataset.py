@@ -15,32 +15,33 @@ class DistributedDataset:
     self.num_ranks = num_ranks
     self.rank = rank
     self.shuffle_seed = shuffle_seed
-    self.num_samples = None
-    self._micro_batch_size = None
 
     self.base_dataset, self.dataset_transformations = \
            ops_helpers.gen_dataset_transformations(dataset)
     self.batching_info = ops_helpers.get_batching_info(self.dataset_transformations)
 
-
-  def clone_preprocessing(self, new_dataset):
-    dist_dataset = DistributedDataset(new_dataset,
-                                      num_ranks = self.num_ranks, rank = self.rank,
-                                      shuffle_seed = self.shuffle_seed)
-    dist_dataset.base_dataset = new_dataset
-    dist_dataset.num_samples = self.num_samples
-    dist_dataset._micro_batch_size = self._micro_batch_size
-    dist_dataset.dataset_transformations = self.dataset_transformations
-    dist_dataset.batching_info = self.batching_info
-    return dist_dataset
+    # convenience attributes computed when the dataset is distributed among ranks
+    self._dataset = None
+    self._num_samples = None
+    self._micro_batch_size = None
 
   @property
   def micro_batch_size(self):
     return self._micro_batch_size
 
   @property
-  def number_samples(self):
-    return self.num_samples
+  def num_samples(self):
+    if self._num_samples is None:
+      self._num_samples = self.get_number_samples(self._dataset)
+      if self._num_samples == tf.data.experimental.INFINITE_CARDINALITY:
+        raise ValueError("[DistributedDataset] Infinite dataset provided; cannot count samples.")
+    return self._num_samples
+
+  @classmethod
+  def get_number_samples(cls, dataset):
+    if dataset is None:
+      raise ValueError("[DistributedDataset] No dataset provided; cannot count samples.")
+    return ds_helpers._get_num_samples(dataset)
 
   def distribute_dataset_across_ranks(self, user_micro_batch_size = None, is_training = True, apply_batch = True):
     dataset = self.base_dataset
@@ -114,12 +115,9 @@ class DistributedDataset:
     if self.batching_info.drop_remainder == True:
       dataset = self.batching_info.apply(dataset, new_batch_size = batch_size)
       dataset = dataset.unbatch()
+      self._dataset = dataset
     else:
-      if self.num_samples is None:
-        self.num_samples = ds_helpers._get_num_samples(dataset)
-      if self.num_samples == tf.data.experimental.INFINITE_CARDINALITY:
-        raise ValueError("[DistributedDataset] Infinite dataset provided; cannot count samples.")
-
+      self._dataset = dataset
       # pad final incomplete batch to have at least `num_ranks` samples, such that
       # each rank will have the same number of iterations within one epoch
       dataset = ds_helpers._pad_dataset_if_necessary(dataset, self.num_samples, batch_size,

@@ -284,7 +284,7 @@ class PartitionedModel(parallel_model.ParallelModel):
                                                             partition_info = self.partition_info,
                                                             num_micro_batches = num_pipeline_stages,
                                                             micro_batch_size = nano_batch_size,
-                                                            dataset_size = tnt_dataset.number_samples)
+                                                            dataset_size = tnt_dataset.num_samples)
 
 
   def _get_partition_compile_params(self):
