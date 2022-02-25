@@ -75,15 +75,16 @@ class DistributedDataset:
                                            micro_batch_size = self._micro_batch_size,
                                            apply_batch = apply_batch)
         else:
-          # FIXME: distribute batch for `evaluate` and `predict`
-          dataset = self.batching_info.apply(dataset, new_batch_size = self._micro_batch_size)
+          if apply_batch:
+            # FIXME: distribute batch for `evaluate` and `predict`
+            dataset = self.batching_info.apply(dataset, new_batch_size = self._micro_batch_size)
 
       # other operations
       else:
         dataset = transf(dataset, **ds_kwargs)
 
     # Unbatched datasets
-    if self.batching_info.is_batched == False:
+    if apply_batch and self.batching_info.is_batched == False:
       if is_training == False:    # outside `fit`
         if user_micro_batch_size:
           dataset = self.batching_info.apply(dataset, new_batch_size = self._micro_batch_size)
@@ -105,10 +106,10 @@ class DistributedDataset:
 
   def shuffle_with_seed(self, dataset, ds_kwargs):
     if not 'seed' in ds_kwargs or ds_kwargs['seed'] is None:
-      logger.warn("Shuffling with fixed shuffle seed {}.".format(self.shuffle_seed))
+      logger.info(f"Shuffling with fixed shuffle seed {self.shuffle_seed}")
       ds_kwargs['seed'] = self.shuffle_seed
     else:
-      logger.debug("Shuffling with shuffle seed {}.".format(ds_kwargs['seed']))
+      logger.info(f"Shuffling with shuffle seed {ds_kwargs['seed']}")
     return dataset.shuffle(**ds_kwargs)
 
   def distributed_batch(self, dataset, batch_size, micro_batch_size, apply_batch):
