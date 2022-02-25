@@ -1,5 +1,6 @@
 import utilities as util
 
+import tarantella as tnt
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -38,6 +39,7 @@ def fc_model_generator():
   inputs = keras.Input(shape=(28,28,1,), name='input')
   x = layers.Flatten()(inputs)
   x = layers.Dense(200, activation='relu', name='FC1')(x)
+  x = tnt.keras.layers.SplitLayer(name="split1")(x)
   x = layers.Dense(200, activation='relu', name='FC2')(x)
   outputs = layers.Dense(10, activation='softmax', name='softmax')(x)
   model = keras.Model(inputs=inputs, outputs=outputs)
@@ -62,8 +64,8 @@ def sequential_model_generator():
   util.set_tf_random_seed()
   model = keras.Sequential()
   model.add(keras.layers.Flatten(input_shape=(28,28,1,)))
-  model.add(layers.Dense(200, activation='relu', name='FC1'))
-  model.add(layers.Dense(200, activation='relu', name='FC2'))
+  model.add(layers.Dense(20, activation='relu', name='FC1'))
+  model.add(layers.Dense(20, activation='relu', name='FC2'))
   model.add(layers.Dense(10, activation='softmax', name='softmax'))
 
   logging.getLogger().info("Initialized Sequential model")
