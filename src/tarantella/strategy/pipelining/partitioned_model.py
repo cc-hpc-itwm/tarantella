@@ -262,13 +262,13 @@ class PartitionedModel(parallel_model.ParallelModel):
     tnt_dataset = tnt.data.Dataset(dataset = dataset,
                                    num_ranks = 1,
                                    rank = 0)
-    tnt_dataset.distribute_dataset_across_ranks(apply_batch = False)
+    transformed_dataset = tnt_dataset.distribute_dataset_across_ranks(apply_batch = False)
     if tnt_dataset.num_samples < nano_batch_size * num_pipeline_stages:
       raise ValueError(f"[PartitionedModel][_get_microbatched_dataset] Dataset has {tnt_dataset.num_samples} samples;"
                        f" not enough for the requested batch size = {nano_batch_size * num_pipeline_stages}.")
 
-    samples = tnt_dataset.base_dataset.map(lambda s,_: s)
-    labels = tnt_dataset.base_dataset.map( lambda _,l: l)
+    samples = transformed_dataset.map(lambda s,_: s)
+    labels = transformed_dataset.map( lambda _,l: l)
 
     partition_samples = []
     partition_labels = []
