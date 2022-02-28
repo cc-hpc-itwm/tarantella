@@ -5,12 +5,12 @@ import models.mnist_models as mnist
 import tensorflow as tf
 import numpy as np
 
-import datetime
 import logging
 import os
 import random
 import csv
 import re
+from typing import List
 
 def create_dataset_from_arrays(samples, labels):
   assert(len(samples) == len(labels))
@@ -117,3 +117,10 @@ def get_metrics_from_stdout(captured_text, metric_names):
     metrics += re.findall(search_string, captured_text, re.IGNORECASE)
 
   return [float(m) for m in metrics]
+
+def assert_on_all_ranks(results_array: List[bool]):
+  allreduce = tnt.Allreduce(tnt.Group(), nelems = len(results_array), dtype = bool, op = tnt.ReductionOp.AND)
+  allreduce.start(results_array)
+  output_array = allreduce.wait_for_completion()
+  assert np.all(output_array)
+
