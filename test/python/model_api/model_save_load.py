@@ -17,7 +17,7 @@ import tempfile
 # Subclassed models are a special case of keras.Model, which is not impacted by
 # tarantella saving/loading, as it is handled by `tf.keras`
 # (https://www.tensorflow.org/guide/keras/save_and_serialize#whole-model_saving_loading)
-@pytest.fixture(scope="class", params=[mnist.fc_model_generator,
+@pytest.fixture(scope="class", params=[mnist.lenet5_model_generator,
                                        mnist.sequential_model_generator])
 def model(request):
   yield request.param()
