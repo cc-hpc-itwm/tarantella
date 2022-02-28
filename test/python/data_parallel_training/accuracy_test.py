@@ -1,26 +1,23 @@
 from models import mnist_models as mnist
-import training_runner as base_runner
+import training_runner
 import utilities as util
 import tarantella as tnt
-import tensorflow as tf
 
 import numpy as np
-
 import logging
 import pytest
 
 # Run tests with multiple models as fixtures
-@pytest.fixture(scope="function", params=[base_runner.ModelConfig(mnist.fc_model_generator),
-                                          pytest.param(base_runner.ModelConfig(mnist.fc_model_generator,
-                                                                               tnt.ParallelStrategy.ALL),
-                                                       marks=pytest.mark.xfail),
-                                          base_runner.ModelConfig(mnist.lenet5_model_generator),
-                                          base_runner.ModelConfig(mnist.sequential_model_generator),
-                                          base_runner.ModelConfig(mnist.subclassed_model_generator)
+@pytest.fixture(scope="function", params=[training_runner.ModelConfig(mnist.fc_model_generator),
+                                          training_runner.ModelConfig(mnist.fc_model_generator,
+                                                                      tnt.ParallelStrategy.PIPELINING),
+                                          training_runner.ModelConfig(mnist.lenet5_model_generator),
+                                          training_runner.ModelConfig(mnist.sequential_model_generator),
+                                          training_runner.ModelConfig(mnist.subclassed_model_generator)
                                           ])
 def model_runners(request):
-  tnt_model_runner = base_runner.generate_tnt_model_runner(request.param)
-  reference_model_runner = base_runner.TrainingRunner(request.param.model_generator())
+  tnt_model_runner = training_runner.generate_tnt_model_runner(request.param)
+  reference_model_runner = training_runner.TrainingRunner(request.param.model_generator())
   yield tnt_model_runner, reference_model_runner
 
 class TestsDataParallelCompareAccuracy:
@@ -36,8 +33,8 @@ class TestsDataParallelCompareAccuracy:
     (ref_train_dataset, ref_test_dataset) = util.train_test_mnist_datasets(nbatches, test_nbatches,
                                                                            micro_batch_size,
                                                                            drop_remainder = True)
-
     tnt_model_runner, reference_model_runner = model_runners
+
     tnt_model_runner.train_model(train_dataset, number_epochs)
     reference_model_runner.train_model(ref_train_dataset, number_epochs)
 
@@ -47,5 +44,10 @@ class TestsDataParallelCompareAccuracy:
     rank = tnt.get_rank()
     logging.getLogger().info(f"[Rank {rank}] Tarantella[loss, accuracy] = {tnt_loss_accuracy}")
     logging.getLogger().info(f"[Rank {rank}] Reference [loss, accuracy] = {reference_loss_accuracy}")
-    assert np.isclose(tnt_loss_accuracy[0], reference_loss_accuracy[0], atol=1e-2) # losses might not be identical
-    assert np.isclose(tnt_loss_accuracy[1], reference_loss_accuracy[1], atol=1e-6)
+
+    result = [True, True]
+    if tnt.is_master_rank():
+      result = [np.isclose(tnt_loss_accuracy[0], reference_loss_accuracy[0], atol=1e-2), # losses might not be identical
+                np.isclose(tnt_loss_accuracy[1], reference_loss_accuracy[1], atol=1e-6)]
+    util.assert_on_all_ranks(result)
+
