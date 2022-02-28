@@ -37,37 +37,21 @@ def train_tnt_and_reference_models(model_config, optimizer, micro_batch_size,
 
   rank = tnt.get_rank()
   logging.getLogger().info(f"[Rank {rank}] Tarantella (loss, accuracy) = "
-                            f"({tnt_history.history['loss']}, {tnt_history.history[metric]})")
+                            f"({tnt_history.history})")
   logging.getLogger().info(f"[Rank {rank}] Reference (loss, accuracy) = "
-                            f"({ref_history.history['loss']}, {ref_history.history[metric]})")
+                            f"({ref_history.history})")
   return tnt_history, ref_history
 
 class TestsDataParallelOptimizers:
 
   @pytest.mark.parametrize("model_config", [base_runner.ModelConfig(mnist.lenet5_model_generator),
-                                            pytest.param(base_runner.ModelConfig(mnist.lenet5_model_generator,
-                                                                                 tnt.ParallelStrategy.ALL),
-                                                         marks=pytest.mark.xfail),
+                                            base_runner.ModelConfig(mnist.fc_model_generator,
+                                                                    tnt.ParallelStrategy.PIPELINING),
                                             base_runner.ModelConfig(mnist.subclassed_model_generator)])
   @pytest.mark.parametrize("optimizer", [keras.optimizers.Adadelta,
                                          keras.optimizers.Adagrad,
-                                         keras.optimizers.SGD])
-  @pytest.mark.parametrize("micro_batch_size", [32])
-  @pytest.mark.parametrize("nbatches", [15])
-  @pytest.mark.parametrize("number_epochs", [2])
-  def test_optimizers_compare_to_reference(self, model_config, optimizer, micro_batch_size,
-                                           nbatches, number_epochs):
-    tnt_history, ref_history = train_tnt_and_reference_models(model_config, optimizer,
-                                             micro_batch_size, nbatches, number_epochs)
-    assert np.allclose(tnt_history.history['loss'], ref_history.history['loss'], 1e-4)
-    assert np.allclose(tnt_history.history[metric], ref_history.history[metric], 1e-6)
-
-  @pytest.mark.parametrize("model_config", [base_runner.ModelConfig(mnist.lenet5_model_generator),
-                                            pytest.param(base_runner.ModelConfig(mnist.lenet5_model_generator,
-                                                                                 tnt.ParallelStrategy.ALL),
-                                                         marks=pytest.mark.xfail),
-                                            base_runner.ModelConfig(mnist.subclassed_model_generator)])
-  @pytest.mark.parametrize("optimizer", [keras.optimizers.Adam,
+                                         keras.optimizers.SGD,
+                                         keras.optimizers.Adam,
                                          keras.optimizers.Adamax,
                                          #keras.optimizers.Nadam,
                                          keras.optimizers.RMSprop])
@@ -78,10 +62,15 @@ class TestsDataParallelOptimizers:
                                            nbatches, number_epochs):
     tnt_history, ref_history = train_tnt_and_reference_models(model_config, optimizer,
                                              micro_batch_size, nbatches, number_epochs)
-    assert np.allclose(tnt_history.history['loss'], ref_history.history['loss'], 1e-2)
-    assert np.allclose(tnt_history.history[metric], ref_history.history[metric], 1e-2)
+    result = [True, True]
+    if tnt.is_master_rank():
+      result = [np.allclose(tnt_history.history['loss'], ref_history.history['loss'], atol=1e-4),
+                np.allclose(tnt_history.history[metric], ref_history.history[metric], atol=1e-6)]
+    util.assert_on_all_ranks(result)
 
   @pytest.mark.parametrize("model_config", [base_runner.ModelConfig(mnist.lenet5_model_generator),
+                                            base_runner.ModelConfig(mnist.fc_model_generator,
+                                                                  tnt.ParallelStrategy.PIPELINING),
                                             base_runner.ModelConfig(mnist.sequential_model_generator)])
   @pytest.mark.parametrize("nesterov", [False, True])
   @pytest.mark.parametrize("momentum", [0.9])
@@ -97,5 +86,9 @@ class TestsDataParallelOptimizers:
     tnt_history, ref_history = train_tnt_and_reference_models(model_config, optimizer,
                                              micro_batch_size, nbatches, number_epochs,
                                              optimizer_kwargs)
-    assert np.allclose(tnt_history.history['loss'], ref_history.history['loss'], 1e-4)
-    assert np.allclose(tnt_history.history[metric], ref_history.history[metric], 1e-6)
+    result = [True, True]
+    if tnt.is_master_rank():
+      result = [np.allclose(tnt_history.history['loss'], ref_history.history['loss'], atol=1e-4),
+                np.allclose(tnt_history.history[metric], ref_history.history[metric], atol=1e-6)]
+    util.assert_on_all_ranks(result)
+
