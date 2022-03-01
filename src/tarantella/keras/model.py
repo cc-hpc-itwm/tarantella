@@ -17,10 +17,10 @@ class ModelMeta(type):
     obj = cls._create_tnt_model(*args, **kwargs)
     return obj
 
-  def _create_tnt_model(cls, model,
-                        parallel_strategy = tnt.ParallelStrategy.ALL if TF_DEFAULT_PIPELINING_FLAG \
-                                                                 else tnt.ParallelStrategy.DATA,
-                        num_pipeline_stages = 1):
+  def _create_tnt_model(cls, model: tf.keras.Model,
+                        parallel_strategy: tnt.ParallelStrategy = tnt.ParallelStrategy.ALL if TF_DEFAULT_PIPELINING_FLAG \
+                                                                                           else tnt.ParallelStrategy.DATA,
+                        num_pipeline_stages: int = 1):
     replica_group = tnt.Group()
 
     if (tnt.ParallelStrategy.PIPELINING in parallel_strategy) and isinstance(model, tf.keras.Sequential):
