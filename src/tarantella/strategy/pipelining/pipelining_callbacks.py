@@ -34,6 +34,11 @@ def _generate_pipelining_callback(base_type: Type,
                         "`tf.keras.callbacks.BaseLogger`")
 
     @customize_callback.register
+    def _(self, keras_callback: tf.keras.callbacks.ModelCheckpoint):
+      raise ValueError("[PipeliningParallel] Tarantella does not support "
+                        "`tf.keras.callbacks.ModelCheckpoint` for partitioned models")
+
+    @customize_callback.register
     def _(self, keras_callback: tf.keras.callbacks.TensorBoard):
       logger.debug("[PipeliningParallel] TensorBoard callback")
       if tnt.global_tnt_config.tensorboard_on_all_devices:
