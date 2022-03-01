@@ -191,6 +191,7 @@ tf2.7-gpu-ib-gcc10.1.0-Release-build:
     - .tnt_cluster_gpi1.5.0_job
     - .tnt_cluster_gcc10.1.0_job
     - .tnt_cluster_build
+    - .set_up_coverage
   needs:
     - job: gaspicxx-gpi1.5.0-ib-build
 
@@ -412,3 +413,11 @@ tf2.2-cpu-ib-gcc8.4.0-Release-integration:
     - .tnt_cluster_integration_tests_nightly
   needs:
     - job: tf2.2-cpu-ib-gcc8.4.0-Release-build
+
+tf2.7-coverage:
+  extends:
+    - .tnt_cluster_common
+  stage: coverage
+  script:
+    - cd ${TNT_BUILD_DIR}
+    - coverage report --rcfile=coveragerc --fail-under=50

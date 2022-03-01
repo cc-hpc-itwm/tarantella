@@ -56,3 +56,8 @@
 .ib_job:
   variables:
     TNT_NETWORK_TYPE: "ib"
+
+.set_up_coverage:
+  script:
+    - cp ${CI_PROJECT_DIR}/test/python/coveragerc ${TNT_BUILD_DIR}
+

@@ -6,6 +6,7 @@ stages:
   - integration_tests
   - unit_tests_python_nightly
   - integration_tests_nightly
+  - coverage
 
 variables:
   GIT_STRATEGY: fetch
