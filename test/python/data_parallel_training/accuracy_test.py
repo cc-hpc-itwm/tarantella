@@ -11,6 +11,10 @@ import pytest
 @pytest.fixture(scope="function", params=[training_runner.ModelConfig(mnist.fc_model_generator),
                                           training_runner.ModelConfig(mnist.fc_model_generator,
                                                                       tnt.ParallelStrategy.PIPELINING),
+                                          pytest.param(training_runner.ModelConfig(mnist.fc_model_generator_two_partitions,
+                                                                                   tnt.ParallelStrategy.PIPELINING),
+                                                       marks=pytest.mark.skipif(tnt.get_size() < 2,
+                                                                                reason="Not enough ranks for two partitions")),
                                           training_runner.ModelConfig(mnist.lenet5_model_generator),
                                           training_runner.ModelConfig(mnist.sequential_model_generator),
                                           training_runner.ModelConfig(mnist.subclassed_model_generator)
