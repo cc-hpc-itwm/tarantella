@@ -98,8 +98,10 @@ def train_tnt_and_ref_models_with_callbacks(callbacks, model_config, number_epoc
 
 @pytest.mark.parametrize("model_config", [base_runner.ModelConfig(mnist.fc_model_generator),
                                           base_runner.ModelConfig(mnist.subclassed_model_generator),
-                                          base_runner.ModelConfig(mnist.fc_model_generator,
-                                                                  tnt.ParallelStrategy.PIPELINING),
+                                          pytest.param(base_runner.ModelConfig(mnist.fc_model_generator,
+                                                                               tnt.ParallelStrategy.PIPELINING),
+                                                       marks=pytest.mark.skipif(tnt.get_size() != 1,
+                                                                                reason="Cannot run multi-rank, model has only one partition")),
                                           ])
 class TestTarantellaCallbacks:
   @pytest.mark.parametrize("number_epochs", [5])
