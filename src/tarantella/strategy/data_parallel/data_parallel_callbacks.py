@@ -6,29 +6,30 @@ from tarantella import logger
 import atexit
 import copy
 from functools import singledispatchmethod
-from typing import Type
+from typing import Any, Callable, Dict, Iterable, Type
 
 import tensorflow as tf
 import numpy as np
 
-class LogsAverager(object):
-  def __init__(self, group = tnt.Group()):
+class LogsAverager:
+  def __init__(self, group: tnt.Group = tnt.Group()) -> None:
     self.group = group
     self.num_ranks = group.size
     self.allreducer = None
     atexit.register(self.close)
 
-  def create_allreducer(self, logs):
+  def create_allreducer(self, logs: Dict[str, Any]) -> None:
     self.allreducer = tnt.TensorAllreducer(logs, group = self.group)
 
-  def average_logs(self, logs):
+  def average_logs(self, logs: Dict[str, Any]) -> Dict[str, Any]:
     if self.allreducer is None:
       self.create_allreducer(logs)
-    sum_logs = self.allreducer.allreduce(logs)
+    sum_logs = self.allreducer.allreduce(logs)             # type: ignore [attr-defined]
     average_logs = { k : v / self.num_ranks for k, v in sum_logs.items() }
     return average_logs
 
-  def average_specific_metrics(self, logs, metric_names):
+  def average_specific_metrics(self, logs: Dict[str, Any],
+                                     metric_names: Iterable[str]) -> Dict[str, Any]:
     log_values = dict()
     for k in metric_names:
       if k in logs:
@@ -37,22 +38,18 @@ class LogsAverager(object):
     averaged_logs = self.average_logs(log_values)
     for k in averaged_logs:
       logs[k] = averaged_logs[k]
-
     return logs
 
-  def close(self):
+  def close(self) -> None:
     del self.allreducer
 
 
-def _generate_data_parallel_callback(base_type: Type,
-                                     keras_callback: tf.keras.callbacks.Callback,
-                                     group: tnt.Group,
-                                     aggregate_logs: bool,
-                                     run_on_all_ranks: bool) -> Type:
+def _generate_data_parallel_callback(base_type: Type[tf.keras.callbacks.Callback]) -> Type[tf.keras.callbacks.Callback]:
   class DataParallelCallback(LogsAverager, base_type):
-    def __init__(self, keras_callback,
-                 aggregate_logs=True, run_on_all_ranks=True,
-                 group = tnt.Group()):
+    def __init__(self, keras_callback: tf.keras.callbacks.Callback,
+                 aggregate_logs: bool = True,
+                 run_on_all_ranks: bool = True,
+                 group: tnt.Group = tnt.Group()) -> None:
       super().__init__(group = group)
       logger.debug(f"[DataParallelCallback] init with {keras_callback}")
       base_type.__init__(self, keras_callback)
@@ -63,7 +60,7 @@ def _generate_data_parallel_callback(base_type: Type,
       self.customize_callback(keras_callback)
 
     @singledispatchmethod
-    def customize_callback(self, keras_callback: tf.keras.callbacks.Callback):
+    def customize_callback(self, keras_callback: tf.keras.callbacks.Callback) -> None:
       logger.debug("[DataParallel] Generic callback")
 
     @customize_callback.register
@@ -74,11 +71,11 @@ def _generate_data_parallel_callback(base_type: Type,
       raise ValueError("[DataParallel] Tarantella does not support "
                         "`tf.keras.callbacks.BaseLogger`")
 
-    @customize_callback.register
+    @customize_callback.register             # type: ignore [no-redef]
     def _(self, keras_callback: tf.keras.callbacks.CSVLogger):
       logger.debug("[DataParallel] CSVLogger callback")
 
-    @customize_callback.register
+    @customize_callback.register             # type: ignore [no-redef]
     def _(self, keras_callback: tf.keras.callbacks.EarlyStopping):
       logger.debug("[DataParallel] EarlyStopping callback")
       # only master rank should print messages
@@ -90,18 +87,18 @@ def _generate_data_parallel_callback(base_type: Type,
         return super().get_monitor_value(averaged_logs)
       self.get_monitor_value = get_monitor_value
 
-    @customize_callback.register
+    @customize_callback.register             # type: ignore [no-redef]
     def _(self, keras_callback: tf.keras.callbacks.History):
       logger.debug("[DataParallel] History callback")
 
-    @customize_callback.register
+    @customize_callback.register             # type: ignore [no-redef]
     def _(self, keras_callback: tf.keras.callbacks.LearningRateScheduler):
       logger.debug("[DataParallel] LearningRateScheduler callback")
       if not tnt.global_tnt_config.output_on_all_devices:
         if not tnt.is_group_master_rank(self.group):
           self.verbose = 0
 
-    @customize_callback.register
+    @customize_callback.register             # type: ignore [no-redef]
     def _(self, keras_callback: tf.keras.callbacks.ModelCheckpoint):
       logger.debug("[DataParallel] ModelCheckpoint callback")
       # only master rank should save and thus print messages
@@ -110,23 +107,23 @@ def _generate_data_parallel_callback(base_type: Type,
       # FIXME: potentially need to re-write `set_model` to pass a reference to
       #        the higher level TNT model `tnt_model`
 
-    @customize_callback.register
+    @customize_callback.register             # type: ignore [no-redef]
     def _(self, keras_callback: tf.keras.callbacks.ProgbarLogger):
       logger.debug("[DataParallel] ProgbarLogger callback")
       _customize_progbar_logger(self)
 
-    @customize_callback.register
+    @customize_callback.register             # type: ignore [no-redef]
     def _(self, keras_callback: tf.keras.callbacks.ReduceLROnPlateau):
       logger.debug("[DataParallel] ReduceLROnPlateau callback")
       # only master rank should print messages
       self.verbose = keras_callback.verbose if tnt.is_group_master_rank(self.group) \
                                             else utilities.TF_verbose.SILENT.value
 
-    @customize_callback.register
+    @customize_callback.register             # type: ignore [no-redef]
     def _(self, keras_callback: tf.keras.callbacks.RemoteMonitor):
       logger.debug("[DataParallel] RemoteMonitor callback")
 
-    @customize_callback.register
+    @customize_callback.register             # type: ignore [no-redef]
     def _(self, keras_callback: tf.keras.callbacks.TensorBoard):
       logger.debug("[DataParallel] TensorBoard callback")
       if tnt.global_tnt_config.tensorboard_on_all_devices:
@@ -144,7 +141,7 @@ def _generate_data_parallel_callback(base_type: Type,
           self.embeddings_metadata = None
           self.profile_batch = None
 
-    @customize_callback.register
+    @customize_callback.register             # type: ignore [no-redef]
     def _(self, keras_callback: tf.keras.callbacks.TerminateOnNaN):
       logger.debug("[DataParallel] TerminateOnNaN callback")
 
@@ -167,7 +164,7 @@ def _generate_data_parallel_callback(base_type: Type,
         self._setup_tensor_allreducer(logs)
         self.is_built = True
 
-    def _average_callback_logs(self, callback_params: dict):
+    def _average_callback_logs(self, callback_params: Dict[str, Any]) -> Dict[str, Any]:
       kwargs_copy = copy.deepcopy(callback_params)
       # Check if logs do not contain None (for tf versions older than 2.1)
       if kwargs_copy['logs'] is not None:
@@ -177,7 +174,7 @@ def _generate_data_parallel_callback(base_type: Type,
             kwargs_copy['logs'] = self.average_logs(kwargs_copy['logs'])
       return kwargs_copy
 
-    def _distribute_callback_default(self, callback_func: callable, **kwargs):
+    def _distribute_callback_default(self, callback_func: Callable, **kwargs: Any) -> Any:
       if self.run_on_all_ranks:
         kwargs_copy = self._average_callback_logs(kwargs)    
         return callback_func(**kwargs_copy)
@@ -189,15 +186,15 @@ def _generate_data_parallel_callback(base_type: Type,
 
 
 
-def _customize_progbar_logger(progbar_logger: tf.keras.callbacks.ProgbarLogger):
+def _customize_progbar_logger(progbar_logger: tf.keras.callbacks.ProgbarLogger) -> None:
   if version_utils.tf_version_below_equal('2.2'):
     raise EnvironmentError("[tnt.callbacks.ProgbarLogger] "
                             "`ProgbarLogger` support from TF 2.3")
   # the other ranks only need to participate in averaging logs
   progbar_logger.should_print_progbar = tnt.is_group_master_rank(progbar_logger.group)
 
-  def progbar_logger_distribute_callback(callback_func: callable,
-                                         **kwargs):
+  def progbar_logger_distribute_callback(callback_func: Callable,
+                                         **kwargs: Any) -> Any:
     if progbar_logger.run_on_all_ranks:
       kwargs_copy = progbar_logger._average_callback_logs(kwargs)    
       if progbar_logger.should_print_progbar:

@@ -4,10 +4,10 @@ import tarantella.strategy.data_parallel.data_parallel_callbacks as dpcallbacks
 from tarantella import logger
 
 import copy
-from typing import Type
+from typing import Any, Type
 import tensorflow as tf
 
-def _construct_from_keras_object(obj, callback):
+def _construct_from_keras_object(obj: tf.keras.callbacks.Callback, callback: tf.keras.callbacks.Callback) -> None:
   keras_callback = callback
   if "keras_callback" in keras_callback.__dict__.keys():
     keras_callback = callback.keras_callback
@@ -15,10 +15,11 @@ def _construct_from_keras_object(obj, callback):
     setattr(obj, k, copy.deepcopy(v))
 
 
-def _generate_default_callback_with_type(tf_callback_type, parallel_strategy):
+def _generate_default_callback_with_type(tf_callback_type: Type[tf.keras.callbacks.Callback],
+                                         parallel_strategy: tnt.ParallelStrategy) -> Type[tf.keras.callbacks.Callback]:
 
   class DistributedCallback(tf_callback_type):
-    def __init__(self, keras_callback):
+    def __init__(self, keras_callback: tf.keras.callbacks.Callback) -> None:
       self.keras_callback = keras_callback
       logger.debug(f"Creating generic TNT callback of type={type(keras_callback)}")
       _construct_from_keras_object(self, keras_callback)
@@ -94,16 +95,14 @@ def _generate_default_callback_with_type(tf_callback_type, parallel_strategy):
 
 def callbackFactory(keras_callback: tf.keras.callbacks.Callback,
                     callback_type: Type,
-                    parallel_strategy: tnt.ParallelStrategy = tnt.ParallelStrategy.PIPELINING,
-                    group: tnt.Group = tnt.Group(),
+                    parallel_strategy: tnt.ParallelStrategy,
+                    group: tnt.Group,
                     aggregate_logs: bool = True,
-                    run_on_all_ranks: bool = True):
+                    run_on_all_ranks: bool = True) -> tf.keras.callbacks.Callback:
 
   BaseCallback = _generate_default_callback_with_type(callback_type, parallel_strategy)
-  DataParallelCallback = dpcallbacks._generate_data_parallel_callback(BaseCallback,
-                          keras_callback, group, aggregate_logs, run_on_all_ranks)
-  PipeliningCallback = pipecallbacks._generate_pipelining_callback(BaseCallback,
-                          keras_callback, group)
+  DataParallelCallback = dpcallbacks._generate_data_parallel_callback(BaseCallback)
+  PipeliningCallback = pipecallbacks._generate_pipelining_callback(BaseCallback)
 
   if tnt.ParallelStrategy.PIPELINING in parallel_strategy:
     return PipeliningCallback(keras_callback, group)
@@ -113,12 +112,15 @@ def callbackFactory(keras_callback: tf.keras.callbacks.Callback,
 
 
 class CallbackMeta(type):
-  def __call__(cls, callback: tf.keras.callbacks.Callback, *args, **kwargs):
+  def __call__(cls, callback: tf.keras.callbacks.Callback,
+                    parallel_strategy: tnt.ParallelStrategy = tnt.ParallelStrategy.PIPELINING,
+                    group: tnt.Group = tnt.Group(),
+                    **kwargs: Any) -> tf.keras.callbacks.Callback:
     if hasattr(callback, "tnt_parallel_strategy"):
-      obj = callbackFactory(callback, type(callback.keras_callback), *args, **kwargs)
+      keras_callback_type = type(callback.keras_callback)
     else:
-      obj = callbackFactory(callback, type(callback), *args, **kwargs)
-    return obj
+      keras_callback_type = type(callback)
+    return callbackFactory(callback, keras_callback_type, parallel_strategy, group, **kwargs)
 
 class Callback(metaclass = CallbackMeta):
   pass

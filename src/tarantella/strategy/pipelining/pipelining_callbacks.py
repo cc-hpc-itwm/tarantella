@@ -1,31 +1,29 @@
-
 from tarantella import logger
 import tarantella as tnt
 import tarantella.strategy.pipelining.utilities as putil
 
 import copy
 from functools import singledispatchmethod
-from typing import Type
+from typing import Callable, Dict, Type, Any
+
 import tensorflow as tf
 
-def _generate_pipelining_callback(base_type: Type,
-                                  keras_callback: tf.keras.callbacks.Callback,
-                                  group: tnt.Group) -> Type:
+def _generate_pipelining_callback(base_type: Type[tf.keras.callbacks.Callback]) -> Type[tf.keras.callbacks.Callback]:
   class PipeliningCallback(base_type):
-    def __init__(self, keras_callback, group = tnt.Group()):
+    def __init__(self, keras_callback: tf.keras.callbacks.Callback, group: tnt.Group = tnt.Group()) -> None:
       super().__init__(keras_callback)
       self.group = group
       self.customize_callback(keras_callback)
 
     @singledispatchmethod
-    def customize_callback(self, keras_callback: tf.keras.callbacks.Callback):
+    def customize_callback(self, keras_callback: tf.keras.callbacks.Callback) -> None:
       logger.debug("[PipeliningParallel] Generic callback")
 
     @customize_callback.register
     def _(self, keras_callback: tf.keras.callbacks.History):
       logger.debug("[PipeliningParallel] History callback")
 
-    @customize_callback.register
+    @customize_callback.register             # type: ignore [no-redef]
     def _(self, keras_callback: tf.keras.callbacks.BaseLogger):
       # Do not support user-added `BaseLogger`s,
       # b/c they do not provide any use
@@ -33,12 +31,12 @@ def _generate_pipelining_callback(base_type: Type,
       raise ValueError("[PipeliningParallel] Tarantella does not support "
                         "`tf.keras.callbacks.BaseLogger`")
 
-    @customize_callback.register
+    @customize_callback.register             # type: ignore [no-redef]
     def _(self, keras_callback: tf.keras.callbacks.ModelCheckpoint):
       raise ValueError("[PipeliningParallel] Tarantella does not support "
                         "`tf.keras.callbacks.ModelCheckpoint` for partitioned models")
 
-    @customize_callback.register
+    @customize_callback.register             # type: ignore [no-redef]
     def _(self, keras_callback: tf.keras.callbacks.TensorBoard):
       logger.debug("[PipeliningParallel] TensorBoard callback")
       if tnt.global_tnt_config.tensorboard_on_all_devices:
@@ -55,7 +53,7 @@ def _generate_pipelining_callback(base_type: Type,
           self.embeddings_metadata = None
           self.profile_batch = None
 
-    def _process_callback_logs(self, callback_params: dict):
+    def _process_callback_logs(self, callback_params: Dict) -> Dict:
       if "logs" not in callback_params.keys():
         return callback_params
 
@@ -69,7 +67,7 @@ def _generate_pipelining_callback(base_type: Type,
         kwargs_copy["logs"]["loss"] = callback_params["logs"]["loss"]
       return kwargs_copy
 
-    def _distribute_callback(self, callback_func, **kwargs):
+    def _distribute_callback(self, callback_func: Callable, **kwargs: Any) -> Any:
       if tnt.is_group_master_rank(self.group):
         processed_kwargs = self._process_callback_logs(kwargs)
         return callback_func(**processed_kwargs)
