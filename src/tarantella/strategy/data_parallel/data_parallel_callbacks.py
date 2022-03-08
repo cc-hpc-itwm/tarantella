@@ -82,10 +82,10 @@ def _generate_data_parallel_callback(base_type: Type[tf.keras.callbacks.Callback
       self.verbose = keras_callback.verbose if tnt.is_group_master_rank(self.group) \
                                             else utilities.TF_verbose.SILENT.value
 
-      def get_monitor_value(callback, logs):
-        averaged_logs = callback.average_logs(logs)
+      def _get_monitor_value(self, logs):
+        averaged_logs = self.average_logs(logs)
         return super().get_monitor_value(averaged_logs)
-      self.get_monitor_value = get_monitor_value
+      self.get_monitor_value = _get_monitor_value
 
     @customize_callback.register             # type: ignore [no-redef]
     def _(self, keras_callback: tf.keras.callbacks.History):
@@ -140,6 +140,11 @@ def _generate_data_parallel_callback(base_type: Type[tf.keras.callbacks.Callback
           self.embeddings_freq = 0
           self.embeddings_metadata = None
           self.profile_batch = None
+
+          def _set_model(model):
+            pass
+          self.set_model = _set_model
+
 
     @customize_callback.register             # type: ignore [no-redef]
     def _(self, keras_callback: tf.keras.callbacks.TerminateOnNaN):
