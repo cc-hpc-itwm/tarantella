@@ -10,7 +10,7 @@ import os
 import random
 import csv
 import re
-from typing import List
+from typing import List, Union
 
 def create_dataset_from_arrays(samples, labels):
   assert(len(samples) == len(labels))
@@ -118,7 +118,9 @@ def get_metrics_from_stdout(captured_text, metric_names):
 
   return [float(m) for m in metrics]
 
-def assert_on_all_ranks(results_array: List[bool]):
+def assert_on_all_ranks(results_array: Union[bool, List[bool]]):
+  if not isinstance(results_array, list):
+    results_array = [results_array]
   allreduce = tnt.Allreduce(tnt.Group(), nelems = len(results_array), dtype = bool, op = tnt.ReductionOp.AND)
   allreduce.start(results_array)
   output_array = allreduce.wait_for_completion()
