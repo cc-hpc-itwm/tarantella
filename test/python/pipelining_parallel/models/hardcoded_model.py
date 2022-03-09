@@ -3,8 +3,6 @@ import utilities as util
 
 import tarantella as tnt
 import tarantella.keras.layers as tnt_layers
-import tarantella.keras.losses as tnt_losses
-import tarantella.keras.metrics as tnt_metrics
 import tarantella.strategy.pipelining.partition_info as pinfo
 import tarantella.strategy.pipelining.connection_info as cinfo
 import tarantella.strategy.pipelining.pipeline_microbatched_dataset as pipelining
@@ -16,7 +14,7 @@ import numpy as np
 import pytest
 
 ### MODEL CONFIGURATION (on _all_ ranks)
-fc_units = 100
+fc_units = 20
 num_mnist_classes = 10
 shuffle_seed = 17
 learning_rate = 0.01
@@ -104,15 +102,25 @@ def get_partition_info(core_model):
   return partition_info
 
 
-def get_microbatched_dataset(samples, labels, micro_batch_size, num_micro_batches, partition_info):
+def get_microbatched_dataset(samples, labels, micro_batch_size, num_micro_batches, partition_info, shuffle = False):
+  shuffle_seed = util.get_shuffle_seed()
   partition_samples = []
   partition_labels = []
   # assume all inputs are passed to the same start partition and
   # all outputs are generated on the same final partition
   if len(partition_info.get_real_ids(pinfo.EndpointDirection.inp)) > 0:
-    partition_samples = [tf.data.Dataset.from_tensor_slices(samples)]
+    partition_samples = tf.data.Dataset.from_tensor_slices(samples)
+    if shuffle:
+        partition_samples = partition_samples.shuffle(len(samples), seed = shuffle_seed,
+                                                      reshuffle_each_iteration = False)
+    partition_samples = [partition_samples]
+
   if len(partition_info.get_real_ids(pinfo.EndpointDirection.out)) > 0:
-    partition_labels = [tf.data.Dataset.from_tensor_slices(labels)]
+    partition_labels = tf.data.Dataset.from_tensor_slices(labels)
+    if shuffle:
+      partition_labels = partition_labels.shuffle(len(labels), seed = shuffle_seed,
+                                                  reshuffle_each_iteration = False)
+    partition_labels = [partition_labels]
 
   return pipelining.create_micro_batched_dataset(samples = partition_samples,
                                                  labels = partition_labels,
@@ -134,8 +142,7 @@ def load_microbatched_datasets(micro_batch_size, num_micro_batches, num_batches,
   (x_train, y_train), (x_val, y_val), (x_test, y_test) = load_dataset_as_arrays(
                       micro_batch_size * num_micro_batches, num_batches, num_test_batches)
   train_dataset = get_microbatched_dataset(x_train, y_train, micro_batch_size,
-                                           num_micro_batches, partition_info) \
-                            .shuffle(len(x_train))
+                                           num_micro_batches, partition_info, shuffle = True)
   val_dataset = get_microbatched_dataset(x_val, y_val, micro_batch_size,
                                          num_micro_batches, partition_info)
   test_dataset = get_microbatched_dataset(x_test, y_test, micro_batch_size,
@@ -146,12 +153,16 @@ def load_microbatched_datasets(micro_batch_size, num_micro_batches, num_batches,
 
 def load_reference_datasets(batch_size, num_batches, num_test_batches):
   util.set_tf_random_seed()
-  (x_train, y_train), (x_val, y_val), (x_test, y_test) = load_dataset_as_arrays(
-                                      batch_size, num_batches, num_test_batches)
-  train_dataset = util.create_dataset_from_arrays(x_train, y_train, batch_size=batch_size) \
-                                                 .shuffle(len(x_train))
-  val_dataset = util.create_dataset_from_arrays(x_val, y_val, batch_size=batch_size)
-  test_dataset = util.create_dataset_from_arrays(x_test, y_test, batch_size=batch_size)
+  train_size = num_batches * batch_size
+  test_size = num_test_batches * batch_size
+  train_dataset, val_dataset, test_dataset = util.load_dataset(mnist.load_mnist_dataset,
+                                                               train_size = train_size,
+                                                               train_batch_size = batch_size,
+                                                               val_size = test_size,
+                                                               val_batch_size = batch_size,
+                                                               test_size = test_size,
+                                                               test_batch_size = batch_size,
+                                                               shuffle = True)
   return {"train" : train_dataset,
           "val"   : val_dataset,
           "test"  : test_dataset }

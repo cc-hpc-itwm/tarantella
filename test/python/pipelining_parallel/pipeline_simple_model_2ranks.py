@@ -1,5 +1,4 @@
 import tarantella as tnt
-import tarantella.strategy.pipelining.pipeline_microbatched_dataset as pipelining
 import tarantella.strategy.pipelining.shared_model_builder as shared
 import tarantella.strategy.pipelining.microbatched_model_builder as microbatched
 from models.hardcoded_model import *
