@@ -104,8 +104,14 @@ def _generate_data_parallel_callback(base_type: Type[tf.keras.callbacks.Callback
       # only master rank should save and thus print messages
       self.verbose = keras_callback.verbose if tnt.is_group_master_rank(self.group) \
                                             else utilities.TF_verbose.SILENT.value
-      # FIXME: potentially need to re-write `set_model` to pass a reference to
-      #        the higher level TNT model `tnt_model`
+      self.run_on_all_ranks = False # only one checkpoint is needed (models are identical in a data parallel setting)
+
+      # disable checkpointing for all ranks except the master rank
+      if not tnt.is_group_master_rank(self.group):
+        self._supports_tf_logs = False
+        self.save_freq = 1e20 # very large value to avoid triggering checkpointing
+        self.epochs_since_last_save = 0
+
 
     @customize_callback.register             # type: ignore [no-redef]
     def _(self, keras_callback: tf.keras.callbacks.ProgbarLogger):
