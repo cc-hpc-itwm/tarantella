@@ -39,12 +39,14 @@ class TestsDataParallelCompareAccuracyAnyBatchSize:
                                               number_epochs, nbatches, test_nbatches,
                                               remainder_samples_per_batch, last_incomplete_batch_size):
     (train_dataset, test_dataset) = util.train_test_mnist_datasets(
-                                    nbatches, test_nbatches, micro_batch_size,
-                                    shuffle = False,
-                                    remainder_samples_per_batch = remainder_samples_per_batch,
-                                    last_incomplete_batch_size = last_incomplete_batch_size)
+                                            nbatches = nbatches, test_nbatches = test_nbatches,
+                                            micro_batch_size = micro_batch_size,
+                                            shuffle = False,
+                                            remainder_samples_per_batch = remainder_samples_per_batch,
+                                            last_incomplete_batch_size = last_incomplete_batch_size)
     (ref_train_dataset, ref_test_dataset) = util.train_test_mnist_datasets(
-                                            nbatches, test_nbatches, micro_batch_size,
+                                            nbatches = nbatches, test_nbatches = test_nbatches,
+                                            micro_batch_size = micro_batch_size,
                                             shuffle = False,
                                             remainder_samples_per_batch = remainder_samples_per_batch,
                                             last_incomplete_batch_size = last_incomplete_batch_size)
