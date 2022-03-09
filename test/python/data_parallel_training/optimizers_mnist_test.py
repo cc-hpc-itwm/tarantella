@@ -47,10 +47,10 @@ class TestsDataParallelOptimizers:
   @pytest.mark.parametrize("model_config", [base_runner.ModelConfig(mnist.lenet5_model_generator),
                                             base_runner.ModelConfig(mnist.subclassed_model_generator),
                                             base_runner.ModelConfig(mnist.fc_model_generator,
-                                                                    tnt.ParallelStrategy.PIPELINING),
+                                                                    tnt.ParallelStrategy.DATA),
                                             pytest.param(base_runner.ModelConfig(mnist.fc_model_generator_two_partitions,
                                                                                  tnt.ParallelStrategy.PIPELINING),
-                                                         marks=pytest.mark.skipif(tnt.get_size() < 2,
+                                                         marks=pytest.mark.skipif(tnt.get_size() != 2,
                                                                                   reason="Not enough ranks for two partitions"))])
   @pytest.mark.parametrize("optimizer", [keras.optimizers.Adadelta,
                                          keras.optimizers.Adagrad,
@@ -73,9 +73,11 @@ class TestsDataParallelOptimizers:
     util.assert_on_all_ranks(result)
 
   @pytest.mark.parametrize("model_config", [base_runner.ModelConfig(mnist.lenet5_model_generator),
-                                            base_runner.ModelConfig(mnist.fc_model_generator,
-                                                                  tnt.ParallelStrategy.PIPELINING),
-                                            base_runner.ModelConfig(mnist.sequential_model_generator)])
+                                            base_runner.ModelConfig(mnist.sequential_model_generator),
+                                            pytest.param(base_runner.ModelConfig(mnist.fc_model_generator_two_partitions,
+                                                                                 tnt.ParallelStrategy.PIPELINING),
+                                                         marks=pytest.mark.skipif(tnt.get_size() != 2,
+                                                                                  reason="Not enough ranks for two partitions"))])
   @pytest.mark.parametrize("nesterov", [False, True])
   @pytest.mark.parametrize("momentum", [0.9])
   @pytest.mark.parametrize("micro_batch_size", [32])

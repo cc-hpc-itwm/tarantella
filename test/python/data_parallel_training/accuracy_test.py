@@ -9,11 +9,9 @@ import pytest
 
 # Run tests with multiple models as fixtures
 @pytest.fixture(scope="function", params=[training_runner.ModelConfig(mnist.fc_model_generator),
-                                          training_runner.ModelConfig(mnist.fc_model_generator,
-                                                                      tnt.ParallelStrategy.PIPELINING),
                                           pytest.param(training_runner.ModelConfig(mnist.fc_model_generator_two_partitions,
                                                                                    tnt.ParallelStrategy.PIPELINING),
-                                                       marks=pytest.mark.skipif(tnt.get_size() < 2,
+                                                       marks=pytest.mark.skipif(tnt.get_size() != 2,
                                                                                 reason="Not enough ranks for two partitions")),
                                           training_runner.ModelConfig(mnist.lenet5_model_generator),
                                           training_runner.ModelConfig(mnist.sequential_model_generator),
@@ -31,11 +29,11 @@ class TestsDataParallelCompareAccuracy:
   @pytest.mark.parametrize("test_nbatches", [10])
   def test_compare_accuracy_against_reference(self, model_runners, micro_batch_size,
                                               number_epochs, nbatches, test_nbatches):
-    (train_dataset, test_dataset) = util.train_test_mnist_datasets(nbatches, test_nbatches,
-                                                                   micro_batch_size,
+    (train_dataset, test_dataset) = util.train_test_mnist_datasets(nbatches = nbatches, test_nbatches = test_nbatches,
+                                                                   micro_batch_size = micro_batch_size,
                                                                    drop_remainder = True)
-    (ref_train_dataset, ref_test_dataset) = util.train_test_mnist_datasets(nbatches, test_nbatches,
-                                                                           micro_batch_size,
+    (ref_train_dataset, ref_test_dataset) = util.train_test_mnist_datasets(nbatches = nbatches, test_nbatches = test_nbatches,
+                                                                           micro_batch_size = micro_batch_size,
                                                                            drop_remainder = True)
     tnt_model_runner, reference_model_runner = model_runners
 
