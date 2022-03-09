@@ -19,33 +19,49 @@ def create_dataset_from_arrays(samples, labels):
 
 def load_dataset(dataset_loader,
                  train_size, train_batch_size,
+                 val_size = 0, val_batch_size = 1,
                  test_size = 0, test_batch_size = 1,
                  shuffle = True, drop_remainder = False):
   set_tf_random_seed()
-  shuffle_seed = 1234
+  shuffle_seed = get_shuffle_seed()
 
-  (x_train, y_train), (x_val, y_val), (x_test, y_test) = dataset_loader(train_size, 0, test_size)
+  (x_train, y_train), (x_val, y_val), (x_test, y_test) = dataset_loader(train_size, val_size, test_size)
   train_dataset = create_dataset_from_arrays(x_train, y_train)
+  val_dataset = create_dataset_from_arrays(x_val, y_val)
   test_dataset = create_dataset_from_arrays(x_test, y_test)
 
   if shuffle:
     train_dataset = train_dataset.shuffle(len(x_train), seed = shuffle_seed,
                                           reshuffle_each_iteration = False)
-  return train_dataset.batch(train_batch_size,drop_remainder = drop_remainder), \
-         test_dataset.batch(test_batch_size,drop_remainder = drop_remainder)
+  return train_dataset.batch(train_batch_size, drop_remainder = drop_remainder), \
+         val_dataset.batch(val_batch_size, drop_remainder = drop_remainder), \
+         test_dataset.batch(test_batch_size, drop_remainder = drop_remainder)
 
-def train_test_mnist_datasets(nbatches = 1, test_nbatches = 0,
+def load_train_test_dataset(dataset_loader,
+                            train_size, train_batch_size,
+                            test_size, test_batch_size,
+                            shuffle, drop_remainder):
+  train_dataset, _, test_dataset = load_dataset(dataset_loader = dataset_loader,
+                                                train_size = train_size, train_batch_size = train_batch_size,
+                                                val_size = 0, val_batch_size = 1,
+                                                test_size = test_size, test_batch_size = test_batch_size,
+                                                shuffle = shuffle, drop_remainder = drop_remainder)
+  return train_dataset, test_dataset
+
+def train_test_mnist_datasets(nbatches = 1, val_nbatches = 0, test_nbatches = 0,
                               micro_batch_size = 64, shuffle = True, 
                               remainder_samples_per_batch = 0,
                               last_incomplete_batch_size = 0,
                               drop_remainder = False):
   batch_size = micro_batch_size * tnt.get_size() + remainder_samples_per_batch
   nsamples = nbatches * batch_size + last_incomplete_batch_size
+  val_nsamples = val_nbatches * batch_size
   test_nsamples = test_nbatches * batch_size
-  return load_dataset(mnist.load_mnist_dataset,
-                      train_size = nsamples, train_batch_size = batch_size,
-                      test_size = test_nsamples, test_batch_size = batch_size,
-                      shuffle = shuffle, drop_remainder = drop_remainder)
+
+  return load_train_test_dataset(mnist.load_mnist_dataset,
+                                 train_size = nsamples, train_batch_size = batch_size,
+                                 test_size = test_nsamples, test_batch_size = batch_size,
+                                 shuffle = shuffle, drop_remainder = drop_remainder)
 
 def set_tf_random_seed(seed = 42):
   np.random.seed(seed)
@@ -59,6 +75,8 @@ def set_tf_random_seed(seed = 42):
   if version_utils.tf_version_below_equal('2.6'):
     os.environ['TF_DETERMINISTIC_OPS']='1'
 
+def get_shuffle_seed():
+  return 1234
 
 def same_random_int_all_ranks(low, high):
   set_tf_random_seed()

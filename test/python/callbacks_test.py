@@ -45,12 +45,12 @@ def train_val_dataset_generator():
   nbatches = 1
   batch_size = micro_batch_size * tnt.get_size()
   nsamples = nbatches * batch_size
-
-  return util.load_dataset(mnist.load_mnist_dataset,
-                           train_size = nsamples,
-                           train_batch_size = batch_size,
-                           test_size = nsamples,
-                           test_batch_size = batch_size)
+  train_dataset, val_dataset, _ = util.load_dataset(mnist.load_mnist_dataset,
+                                                    train_size = nsamples,
+                                                    train_batch_size = batch_size,
+                                                    val_size = nsamples,
+                                                    val_batch_size = batch_size)
+  return train_dataset, val_dataset
 
 class CustomLearningRateScheduler(keras.callbacks.Callback):
   # Learning rate scheduler to update the learning rate according to a schedule.

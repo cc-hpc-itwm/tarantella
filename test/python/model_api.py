@@ -62,9 +62,9 @@ class TestsModelAPI:
     tnt_model.compile(optimizer=tf.keras.optimizers.Adam(),
                       loss="sparse_categorical_crossentropy",
                       metrics=["sparse_categorical_accuracy"])
-    train_dataset, _ = util.load_dataset(mnist.load_mnist_dataset,
-                                         train_size = 24,
-                                         train_batch_size = 24)
+    train_dataset, _, _ = util.load_dataset(mnist.load_mnist_dataset,
+                                            train_size = 24,
+                                            train_batch_size = 24)
     tnt_model.fit(train_dataset)
     assert tnt_model.metrics_names == ["loss", "sparse_categorical_accuracy"]
 
@@ -141,9 +141,9 @@ class TestsModelAPI:
     tnt_model.compile(optimizer=tf.keras.optimizers.Adam(),
                       loss="sparse_categorical_crossentropy",
                       metrics=["sparse_categorical_accuracy"])
-    train_dataset, _ = util.load_dataset(mnist.load_mnist_dataset,
-                                         train_size = 60,
-                                         train_batch_size = 60)
+    train_dataset, _, _ = util.load_dataset(mnist.load_mnist_dataset,
+                                            train_size = 60,
+                                            train_batch_size = 60)
     tnt_model.fit(train_dataset)
     assert all(float(m.result()) != 0 for m in tnt_model.metrics)
 
