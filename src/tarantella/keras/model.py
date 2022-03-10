@@ -27,24 +27,29 @@ class ModelMeta(type):
       logger.warn(f"Cannot pipeline a `tf.keras.Sequential` model; disabling model parallelism.")
       parallel_strategy = parallel_strategy ^ tnt.ParallelStrategy.PIPELINING
 
+    logger.info(f"Creating parallel model using {parallel_strategy}.")
     if tnt.ParallelStrategy.PIPELINING in parallel_strategy:
       rank = tnt.get_rank()
 
       partition_generator = pgen.GraphPartitionGenerator(model)
       rank_mapper = rmapper.RankMapper(num_ranks = tnt.get_size(),
-                                      pipeline_graph = partition_generator.get_pipeline_graph())
+                                       pipeline_graph = partition_generator.get_pipeline_graph())
       pipeline_group = rank_mapper.get_pipelining_group_for_rank(rank)
 
-      logger.info(f"Creating pipelined model with {pipeline_group.size} partitions.")
+      logger.info(f"[Pipelining] Creating pipelined model with {pipeline_group.size} partitions.")
       # get my partition
       model = pm.PartitionedModel(model = model, group = pipeline_group,
                                   partition_generator = partition_generator, rank_mapper = rank_mapper,
                                   num_pipeline_stages=num_pipeline_stages)
-      replica_group = rank_mapper.get_replica_group_for_rank(rank)
+      if tnt.ParallelStrategy.DATA in parallel_strategy:
+        replica_group = rank_mapper.get_replica_group_for_rank(rank)
+      else:
+        if pipeline_group.size != tnt.get_size():
+          raise ValueError(f"Provided model has only {pipeline_group.size} partitions; use {pipeline_group.size} ranks or a different parallel strategy.")
 
     if tnt.ParallelStrategy.DATA in parallel_strategy:
       # replicate my partition across the data parallel group
-      logger.info(f"Replicating local model across {replica_group.group} ranks.")
+      logger.info(f"[DataParallel] Replicating local model across ranks {replica_group.group}.")
       model = dpm.DataParallelModel(model = model, group = replica_group)
     return model
 
