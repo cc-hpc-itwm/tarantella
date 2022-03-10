@@ -74,7 +74,7 @@ class DataParallelModel(parallel_model.ParallelModel):
     if tnt_distribute_dataset:
       test_dataset = tnt.data.Dataset(dataset = x,
                                       num_ranks = self.group.size,
-                                      rank = self.rank,
+                                      rank = self.group.to_group_rank(self.rank),
                                       shuffle_seed = self.default_shuffle_seed)
       x = test_dataset.distribute_dataset_across_ranks(
               user_micro_batch_size = tnt_micro_batch_size,
@@ -153,7 +153,7 @@ class DataParallelModel(parallel_model.ParallelModel):
       if tnt_distribute_validation_dataset:
         distributed_validation_data = tnt.data.Dataset(dataset = validation_data,
                                                        num_ranks = self.group.size,
-                                                       rank = self.rank,
+                                                       rank = self.group.to_group_rank(self.rank),
                                                        shuffle_seed = self.default_shuffle_seed)
         validation_data = distributed_validation_data.distribute_dataset_across_ranks(
               user_micro_batch_size = tnt_validation_micro_batch_size,
@@ -198,7 +198,7 @@ class DataParallelModel(parallel_model.ParallelModel):
     if tnt_distribute_dataset:
       test_dataset = tnt.data.Dataset(dataset = x,
                                       num_ranks = self.group.size,
-                                      rank = self.rank,
+                                      rank = self.group.to_group_rank(self.rank),
                                       shuffle_seed = self.default_shuffle_seed)
       x = test_dataset.distribute_dataset_across_ranks(
                user_micro_batch_size = tnt_micro_batch_size,
