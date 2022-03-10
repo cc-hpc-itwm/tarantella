@@ -3,6 +3,8 @@ import tarantella as tnt
 from tnt_tfops import tnt_ops
 import GPICommLib
 
+import atexit
+
 # Filter out the local partition-specific connection infos
 # into the format required by the `GPICommLib.PipelineCommunicator`
 #
@@ -35,6 +37,7 @@ def extract_local_edges(connection_table, rank):
 
 class PipelineCommunicator:
   def __init__(self, connection_table, num_micro_batches):
+    atexit.register(self.close)
     rank = tnt.get_rank()
     self.local_edge_list = extract_local_edges(connection_table, rank)
     self.num_micro_batches = num_micro_batches
@@ -60,3 +63,5 @@ class PipelineCommunicator:
     micro_batch_size = input_shape[0] if isinstance(input_shape, list) else input_shape
     self.pipeline_comm.setup_infrastructure(micro_batch_size)
 
+  def close(self):
+    del self.pipeline_comm
