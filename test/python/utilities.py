@@ -74,6 +74,8 @@ def set_tf_random_seed(seed = 42):
   # https://www.tensorflow.org/api_docs/python/tf/config/experimental/enable_op_determinism
   if version_utils.tf_version_below_equal('2.6'):
     os.environ['TF_DETERMINISTIC_OPS']='1'
+  if version_utils.tf_version_above_equal('2.7'):
+    tf.keras.utils.set_random_seed(seed)
 
 def get_shuffle_seed():
   return 1234
