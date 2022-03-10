@@ -51,7 +51,7 @@ def _add_default_ProgbarLogger_callback_if_necessary(callbacks, exec_type, verbo
     if isinstance(callback, tf_callbacks.ProgbarLogger):
       return
   progbar_necessary = _is_progbar_necessary(exec_type, verbose)
-  if progbar_necessary and version_utils.tf_version_above_equal('2.3'):
+  if progbar_necessary and version_utils.tf_version_above_equal('2.4'):
     # Always need to use `count_mode` to `steps`
     callbacks.append(tf_callbacks.ProgbarLogger(count_mode='steps'))
 
