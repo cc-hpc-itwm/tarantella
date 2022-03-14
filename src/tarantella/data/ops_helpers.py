@@ -162,6 +162,13 @@ _transformations = {ds.BatchDataset : _get_transformation_info_batch,
                     ds._UnbatchDataset : _get_transformation_info_unbatch,
                     ds.WindowDataset : _get_transformation_info_window,
                     ds._OptionsDataset : _get_transformation_info_withoptions,
+                    tnt_ops.TntFilterDataset : _get_transformation_info_filter,
+                    tnt_ops.TntFlatMapDataset : _get_transformation_info_flatmap,
+                    tnt_ops.TntParallelInterleaveDataset : _get_transformation_info_parallelinterleave,
+                    tnt_ops.TntParallelMapDataset : _get_transformation_info_parallelmap,
+                    tnt_ops.TntPaddedBatchDataset : _get_transformation_info_paddedbatch,
+                    tnt_ops.TntParallelInterleaveDataset : _get_transformation_info_parallelinterleave,
+                    tnt_ops.TntParallelMapDataset : _get_transformation_info_parallelmap,
                     }
 
 def gen_dataset_transformations(dataset):
