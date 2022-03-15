@@ -1,19 +1,14 @@
 import argparse
-import logging
 import os
 import shutil
 import subprocess
 import sys
-import signal
-import re
 try:
   from version import tnt_version
 except:
   tnt_version = "Unknown version"
 
 import runtime.file_management as file_man
-import runtime.logging_config as logging_config
-import runtime.platform_config as platform_config
 import runtime.environment_config as env_config
 from runtime import logger
 from runtime import tarantella_cleanup

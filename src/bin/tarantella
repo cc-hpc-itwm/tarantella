@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import logging
 import os
 import signal
 import sys
@@ -14,21 +13,23 @@ LIB_DIR = os.path.join(TNT_DIR, "lib/tarantella")
 PYLIB_DIR = os.path.join(TNT_DIR, "lib/tarantella/python")
 sys.path.insert(0, LIB_DIR)
 sys.path.insert(0, PYLIB_DIR)
+
 try:
   import runtime
 except ModuleNotFoundError as e:
   raise RuntimeError("[TNT_CLI] Cannot find Tarantella `runtime` module; \
 make sure the `tarantella` script is started from an installed version.") from e
 
+from runtime.tarantella_cli import parse_args
+args = parse_args()
+
 import runtime.logging_config as logging_config
 import runtime.platform_config as platform_config
 import runtime.environment_config as env_config
-from runtime.tarantella_cli import parse_args
 from runtime.tarantella_cli import TarantellaCLI
 from runtime import logger
 
 if __name__ == "__main__":
-  args = parse_args()
   logging_config.setup_logging(logger, args.log_level)
 
   nodes_list = platform_config.generate_nodes_list(args.hostfile)
