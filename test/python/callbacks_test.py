@@ -260,7 +260,7 @@ class TestTarantellaCallbacks:
     assert_identical_tnt_and_ref_history(tnt_history, reference_history)
 
 
-  @pytest.mark.min_tfversion('2.3')
+  @pytest.mark.min_tfversion('2.4')
   @pytest.mark.parametrize("number_epochs", [2])
   @pytest.mark.parametrize("use_explicit_progbarlogger", [True, False])
   @pytest.mark.parametrize("verbose", [0, 1, 2])
@@ -296,7 +296,7 @@ class TestTarantellaCallbacks:
       result = all([tnt_captured.out == "", tnt_captured.err == ""])
     util.assert_on_all_ranks(result)
 
-  @pytest.mark.min_tfversion('2.3')
+  @pytest.mark.min_tfversion('2.4')
   @pytest.mark.parametrize("number_epochs", [2])
   @pytest.mark.parametrize("use_explicit_progbarlogger", [True, False])
   @pytest.mark.parametrize("verbose", [2])  # FIXME: verbose = 1 does not issue the same values as the reference model
