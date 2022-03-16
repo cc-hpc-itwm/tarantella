@@ -1,13 +1,13 @@
-import pygpi
-
 import tarantella as tnt
 from tarantella.collectives import utils
 
 import numpy as np
 
 class TensorBroadcaster():
-  def __init__(self, inputs, root_rank = tnt.get_master_rank(), group = pygpi.Group()):
-    self.root_rank = root_rank
+  # Broadcast an array or a list of tensors within a `group` starting from the *local* `root_rank`
+  # e.g. root_rank = 0 represents rank 0 within the group
+  def __init__(self, inputs, root_rank = tnt.get_master_rank(), group = tnt.Group()):
+    self.root_global_rank = group.to_global_rank(root_rank)
     self.shapes = list()
     self.broadcasts = list()
     self.algorithm = "linear"
@@ -18,15 +18,15 @@ class TensorBroadcaster():
       self._raise_input_error()
     for tensor in inputs:
       self.shapes.append(tensor.shape)
-      self.broadcasts.append(pygpi.Broadcast(group, int(np.prod(tensor.shape)),
-                             self.root_rank,
-                             algorithm = self.algorithm,
-                             dtype = tensor.dtype))
+      self.broadcasts.append(tnt.Broadcast(group = group, nelems = int(np.prod(tensor.shape)),
+                                           root = root_rank,
+                                           algorithm = self.algorithm,
+                                           dtype = tensor.dtype))
 
   def broadcast(self, inputs = None):
     outputs = list()
     for i, bcast in enumerate(self.broadcasts):
-      if pygpi.get_rank() == self.root_rank:
+      if tnt.get_rank() == self.root_global_rank:
         if utils.is_nonEmptyArray(inputs):
           inputs = [inputs]
         elif not utils.is_nonEmptyList(inputs):

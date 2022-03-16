@@ -7,10 +7,11 @@ import tensorflow.keras as keras
 import pytest
 
 # Run tests with multiple models as fixtures
-@pytest.fixture(scope="function", params=[mnist.lenet5_model_generator,
-                                          mnist.sequential_model_generator])
+@pytest.fixture(scope="function", params=[base_runner.ModelConfig(mnist.lenet5_model_generator, tnt.ParallelStrategy.ALL),
+                                          base_runner.ModelConfig(mnist.lenet5_model_generator),
+                                          base_runner.ModelConfig(mnist.sequential_model_generator)])
 def tnt_model_runner(request):
-  yield base_runner.generate_tnt_model_runner(request.param())
+  yield base_runner.generate_tnt_model_runner(request.param)
 
 class TestsDataParallelCompareWeights:
   @pytest.mark.parametrize("micro_batch_size", [32])

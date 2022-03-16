@@ -9,13 +9,16 @@
 namespace tarantella
 {
   PipelineCommunicator::PipelineCommunicator(
-    LayerEdges const& edges,
-    std::size_t num_micro_batches)
-  : num_micro_batches(num_micro_batches)
+    LayerEdges const& edges, std::size_t num_micro_batches)
+  : edges(edges),
+    num_micro_batches(num_micro_batches)
+  { }
+
+  void PipelineCommunicator::setup_infrastructure(std::size_t micro_batch_size)
   {
     for (auto& [connection_id, edge] : edges)
     {
-      auto size_bytes = edge.second;
+      auto size_bytes = edge.second * micro_batch_size;
 
       std::vector<std::unique_ptr<SourceBuffer>> send_buffers_micro_batches(num_micro_batches);
       std::generate(send_buffers_micro_batches.begin(), send_buffers_micro_batches.end(),
@@ -74,8 +77,7 @@ namespace tarantella
   }
 
   void PipelineCommunicator::send(void* const local_send_buf,
-                                               ConnectionID conn_id,
-                                               MicrobatchID micro_id)
+                                  ConnectionID conn_id, MicrobatchID micro_id)
   {
     auto& buffer = send_buffers[conn_id][micro_id];
     auto buffer_ptr = buffer->address();
@@ -91,8 +93,7 @@ namespace tarantella
   }
 
   void PipelineCommunicator::recv(void* local_recv_buf,
-                                           ConnectionID conn_id,
-                                           MicrobatchID micro_id)
+                                  ConnectionID conn_id, MicrobatchID micro_id)
   {
     auto& buffer = receive_buffers[conn_id][micro_id];
     buffer->waitForCompletion();

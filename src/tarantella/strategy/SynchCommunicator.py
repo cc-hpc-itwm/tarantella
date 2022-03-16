@@ -14,8 +14,9 @@ def get_tensor_info(tensor_id, tensor):
                                np.dtype(tf.dtypes.as_dtype(tensor.dtype).as_numpy_dtype()))
 
 class SynchCommunicator:
-  def __init__(self):
+  def __init__(self, group = None):
     self.weight_to_index = dict()
+    self.group = group
     self.comm = None
     self.threshold = tnt.global_tnt_config.fusion_threshold
     atexit.register(self.close)
@@ -38,8 +39,9 @@ class SynchCommunicator:
     # initialize the internal `SynchCommunicator` corresponding to the provided list of gradients
     grad_infos = list()
     for grad, weight in gradients_and_weights:
-      grad_infos.append(get_tensor_info(self.weight_to_index[weight.name], grad))
-    self.comm = GPICommLib.SynchDistCommunicator(grad_infos, self.threshold)
+      grad_with_shape = tf.ensure_shape(grad, weight.shape)
+      grad_infos.append(get_tensor_info(self.weight_to_index[weight.name], grad_with_shape))
+    self.comm = GPICommLib.SynchDistCommunicator(self.group, grad_infos, self.threshold)
 
   def reduce_gradients(self, gradients_and_weights):
     gradients_to_reduce = list()

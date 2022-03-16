@@ -51,15 +51,9 @@ PYBIND11_MODULE(GPICommLib, m)
         }));
 
   py::class_<tarantella::SynchCommunicator>(m, "SynchDistCommunicator")
-    .def(py::init(
-        [](std::vector<tarantella::collectives::TensorInfo> tensor_infos,
-           std::size_t fusion_threshold_bytes)
-        {
-          gaspi::group::Group group_all;
-          return std::make_unique<tarantella::SynchCommunicator>(group_all,
-                                                                 tensor_infos,
-                                                                 fusion_threshold_bytes);
-        }))
+    .def(py::init<gaspi::group::Group const&,
+                  std::vector<tarantella::collectives::TensorInfo>&,
+                  std::size_t>())
     .def("get_raw_ptr", [](tarantella::SynchCommunicator& d) 
         {
           return reinterpret_cast<uint64_t>(&d);
@@ -67,16 +61,13 @@ PYBIND11_MODULE(GPICommLib, m)
         py::return_value_policy::reference_internal);
 
   py::class_<tarantella::PipelineCommunicator>(m, "PipelineCommunicator")
-    .def(py::init(
-        [](std::unordered_map<tarantella::PipelineCommunicator::ConnectionID,
-                              std::pair<gaspi::group::GlobalRank, std::size_t>> edges,
-           std::size_t num_micro_batches)
-        {
-          return std::make_unique<tarantella::PipelineCommunicator>(edges, num_micro_batches);
-        }))
+    .def(py::init<std::unordered_map<tarantella::PipelineCommunicator::ConnectionID,
+                                     std::pair<gaspi::group::GlobalRank, std::size_t>>,
+                  std::size_t>())
     .def("get_raw_ptr", [](tarantella::PipelineCommunicator& comm) 
         {
           return reinterpret_cast<uint64_t>(&comm);
         },
-        py::return_value_policy::reference_internal);
+        py::return_value_policy::reference_internal)
+    .def("setup_infrastructure", &tarantella::PipelineCommunicator::setup_infrastructure);
 }

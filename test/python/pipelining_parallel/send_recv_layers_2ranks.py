@@ -55,7 +55,8 @@ class TestPipelineLayers:
 
     connection_table = {connection_id: cinfo.ConnectionInfo((rank_0, rank_1),
                                                             tensor_size * elem_type.itemsize)}
-    pipeline_comm = tnt.PipelineCommunicator(connection_table, micro_batch_size, num_micro_batches)
+    pipeline_comm = tnt.PipelineCommunicator(connection_table, num_micro_batches)
+    pipeline_comm.setup_infrastructure(micro_batch_size)
 
     if rank == rank_0:
       input_tags = keras.Input(shape=(number_tags,), name="tags", dtype = tf.int32)
@@ -105,7 +106,8 @@ class TestPipelineLayers:
 
     connection_table = {connection_id: cinfo.ConnectionInfo((rank_0, rank_1),
                                                             tensor_size * elem_type.itemsize)}
-    pipeline_comm = tnt.PipelineCommunicator(connection_table, micro_batch_size, num_micro_batches)
+    pipeline_comm = tnt.PipelineCommunicator(connection_table, num_micro_batches)
+    pipeline_comm.setup_infrastructure(micro_batch_size)
 
     if rank == rank_0:
       input_tags = keras.Input(shape=(number_tags,), name="tags", dtype = tf.int32)

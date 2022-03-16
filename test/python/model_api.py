@@ -1,4 +1,5 @@
 from models import mnist_models as mnist
+from tarantella.strategy.parallel_strategy import ParallelStrategy
 import training_runner as base_runner
 import utilities as util
 import tarantella as tnt
@@ -55,6 +56,18 @@ class TestsModelAPI:
     tnt_model = tnt.Model(mnist.lenet5_model_generator())
     assert tnt_model.metrics_names == []
 
+  @pytest.mark.min_tfversion('2.2')
+  def test_metrics_names_after_fit(self):
+    tnt_model = tnt.Model(mnist.lenet5_model_generator())
+    tnt_model.compile(optimizer=tf.keras.optimizers.Adam(),
+                      loss="sparse_categorical_crossentropy",
+                      metrics=["sparse_categorical_accuracy"])
+    train_dataset, _, _ = util.load_dataset(mnist.load_mnist_dataset,
+                                            train_size = 24,
+                                            train_batch_size = 24)
+    tnt_model.fit(train_dataset)
+    assert tnt_model.metrics_names == ["loss", "sparse_categorical_accuracy"]
+
   def test_non_trainable_weights(self):
     tnt_model = tnt.Model(mnist.lenet5_model_generator())
     assert tnt_model.non_trainable_weights == []
@@ -100,10 +113,11 @@ class TestsModelAPI:
     assert tnt_model.metrics_names == ['loss', 'metric_name']
 
   @pytest.mark.min_tfversion('2.2')
+  @pytest.mark.max_tfversion('2.2')
   def test_add_metric(self):
     tnt_model = tnt.Model(mnist.lenet5_model_generator())
     assert tnt_model.metrics == []
-    tnt_model.add_metric(tnt_model.output, aggregation='mean', name='metric_name')
+    tnt_model.add_metric(tnt_model.output, aggregation='mean', name='metric_name')  # deprecated after Tf2.2
     assert len(tnt_model.metrics) == 1
     assert tnt_model.metrics_names == ['metric_name']
 
@@ -124,13 +138,12 @@ class TestsModelAPI:
 
   def test_reset_metrics(self):
     tnt_model = tnt.Model(mnist.lenet5_model_generator())
-    tnt_model.compile(optimizer=tf.keras.optimizers.Adam(), loss="mse", metrics=["mae"])
-
-    train_dataset, _ = util.load_dataset(mnist.load_mnist_dataset,
-                                         train_size = 60,
-                                         train_batch_size = 60,
-                                         test_size = 1,
-                                         test_batch_size = 1)
+    tnt_model.compile(optimizer=tf.keras.optimizers.Adam(),
+                      loss="sparse_categorical_crossentropy",
+                      metrics=["sparse_categorical_accuracy"])
+    train_dataset, _, _ = util.load_dataset(mnist.load_mnist_dataset,
+                                            train_size = 60,
+                                            train_batch_size = 60)
     tnt_model.fit(train_dataset)
     assert all(float(m.result()) != 0 for m in tnt_model.metrics)
 
@@ -149,7 +162,8 @@ class TestsModelAPI:
                                                               ("rmsprop", tf.keras.optimizers.RMSprop)
                                                              ])
   def test_optimizer_with_name(self, optimizer_name, optimizer_type):
-    tnt_model = tnt.Model(mnist.lenet5_model_generator())
+    tnt_model = tnt.Model(mnist.lenet5_model_generator(),
+                          parallel_strategy = tnt.ParallelStrategy.DATA)
     tnt_model.compile(optimizer=optimizer_name,
                       loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
                       metrics=['accuracy'])

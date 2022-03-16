@@ -1,5 +1,4 @@
 import tarantella as tnt
-import tarantella.strategy.pipelining.pipeline_microbatched_dataset as pipelining
 import tarantella.strategy.pipelining.shared_model_builder as shared
 import tarantella.strategy.pipelining.microbatched_model_builder as microbatched
 from models.hardcoded_model import *
@@ -19,7 +18,6 @@ def setup_tf_threading_before_tests():
   yield
 
 @pytest.mark.min_tfversion('2.2')
-@pytest.mark.max_tfversion('2.6')
 class TestPipelineSimpleModel:
 
   @pytest.mark.parametrize("num_micro_batches", [2, 1, 3])
@@ -33,8 +31,8 @@ class TestPipelineSimpleModel:
     micro_batch_size = batch_size // num_micro_batches
 
     # create pipelined model and load datasets
-    pipeline_communicator = get_pipeline_communicator(micro_batch_size = micro_batch_size,
-                                                      num_micro_batches = num_micro_batches)
+    pipeline_communicator = get_pipeline_communicator(num_micro_batches)
+    pipeline_communicator.setup_infrastructure(micro_batch_size)
     core_model = get_partitioned_core_model()
     
     partition_info = get_partition_info(core_model)

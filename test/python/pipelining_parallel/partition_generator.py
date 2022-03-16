@@ -88,8 +88,8 @@ class TestPartitionGenerator:
 
   def test_partition_info(self, model_and_partitions):
     model, partition_gen, expected_num_partitions, expected_partition_gen, _ = model_and_partitions
-    rank_mapper = rmapper.RankMapper(partition_gen.get_pipeline_graph(),
-                                     nranks = expected_num_partitions)
+    rank_mapper = rmapper.RankMapper(num_ranks = expected_num_partitions,
+                                     pipeline_graph = partition_gen.get_pipeline_graph())
 
     for rank in range(expected_num_partitions):
       partition_id = rank_mapper.get_partition_for_rank(rank)
@@ -100,27 +100,34 @@ class TestPartitionGenerator:
 
 
   def test_partition_core_models(self, model_and_partitions):
+    num_micro_batches = 1
     model, partition_gen, expected_num_partitions, _, expected_model_gen = model_and_partitions
-    rank_mapper = rmapper.RankMapper(partition_gen.get_pipeline_graph(),
-                                     nranks = expected_num_partitions)
+    rank_mapper = rmapper.RankMapper(num_ranks = expected_num_partitions,
+                                     pipeline_graph = partition_gen.get_pipeline_graph())
 
     for rank in range(expected_num_partitions):
-      cm_builder = core_model_builder.CoreModelBuilder(model, partition_gen,
-                                                       rank_mapper, rank)
+      partition_id = rank_mapper.get_partition_for_rank(rank)
+      partition_graph = partition_gen.get_partition_graph(partition_id)
+
+      cm_builder = core_model_builder.CoreModelBuilder(model, partition_id, partition_graph)
       core_model = cm_builder.get_model()
+
       reference_core_model = expected_model_gen(rank)
       utils.check_model_configuration_identical(core_model, reference_core_model)
       utils.compare_weights(core_model.get_weights(), reference_core_model.get_weights(), 1e-6)
 
   def test_core_model_inputs(self, model_and_partitions):
+    num_micro_batches = 1
     model, partition_gen, expected_num_partitions, _, expected_model_gen = model_and_partitions
-    rank_mapper = rmapper.RankMapper(partition_gen.get_pipeline_graph(),
-                                     nranks = expected_num_partitions)
+    rank_mapper = rmapper.RankMapper(num_ranks = expected_num_partitions,
+                                     pipeline_graph = partition_gen.get_pipeline_graph())
 
     for rank in range(expected_num_partitions):
       tf.keras.backend.clear_session()
-      cm_builder = core_model_builder.CoreModelBuilder(model, partition_gen,
-                                                       rank_mapper, rank)
+      partition_id = rank_mapper.get_partition_for_rank(rank)
+      partition_graph = partition_gen.get_partition_graph(partition_id)
+      cm_builder = core_model_builder.CoreModelBuilder(model, partition_id, partition_graph)
+
       core_model = cm_builder.get_model()
       core_input_names = [i.name for i in core_model.inputs]
 
@@ -130,14 +137,17 @@ class TestPartitionGenerator:
       assert core_input_names == reference_input_names
 
   def test_core_model_outputs(self, model_and_partitions):
+    num_micro_batches = 1
     model, partition_gen, expected_num_partitions, _, expected_model_gen = model_and_partitions
-    rank_mapper = rmapper.RankMapper(partition_gen.get_pipeline_graph(),
-                                     nranks = expected_num_partitions)
+    rank_mapper = rmapper.RankMapper(num_ranks = expected_num_partitions,
+                                     pipeline_graph = partition_gen.get_pipeline_graph())
 
     for rank in range(expected_num_partitions):
       tf.keras.backend.clear_session()
-      cm_builder = core_model_builder.CoreModelBuilder(model, partition_gen,
-                                                       rank_mapper, rank)
+      partition_id = rank_mapper.get_partition_for_rank(rank)
+      partition_graph = partition_gen.get_partition_graph(partition_id)
+      cm_builder = core_model_builder.CoreModelBuilder(model, partition_id, partition_graph)
+
       core_model = cm_builder.get_model()
       core_output_names = [i.name for i in core_model.outputs]
 

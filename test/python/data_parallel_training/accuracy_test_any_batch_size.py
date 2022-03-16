@@ -13,7 +13,8 @@ import pytest
 @pytest.fixture(scope="function", params=[mnist.fc_model_generator
                                          ])
 def model_runners(request):
-  tnt_model_runner = base_runner.generate_tnt_model_runner(request.param())
+  tnt_model_runner = base_runner.generate_tnt_model_runner(base_runner.ModelConfig(request.param,
+                                                                                   tnt.ParallelStrategy.DATA))
   reference_model_runner = base_runner.TrainingRunner(request.param())
   yield tnt_model_runner, reference_model_runner
 
@@ -38,21 +39,22 @@ class TestsDataParallelCompareAccuracyAnyBatchSize:
                                               number_epochs, nbatches, test_nbatches,
                                               remainder_samples_per_batch, last_incomplete_batch_size):
     (train_dataset, test_dataset) = util.train_test_mnist_datasets(
-                                    nbatches, test_nbatches, micro_batch_size,
-                                    shuffle = False,
-                                    remainder_samples_per_batch = remainder_samples_per_batch,
-                                    last_incomplete_batch_size = last_incomplete_batch_size)
-    (ref_train_dataset, ref_test_dataset) = util.train_test_mnist_datasets(
-                                            nbatches, test_nbatches, micro_batch_size,
+                                            nbatches = nbatches, test_nbatches = test_nbatches,
+                                            micro_batch_size = micro_batch_size,
                                             shuffle = False,
                                             remainder_samples_per_batch = remainder_samples_per_batch,
                                             last_incomplete_batch_size = last_incomplete_batch_size)
-
+    (ref_train_dataset, ref_test_dataset) = util.train_test_mnist_datasets(
+                                            nbatches = nbatches, test_nbatches = test_nbatches,
+                                            micro_batch_size = micro_batch_size,
+                                            shuffle = False,
+                                            remainder_samples_per_batch = remainder_samples_per_batch,
+                                            last_incomplete_batch_size = last_incomplete_batch_size)
     tnt_model_runner, reference_model_runner = model_runners
     
-    ref_history = reference_model_runner.train_model(ref_train_dataset, number_epochs)
-    tnt_history = tnt_model_runner.train_model(train_dataset, number_epochs)
-    
+    reference_model_runner.train_model(ref_train_dataset, number_epochs)
+    tnt_model_runner.train_model(train_dataset, number_epochs)
+
     tnt_loss_accuracy = tnt_model_runner.evaluate_model(test_dataset)
     ref_loss_accuracy = reference_model_runner.evaluate_model(ref_test_dataset)
 
@@ -60,5 +62,8 @@ class TestsDataParallelCompareAccuracyAnyBatchSize:
     logging.getLogger().info(f"[Rank {rank}] Tarantella[loss, accuracy] = {tnt_loss_accuracy}")
     logging.getLogger().info(f"[Rank {rank}] Reference [loss, accuracy] = {ref_loss_accuracy}")
 
-    assert np.isclose(tnt_loss_accuracy[0], ref_loss_accuracy[0], atol=1e-2) # losses might not be identical
-    assert np.isclose(tnt_loss_accuracy[1], ref_loss_accuracy[1], atol=1e-6)
+    result = [True, True]
+    if tnt.is_master_rank():
+      result = [np.isclose(tnt_loss_accuracy[0], ref_loss_accuracy[0], atol=1e-2), # losses might not be identical
+                np.isclose(tnt_loss_accuracy[1], ref_loss_accuracy[1], atol=1e-6)]
+    util.assert_on_all_ranks(result)

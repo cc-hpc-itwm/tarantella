@@ -1,11 +1,10 @@
 import tarantella.strategy.pipelining.partition_info as pinfo
 
-import argparse
-import re
-
 import numpy as np
 import tensorflow as tf
 from enum import Enum
+
+PREFETCH_NBATCHES = tf.data.AUTOTUNE if hasattr(tf.data, "AUTOTUNE") else 1
 
 def create_name_partition(partition_id):
   return 'p_%s' % (str(partition_id))
@@ -42,7 +41,8 @@ def create_micro_batched_dataset(samples, # list of real inputs on the partition
                                  labels, # list of real labels (outputs) on the partition 
                                  partition_info, # contains list of EndpointInfo's for real/edge inputs/outputs (in same order as above)
                                  num_micro_batches, # number of "replicas"
-                                 micro_batch_size):
+                                 micro_batch_size,
+                                 dataset_size):
   assert isinstance(samples, list)
   assert isinstance(labels, list)
 
@@ -57,7 +57,7 @@ def create_micro_batched_dataset(samples, # list of real inputs on the partition
   real_input_datasets = build_microbatched_datasets_real(
     pinfo.EndpointType.inp, samples, num_micro_batches, micro_batch_size)
   edge_input_datasets = build_microbatched_datasets_edge(
-    pinfo.EndpointType.inp_edge, partition_info, num_micro_batches, micro_batch_size)
+    pinfo.EndpointType.inp_edge, partition_info, num_micro_batches, micro_batch_size, dataset_size)
   recv_tag_datasets = build_microbatched_datasets_tags(
     pinfo.EndpointDirection.inp, partition_info, num_micro_batches)
   send_tag_datasets = build_microbatched_datasets_tags(
@@ -67,7 +67,7 @@ def create_micro_batched_dataset(samples, # list of real inputs on the partition
   real_output_datasets = build_microbatched_datasets_real(
     pinfo.EndpointType.out, labels, num_micro_batches, micro_batch_size)
   edge_output_datasets = build_microbatched_datasets_edge(
-    pinfo.EndpointType.out_edge, partition_info, num_micro_batches, micro_batch_size)
+    pinfo.EndpointType.out_edge, partition_info, num_micro_batches, micro_batch_size, dataset_size)
   seq_output_dataset =  build_microbatched_datasets_seq()
   
   # create generator function that implements an iterator over
@@ -162,19 +162,21 @@ def build_microbatched_datasets_real(endpoint_type, datasets, num_micro_batches,
   for i in range(len(datasets)):
     for m in range(num_micro_batches):
       microbatched_dataset = datasets[i].batch(micro_batch_size).shard(num_micro_batches, m)
+      microbatched_dataset = microbatched_dataset.prefetch(buffer_size=PREFETCH_NBATCHES)
       microbatched_datasets.append(microbatched_dataset)
   return microbatched_datasets
 
-def build_microbatched_datasets_edge(endpoint_type, partition_info, num_micro_batches, micro_batch_size):
+def build_microbatched_datasets_edge(endpoint_type, partition_info, num_micro_batches, micro_batch_size, dataset_size):
   microbatched_datasets = list()
   edge_data_value = 0.0
   for edge_id, edge_info in sorted(partition_info.get_infos(endpoint_type).items()):
-    dataset = tf.data.Dataset.from_tensors(
+    microbatched_dataset = tf.data.Dataset.from_tensors(
       tf.constant(edge_data_value, shape=edge_info.shape[1:], dtype=edge_info.dtype))
-    # FIXME:
-    # Need to replace `repeat()` with finite version for "middle" partitions
-    dataset = dataset.repeat().batch(micro_batch_size)
-    microbatched_datasets += num_micro_batches * [dataset]
+    # Create `num_micro_batches` mock-up datasets with a total number of `dataset_size` instead of each edge input
+    num_samples = dataset_size // num_micro_batches
+    microbatched_dataset = microbatched_dataset.repeat(num_samples).batch(micro_batch_size)
+    microbatched_dataset = microbatched_dataset.prefetch(buffer_size=PREFETCH_NBATCHES)
+    microbatched_datasets += num_micro_batches * [microbatched_dataset]
   return microbatched_datasets
 
 def build_microbatched_datasets_tags(endpoint_direction, partition_info, num_micro_batches):
@@ -185,6 +187,7 @@ def build_microbatched_datasets_tags(endpoint_direction, partition_info, num_mic
     for m in range(num_micro_batches):
       tag = tf.constant([m, connection_id], dtype=dtype_tags)
       microbatched_dataset = tf.data.Dataset.from_tensors(tag).batch(tags_per_microbatch).repeat()
+      microbatched_dataset = microbatched_dataset.prefetch(buffer_size=PREFETCH_NBATCHES)
       microbatched_datasets.append(microbatched_dataset)
   return microbatched_datasets
 
@@ -193,7 +196,8 @@ def build_microbatched_datasets_seq():
   seq_per_microbatch = 1
   seq_data_value = 0.0
   seq_data = tf.constant(seq_data_value, dtype=dtype_seq_input)
-  return [tf.data.Dataset.from_tensors(seq_data).batch(seq_per_microbatch).repeat()]
+  microbatched_dataset = tf.data.Dataset.from_tensors(seq_data).batch(seq_per_microbatch).repeat()
+  return [microbatched_dataset.prefetch(buffer_size=PREFETCH_NBATCHES)]
 
 def map_layer_names_to_samples(samples, endpoint_type, partition_id, num_inputs = None, num_micro_batches = None):
   if endpoint_type in [pinfo.EndpointType.seq_input, pinfo.EndpointType.seq_output]:

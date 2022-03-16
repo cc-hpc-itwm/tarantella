@@ -16,7 +16,8 @@ namespace tarantella
   {
     std::size_t conn_id;
     std::size_t num_micro_batches;
-    std::size_t num_elements;
+    std::size_t num_elements_per_sample;
+    std::size_t micro_batch_size;
   };
 }
 
@@ -25,7 +26,8 @@ namespace std
   std::ostream& operator<< (std::ostream& os, const tarantella::PartitionInfo& pinfo)
   {
     os << "ConnID=" << pinfo.conn_id << " num_micro_batches=" << pinfo.num_micro_batches
-        << " num_elements=" << pinfo.num_elements << std::endl;
+       << " num_elements_per_sample=" << pinfo.num_elements_per_sample
+       << " micro_batch_size=" << pinfo.micro_batch_size << std::endl;
     return os;
   }
 }
@@ -41,11 +43,11 @@ namespace tarantella
   // list of partition details corresponding to each rank
   // (both ranks have identical Edges lists)
   std::vector<PartitionInfo> partition_info_test_cases =
-                            //connID num_micro_batches num_elements
-                            { { 3,                  1,         1  },
-                              { 0,                  1,         0  },
-                              { 5,                  5,         8  },
-                              { 0,                  2,       300  }
+                            //connID num_micro_batches num_elements_per_sample micro_batch_size
+                            { { 3,                  1,                      1,               1},
+                              { 0,                  1,                      0,               8},
+                              { 5,                  5,                      8,              32},
+                              { 0,                  2,                    300,               4}
                             };
 
   BOOST_AUTO_TEST_SUITE(pipelinecomm_send_recv_unit)
@@ -65,23 +67,25 @@ namespace tarantella
       auto rank = gaspi::getRuntime().global_rank();
       Rank other_rank = (rank == 0) ? 1 : 0;
 
-      std::vector<T> send_buffer(partition_info.num_elements);
+      std::size_t num_elements = partition_info.num_elements_per_sample * partition_info.micro_batch_size;
+      std::vector<T> send_buffer(num_elements);
       std::iota(send_buffer.begin(), send_buffer.end(), 42);
 
       auto conn_id = partition_info.conn_id;
       auto mbatch_id = partition_info.num_micro_batches - 1;  // use last micro-batch ID
       LayerEdges partition = {{ conn_id, { other_rank,
-                                           partition_info.num_elements * sizeof(T) } }
+                                           partition_info.num_elements_per_sample * sizeof(T) } }
                              };
       auto pipeline_comm = PipelineCommunicator(partition,
                                                 partition_info.num_micro_batches);
+      pipeline_comm.setup_infrastructure(partition_info.micro_batch_size);
       if (rank == 0)
       {
         pipeline_comm.send(send_buffer.data(), conn_id, mbatch_id);
       }
       else if (rank == 1)
       {
-        std::vector<T> recv_buffer(partition_info.num_elements);
+        std::vector<T> recv_buffer(num_elements);
 
         pipeline_comm.recv(recv_buffer.data(), conn_id, mbatch_id);
         BOOST_TEST_REQUIRE(recv_buffer == send_buffer);
@@ -93,20 +97,23 @@ namespace tarantella
       auto rank = gaspi::getRuntime().global_rank();
       Rank other_rank = (rank == 0) ? 1 : 0;
 
-      std::vector<T> send_buffer_0to1(partition_info.num_elements);
-      std::vector<T> send_buffer_1to0(partition_info.num_elements);
+      std::size_t num_elements = partition_info.num_elements_per_sample * partition_info.micro_batch_size;
+      std::vector<T> send_buffer_0to1(num_elements);
+      std::vector<T> send_buffer_1to0(num_elements);
       std::iota(send_buffer_0to1.begin(), send_buffer_0to1.end(), 42);
       std::iota(send_buffer_1to0.begin(), send_buffer_1to0.end(), 2);
 
       auto conn_id = partition_info.conn_id;
       auto mbatch_id = partition_info.num_micro_batches / 2;  // use median micro-batch ID
       LayerEdges partition = {{ conn_id, { other_rank,
-                                           partition_info.num_elements * sizeof(T) } }
+                                           partition_info.num_elements_per_sample * sizeof(T) } }
                              };
       auto pipeline_comm = PipelineCommunicator(partition, partition_info.num_micro_batches);
+      pipeline_comm.setup_infrastructure(partition_info.micro_batch_size);
+
       if (rank == 0)
       {
-        std::vector<T> recv_buffer(partition_info.num_elements);
+        std::vector<T> recv_buffer(num_elements);
         pipeline_comm.send(send_buffer_0to1.data(), conn_id, mbatch_id);
 
         pipeline_comm.recv(recv_buffer.data(), conn_id, mbatch_id);
@@ -114,7 +121,7 @@ namespace tarantella
       }
       else if (rank == 1)
       {
-        std::vector<T> recv_buffer(partition_info.num_elements);
+        std::vector<T> recv_buffer(num_elements);
         pipeline_comm.recv(recv_buffer.data(), conn_id, mbatch_id);
         BOOST_TEST_REQUIRE(recv_buffer == send_buffer_0to1);
 

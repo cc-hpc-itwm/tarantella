@@ -1,5 +1,6 @@
 import tensorflow as tf
 import tarantella.strategy.pipelining.partition_info as pinfo
+from tarantella import logger
 
 def get_digraph_endpoints(graph, endpoint_direction):
   if endpoint_direction == pinfo.EndpointDirection.inp:
@@ -79,9 +80,9 @@ def set_weights(target_model, source_model):
 
 
 class CoreModelBuilder():
-  def __init__(self, model, partition_generator, rank_mapper, rank):
-    self.partition_generator = partition_generator
-    self.partition_id = rank_mapper.get_partition_for_rank(rank)
+  def __init__(self, model, partition_id, partition_graph):
+    self.partition_id = partition_id
+    self.partition_graph = partition_graph
     self.core_model = self._get_model(model)
 
   def _to_model_config(self, partition_id, partition_graph):
@@ -95,9 +96,8 @@ class CoreModelBuilder():
     return model_config
 
   def _get_model(self, model):
-    print(f"Creating model for partition {self.partition_id}")
-    partition_graph = self.partition_generator.get_partition_graph(self.partition_id)
-    core_model_config = self._to_model_config(self.partition_id, partition_graph)
+    logger.debug(f"Creating model for partition {self.partition_id}")
+    core_model_config = self._to_model_config(self.partition_id, self.partition_graph)
     core_model = tf.keras.Model().from_config(core_model_config)
 
     set_weights(core_model, model)

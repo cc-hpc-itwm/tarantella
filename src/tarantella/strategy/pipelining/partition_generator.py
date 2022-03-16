@@ -64,7 +64,7 @@ class GraphPartitionGenerator:
     self._replace_split_layers()
 
     self.partitions = self._build_partitions()
-    self.partition_graph = self._build_partition_graph()
+    self.pipeline_graph = self._build_pipeline_graph()
 
   def _build_graph(self, model):
     graph = graphs.DirectedGraph()
@@ -199,7 +199,7 @@ class GraphPartitionGenerator:
 
     raise ValueError(f"[_get_connection_info] Cannot find connection ID `{connection_id}` in the graph.")
 
-  def _build_partition_graph(self):
+  def _build_pipeline_graph(self):
     conn_graph = graphs.MultiDirectedGraph()
 
     if len(self.connections) == 0: # no split layers
@@ -212,7 +212,7 @@ class GraphPartitionGenerator:
       source_partition = self._get_partition_with_node(conn_info.source)
       target_partition = self._get_partition_with_node(conn_info.target)
       if source_partition == target_partition:
-        raise RuntimeError(f"[build_partition_graph] Incorrectly specified `SplitLayer` between "
+        raise RuntimeError(f"[build_pipeline_graph] Incorrectly specified `SplitLayer` between "
                            f"`{conn_info.source}` and `{conn_info.target}` layers: "
                             "both sides of the split edge belong to the same partition.")
 
@@ -226,10 +226,10 @@ class GraphPartitionGenerator:
     for p_name, p in self.partitions.items():
       if p_name == partition_id:
         return p
-    raise ValueError(f"[get_partition_graph] Cannot find partition `{input_name}`.")
+    raise ValueError(f"[get_partition_graph] Cannot find partition `{partition_id}`.")
 
   def get_pipeline_graph(self):
-    return self.partition_graph
+    return self.pipeline_graph
 
   def get_number_partitions(self):
     return len(self.partitions)

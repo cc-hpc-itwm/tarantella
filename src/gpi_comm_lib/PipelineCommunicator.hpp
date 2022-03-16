@@ -29,8 +29,10 @@ namespace tarantella
 
       void send(void* local_send_buf, ConnectionID, MicrobatchID);
       void recv(void* local_recv_buf, ConnectionID, MicrobatchID);
+      void setup_infrastructure(std::size_t);
 
     private:
+      LayerEdges const edges;
       std::size_t num_micro_batches;
       std::unordered_map<ConnectionID, std::vector<std::unique_ptr<SourceBuffer>>> send_buffers;
       std::unordered_map<ConnectionID, std::vector<std::unique_ptr<TargetBuffer>>> receive_buffers;

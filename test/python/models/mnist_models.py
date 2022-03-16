@@ -1,5 +1,6 @@
 import utilities as util
 
+import tarantella as tnt
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -37,22 +38,34 @@ def fc_model_generator():
   util.set_tf_random_seed()
   inputs = keras.Input(shape=(28,28,1,), name='input')
   x = layers.Flatten()(inputs)
-  x = layers.Dense(200, activation='relu', name='FC1')(x)
-  x = layers.Dense(200, activation='relu', name='FC2')(x)
+  x = layers.Dense(80, activation='relu', name='FC1')(x)
+  x = layers.Dense(80, activation='relu', name='FC2')(x)
   outputs = layers.Dense(10, activation='softmax', name='softmax')(x)
   model = keras.Model(inputs=inputs, outputs=outputs)
   logging.getLogger().info("Initialized FC model")
   return model
 
+def fc_model_generator_two_partitions():
+  util.set_tf_random_seed()
+  inputs = keras.Input(shape=(28,28,1,), name='input')
+  x = layers.Flatten()(inputs)
+  x = layers.Dense(80, activation='relu', name='FC1')(x)
+  x = tnt.keras.layers.SplitLayer(name="split1")(x)
+  x = layers.Dense(80, activation='relu', name='FC2')(x)
+  outputs = layers.Dense(10, activation='softmax', name='softmax')(x)
+  model = keras.Model(inputs=inputs, outputs=outputs)
+  logging.getLogger().info("Initialized FC model with one `SplitLayer` (two partitions)")
+  return model
+
 def lenet5_model_generator():
   util.set_tf_random_seed()
   inputs = keras.Input(shape=(28,28,1,), name='input')
-  x = layers.Conv2D(20, 5, padding="same", activation='relu', name="conv1")(inputs)
+  x = layers.Conv2D(32, 3, padding="same", activation='relu', name="conv1")(inputs)
   x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2))(x)
-  x = layers.Conv2D(50, 5, padding="same", activation='relu', name="conv2")(x)
+  x = layers.Conv2D(32, 3, padding="same", activation='relu', name="conv2")(x)
   x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2))(x)
   x = layers.Flatten()(x)
-  x = layers.Dense(500, activation='relu')(x)
+  x = layers.Dense(20, activation='relu')(x)
   outputs = layers.Dense(10, activation='softmax')(x)
   model = keras.Model(inputs=inputs, outputs=outputs)
   logging.getLogger().info("Initialized LeNet5 model")
@@ -62,8 +75,8 @@ def sequential_model_generator():
   util.set_tf_random_seed()
   model = keras.Sequential()
   model.add(keras.layers.Flatten(input_shape=(28,28,1,)))
-  model.add(layers.Dense(200, activation='relu', name='FC1'))
-  model.add(layers.Dense(200, activation='relu', name='FC2'))
+  model.add(layers.Dense(20, activation='relu', name='FC1'))
+  model.add(layers.Dense(20, activation='relu', name='FC2'))
   model.add(layers.Dense(10, activation='softmax', name='softmax'))
 
   logging.getLogger().info("Initialized Sequential model")
