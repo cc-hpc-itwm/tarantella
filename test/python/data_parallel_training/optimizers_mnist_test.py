@@ -60,7 +60,7 @@ class TestsDataParallelOptimizers:
                                          #keras.optimizers.Nadam,
                                          keras.optimizers.RMSprop])
   @pytest.mark.parametrize("micro_batch_size", [32])
-  @pytest.mark.parametrize("nbatches", [20])
+  @pytest.mark.parametrize("nbatches", [10])
   @pytest.mark.parametrize("number_epochs", [2])
   def test_optimizers_compare_to_reference(self, model_config, optimizer, micro_batch_size,
                                            nbatches, number_epochs):
