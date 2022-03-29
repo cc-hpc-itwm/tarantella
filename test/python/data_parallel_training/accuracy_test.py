@@ -26,7 +26,7 @@ class TestsDataParallelCompareAccuracy:
   @pytest.mark.parametrize("micro_batch_size", [32])
   @pytest.mark.parametrize("number_epochs", [3])
   @pytest.mark.parametrize("nbatches", [20])
-  @pytest.mark.parametrize("test_nbatches", [10])
+  @pytest.mark.parametrize("test_nbatches", [5])
   def test_compare_accuracy_against_reference(self, model_runners, micro_batch_size,
                                               number_epochs, nbatches, test_nbatches):
     (train_dataset, test_dataset) = util.train_test_mnist_datasets(nbatches = nbatches, test_nbatches = test_nbatches,
