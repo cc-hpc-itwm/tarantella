@@ -10,9 +10,8 @@ import tensorflow as tf
 
 def _generate_pipelining_callback(base_type: Type[tf.keras.callbacks.Callback]) -> Type[tf.keras.callbacks.Callback]:
   class PipeliningCallback(base_type):
-    def __init__(self, keras_callback: tf.keras.callbacks.Callback, group: tnt.Group = tnt.Group()) -> None:
+    def __init__(self, keras_callback: tf.keras.callbacks.Callback) -> None:
       super().__init__(keras_callback)
-      self.group = group
       self.customize_callback(keras_callback)
 
     @singledispatchmethod
