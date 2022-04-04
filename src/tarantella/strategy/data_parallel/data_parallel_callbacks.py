@@ -47,15 +47,12 @@ class LogsAverager:
 def _generate_data_parallel_callback(base_type: Type[tf.keras.callbacks.Callback]) -> Type[tf.keras.callbacks.Callback]:
   class DataParallelCallback(LogsAverager, base_type):
     def __init__(self, keras_callback: tf.keras.callbacks.Callback,
-                 aggregate_logs: bool = True,
-                 run_on_all_ranks: bool = True,
                  group: tnt.Group = tnt.Group()) -> None:
       super().__init__(group = group)
       logger.debug(f"[DataParallelCallback] init with {keras_callback}")
       base_type.__init__(self, keras_callback)
       self.aggregate_logs = aggregate_logs
-      self.run_on_all_ranks = run_on_all_ranks
-      self.is_built = False
+      self._is_built = False
       self._distribute_callback = self._distribute_callback_default
       self.customize_callback(keras_callback)
 
@@ -104,9 +101,7 @@ def _generate_data_parallel_callback(base_type: Type[tf.keras.callbacks.Callback
       # only master rank should save and thus print messages
       self.verbose = keras_callback.verbose if tnt.is_group_master_rank(self.group) \
                                             else utilities.TF_verbose.SILENT.value
-      self.run_on_all_ranks = False # only one checkpoint is needed (models are identical in a data parallel setting)
-
-      # disable checkpointing for all ranks except the master rank
+      # only one checkpoint is needed (models are identical in a data parallel setting)
       if not tnt.is_group_master_rank(self.group):
         self._supports_tf_logs = False
         self.save_freq = 1e20 # very large value to avoid triggering checkpointing
@@ -135,8 +130,7 @@ def _generate_data_parallel_callback(base_type: Type[tf.keras.callbacks.Callback
       if tnt.global_tnt_config.tensorboard_on_all_devices:
         self.log_dir += f"/rank_{tnt.get_rank()}"
       else:
-        self.run_on_all_ranks = False
-        # disable any data logging for all ranks except the master rank
+        # disregard any data logging for all ranks except the master rank
         if not tnt.is_group_master_rank(self.group):
           self.histogram_freq = 0
           self.write_graph = False
@@ -171,9 +165,9 @@ def _generate_data_parallel_callback(base_type: Type[tf.keras.callbacks.Callback
       self.create_allreducer(self._logs_as_tensors(full_logs))
 
     def _build_tensor_allreducer_if_necessary(self, logs):
-      if not self.is_built:
+      if not self._is_built:
         self._setup_tensor_allreducer(logs)
-        self.is_built = True
+        self._is_built = True
 
     def _average_callback_logs(self, callback_params: Dict[str, Any]) -> Dict[str, Any]:
       kwargs_copy = copy.deepcopy(callback_params)
