@@ -138,7 +138,8 @@ def _generate_data_parallel_callback(base_type: Type[tf.keras.callbacks.Callback
         if self._run_on_all_ranks != tnt.global_tnt_config.tensorboard_on_all_devices:
           logger.warn("[TensorBoard] Conflicting configurations for the callback "
                       f"as `run_on_all_ranks={self._run_on_all_ranks}` and"
-                      f"`TNT_TENSORBOARD_ON_ALL_DEVICES={tnt.global_tnt_config.tensorboard_on_all_devices}`.")
+                      f"`TNT_TENSORBOARD_ON_ALL_DEVICES={tnt.global_tnt_config.tensorboard_on_all_devices}`. "
+                      f"TensorBoard running on {'all ranks' if self._run_on_all_ranks else 'one rank'}.")
       if (self.user_defined_callback and self._run_on_all_ranks) or \
           tnt.global_tnt_config.tensorboard_on_all_devices:
         self._set_underlying_attribute("log_dir", self.log_dir + f"/rank_{tnt.get_rank()}")
