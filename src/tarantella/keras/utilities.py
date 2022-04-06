@@ -36,8 +36,8 @@ def _preprocess_callbacks(callbacks, group, parallel_strategy,
   callbacks = callbacks or []
   _add_default_History_callback_if_necessary(callbacks)
   _add_default_ProgbarLogger_callback_if_necessary(callbacks, exec_type, verbose)
-  _to_parallel_callbacks(callbacks, group, parallel_strategy)
-  return callbacks
+  preprocessed_callbacks = _to_parallel_callbacks(callbacks, group, parallel_strategy)
+  return preprocessed_callbacks
 
 
 def _add_default_History_callback_if_necessary(callbacks):
@@ -56,14 +56,15 @@ def _add_default_ProgbarLogger_callback_if_necessary(callbacks, exec_type, verbo
     callbacks.append(tf_callbacks.ProgbarLogger(count_mode='steps'))
 
 def _is_progbar_necessary(exec_type, verbose = None):
-  if not verbose:
+  if verbose is None:
     progbar_necessary = (TF_DEFAULT_VERBOSE[exec_type] != TF_verbose.SILENT.value)
   else:
     progbar_necessary = (verbose != TF_verbose.SILENT.value)
   return progbar_necessary
 
 def _to_parallel_callbacks(callbacks, group, parallel_strategy):
-  for index, callback in enumerate(callbacks):
+  parallel_callbacks = []
+  for callback in callbacks:
     logger.debug(f"[{parallel_strategy}] Preprocessing callback {callback} of type {type(callback)}")
-    callbacks[index] = tnt.keras.callbacks.Callback(callback, parallel_strategy, group = group)
-  return callbacks
+    parallel_callbacks.append(tnt.keras.callbacks.Callback(callback, parallel_strategy, group = group))
+  return parallel_callbacks
