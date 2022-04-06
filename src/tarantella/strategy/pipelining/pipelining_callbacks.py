@@ -48,7 +48,8 @@ def _generate_pipelining_callback(base_type: Type[tf.keras.callbacks.Callback]) 
         if self._run_on_all_ranks != tnt.global_tnt_config.tensorboard_on_all_devices:
           logger.warn("[TensorBoard] Conflicting configurations for the callback "
                       f"as `run_on_all_ranks={self._run_on_all_ranks}` and"
-                      f"`TNT_TENSORBOARD_ON_ALL_DEVICES={tnt.global_tnt_config.tensorboard_on_all_devices}`")
+                      f"`TNT_TENSORBOARD_ON_ALL_DEVICES={tnt.global_tnt_config.tensorboard_on_all_devices}`. "
+                      f"TensorBoard running on {'all ranks' if self._run_on_all_ranks else 'one rank'}.")
       if (self.user_defined_callback and self._run_on_all_ranks) or \
           tnt.global_tnt_config.tensorboard_on_all_devices:
         self._set_underlying_attribute("log_dir", self.log_dir + f"/rank_{tnt.get_rank()}")
@@ -67,13 +68,13 @@ def _generate_pipelining_callback(base_type: Type[tf.keras.callbacks.Callback]) 
                    f"{'all ranks' if self._run_on_all_ranks else 'one rank'}.")
 
     def _process_callback_logs(self, callback_params: Dict) -> Dict:
-      if "logs" not in callback_params.keys():
-        return callback_params
-
       kwargs_copy = copy.deepcopy(callback_params)
+      if "logs" not in callback_params.keys():
+        return kwargs_copy
+
       user_defined_metrics = putil.extract_user_visible_metrics(kwargs_copy["logs"])
       if len(user_defined_metrics) == 0: # `evaluate` called from `fit`
-        return callback_params
+        return kwargs_copy
 
       kwargs_copy["logs"] = putil.avg_metrics_over_pipeline_stages(user_defined_metrics)
       if "loss" in callback_params["logs"]:
@@ -81,7 +82,8 @@ def _generate_pipelining_callback(base_type: Type[tf.keras.callbacks.Callback]) 
       return kwargs_copy
 
     def _distribute_callback(self, callback_func: Callable, **kwargs: Any) -> Any:
-      if tnt.is_group_master_rank(self.group):
+      if self._run_on_all_ranks or \
+         tnt.is_group_master_rank(self.group):
         processed_kwargs = self._process_callback_logs(kwargs)
         return callback_func(**processed_kwargs)
 
