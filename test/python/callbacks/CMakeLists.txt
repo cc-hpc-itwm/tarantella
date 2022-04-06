@@ -11,7 +11,7 @@ tarantella_generate_python_gpi_test(NAME TNT_Callbacks_Keras
                                     LABELS integration cluster
                                     TIMEOUT 600)
 
-set(localranks_list 1 4)
+set(localranks_list 4)
 tarantella_generate_python_gpi_test(NAME TNT_Callbacks_Tensorboard
                                     TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/tensorboard_callback.py
                                     LOCALRANKS_LIST "${localranks_list}"
