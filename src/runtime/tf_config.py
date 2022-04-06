@@ -17,7 +17,7 @@ def get_available_gpus():
 _tf_logging_defaults = {'TF_CPP_MIN_LOG_LEVEL' : '3',
                         }
 
-def setup_logging(log_level, formatter_prefix, logging_filter):
+def setup_logging(formatter_type, formatter_prefix, logging_filter):
   tf_env = environment_config.collect_tensorflow_variables()
   for var,value in _tf_logging_defaults.items():
     if not var in tf_env:
@@ -28,5 +28,5 @@ def setup_logging(log_level, formatter_prefix, logging_filter):
   for h in tf_logger.handlers:
     tf_logger_format = h.formatter._fmt.replace('%(levelname)s:', '').replace('%(name)s:','')
     tf_logger_format = formatter_prefix + tf_logger_format
-    formatter = logging.Formatter(tf_logger_format)
+    formatter = formatter_type(tf_logger_format)
     h.setFormatter(formatter)
