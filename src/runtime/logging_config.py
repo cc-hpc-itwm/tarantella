@@ -10,11 +10,11 @@ def setup_logging(logger, log_level, rank = 0, is_master_rank = True,
     do_logging = is_master_rank
 
   if log_on_all_devices:
-    tnt_formatter_prefix = '[%(name)s] %(levelname)s: [rank %(rank)d] '
+    tnt_formatter_prefix = '[%(name)s]%(levelname)7s: [rank%(rank)3d] '
   else:
-    tnt_formatter_prefix = '[%(name)s] %(levelname)s: '
+    tnt_formatter_prefix = '[%(name)s]%(levelname)7s: '
+  formatter = TntPathFormatter(tnt_formatter_prefix + '%(pathname)s:%(lineno)3d: %(message)s')
 
-  formatter = logging.Formatter(tnt_formatter_prefix + '%(pathname)s:%(lineno)d: %(message)s')
   logger.setLevel(log_level)
   logger.addFilter(TntLoggingFilter(rank, do_logging))
 
@@ -23,9 +23,17 @@ def setup_logging(logger, log_level, rank = 0, is_master_rank = True,
   handler.setFormatter(formatter)
   logger.addHandler(handler)
 
-  tf_config.setup_logging(log_level = log_level,
+  tf_config.setup_logging(formatter_type = TntPathFormatter,
                           formatter_prefix = tnt_formatter_prefix,
                           logging_filter = TntLoggingFilter(rank, do_logging))
+
+
+class TntPathFormatter(logging.Formatter):
+  def format(self, record):
+    PATH_LEN = 40
+    if len(record.pathname) > PATH_LEN:
+      record.pathname = f"~{record.pathname[-(PATH_LEN):]}"
+    return super().format(record)
 
 class TntLoggingFilter(logging.Filter):
   def __init__(self, rank, do_logging):
