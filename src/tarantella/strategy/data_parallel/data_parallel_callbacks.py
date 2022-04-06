@@ -47,8 +47,10 @@ class LogsAverager:
 def _generate_data_parallel_callback(base_type: Type[tf.keras.callbacks.Callback]) -> Type[tf.keras.callbacks.Callback]:
   class DataParallelCallback(base_type):
     def __init__(self, keras_callback: tf.keras.callbacks.Callback,
+                       aggregate_logs: bool,
+                       run_on_all_ranks: bool) -> None:
       logger.debug(f"[DataParallelCallback] Initializing with {keras_callback}")
-      super().__init__(keras_callback)
+      super().__init__(keras_callback, aggregate_logs, run_on_all_ranks)
       self._logs_averager = LogsAverager(self.group)
       self._is_built = False
       self._distribute_callback = self._distribute_callback_default
@@ -96,6 +98,8 @@ def _generate_data_parallel_callback(base_type: Type[tf.keras.callbacks.Callback
     @customize_callback.register             # type: ignore [no-redef]
     def _(self, keras_callback: tf.keras.callbacks.ModelCheckpoint):
       logger.debug("[DataParallel] ModelCheckpoint callback")
+      self._run_on_all_ranks = False
+      self._aggregate_logs = False
       # only master rank should save and thus print messages
       self.verbose = keras_callback.verbose if tnt.is_group_master_rank(self.group) \
                                             else utilities.TF_verbose.SILENT.value
@@ -104,7 +108,6 @@ def _generate_data_parallel_callback(base_type: Type[tf.keras.callbacks.Callback
         self._supports_tf_logs = False
         self.save_freq = 1e20 # very large value to avoid triggering checkpointing
         self.epochs_since_last_save = 0
-
 
     @customize_callback.register             # type: ignore [no-redef]
     def _(self, keras_callback: tf.keras.callbacks.ProgbarLogger):
@@ -125,24 +128,33 @@ def _generate_data_parallel_callback(base_type: Type[tf.keras.callbacks.Callback
     @customize_callback.register             # type: ignore [no-redef]
     def _(self, keras_callback: tf.keras.callbacks.TensorBoard):
       logger.debug("[DataParallel] TensorBoard callback")
-      if tnt.global_tnt_config.tensorboard_on_all_devices:
-        self.log_dir += f"/rank_{tnt.get_rank()}"
+      self._aggregate_logs = None
+
+      if not self.user_defined_callback:
+        # update settings for a TensorBoard callback configured
+        # by setting the environment variable TNT_TENSORBOARD_ON_ALL_DEVICES
+        self._run_on_all_ranks = True
+      else:
+        if self._run_on_all_ranks != tnt.global_tnt_config.tensorboard_on_all_devices:
+          logger.warn("[TensorBoard] Conflicting configurations for the callback "
+                      f"as `run_on_all_ranks={self._run_on_all_ranks}` and"
+                      f"`TNT_TENSORBOARD_ON_ALL_DEVICES={tnt.global_tnt_config.tensorboard_on_all_devices}`.")
+      if (self.user_defined_callback and self._run_on_all_ranks) or \
+          tnt.global_tnt_config.tensorboard_on_all_devices:
+        self._set_underlying_attribute("log_dir", self.log_dir + f"/rank_{tnt.get_rank()}")
       else:
         # disregard any data logging for all ranks except the master rank
         if not tnt.is_group_master_rank(self.group):
-          self.histogram_freq = 0
-          self.write_graph = False
-          self.write_images = False
-          self.write_steps_per_second = False
-          self.update_freq = 0
-          self.embeddings_freq = 0
-          self.embeddings_metadata = None
-          self.profile_batch = None
-
-          def _set_model(model):
-            pass
-          self.set_model = _set_model
-
+          self._set_underlying_attribute("histogram_freq", 0)
+          self._set_underlying_attribute("write_graph", False)
+          self._set_underlying_attribute("write_images", False)
+          self._set_underlying_attribute("write_steps_per_second", False)
+          self._set_underlying_attribute("update_freq", False)
+          self._set_underlying_attribute("embeddings_freq", 0)
+          self._set_underlying_attribute("embeddings_metadata", None)
+          self._set_underlying_attribute("profile_batch", None)
+      logger.debug(f"[DataParallel] TensorBoard callback running on "
+                   f"{'all ranks' if self._run_on_all_ranks else 'one rank'}.")
 
     @customize_callback.register             # type: ignore [no-redef]
     def _(self, keras_callback: tf.keras.callbacks.TerminateOnNaN):
@@ -178,7 +190,7 @@ def _generate_data_parallel_callback(base_type: Type[tf.keras.callbacks.Callback
       return kwargs_copy
 
     def _distribute_callback_default(self, callback_func: Callable, **kwargs: Any) -> Any:
-      if self.run_on_all_ranks:
+      if self._run_on_all_ranks:
         kwargs_copy = self._average_callback_logs(kwargs)    
         return callback_func(**kwargs_copy)
       else:
@@ -198,11 +210,11 @@ def _customize_progbar_logger(progbar_logger: tf.keras.callbacks.ProgbarLogger) 
 
   def progbar_logger_distribute_callback(callback_func: Callable,
                                          **kwargs: Any) -> Any:
-    if progbar_logger.run_on_all_ranks:
+    if progbar_logger._run_on_all_ranks:
       kwargs_copy = progbar_logger._average_callback_logs(kwargs)    
       if progbar_logger.should_print_progbar:
         return callback_func(**kwargs_copy)
     else:
-      if tnt.is_group_master_rank(progbar_logger.group) and progbar_logger.should_print_progbar:
+      if progbar_logger.should_print_progbar:
         return callback_func(**kwargs)
   progbar_logger._distribute_callback = progbar_logger_distribute_callback
