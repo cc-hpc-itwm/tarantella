@@ -45,13 +45,11 @@ class LogsAverager:
 
 
 def _generate_data_parallel_callback(base_type: Type[tf.keras.callbacks.Callback]) -> Type[tf.keras.callbacks.Callback]:
-  class DataParallelCallback(LogsAverager, base_type):
+  class DataParallelCallback(base_type):
     def __init__(self, keras_callback: tf.keras.callbacks.Callback,
-                 group: tnt.Group = tnt.Group()) -> None:
-      super().__init__(group = group)
-      logger.debug(f"[DataParallelCallback] init with {keras_callback}")
-      base_type.__init__(self, keras_callback)
-      self.aggregate_logs = aggregate_logs
+      logger.debug(f"[DataParallelCallback] Initializing with {keras_callback}")
+      super().__init__(keras_callback)
+      self._logs_averager = LogsAverager(self.group)
       self._is_built = False
       self._distribute_callback = self._distribute_callback_default
       self.customize_callback(keras_callback)
@@ -80,7 +78,7 @@ def _generate_data_parallel_callback(base_type: Type[tf.keras.callbacks.Callback
                                             else utilities.TF_verbose.SILENT.value
 
       def _get_monitor_value(self, logs):
-        averaged_logs = self.average_logs(logs)
+        averaged_logs = self._logs_averager.average_logs(logs)
         return super().get_monitor_value(averaged_logs)
       self.get_monitor_value = _get_monitor_value
 
@@ -162,7 +160,7 @@ def _generate_data_parallel_callback(base_type: Type[tf.keras.callbacks.Callback
       for key in list(logs):
         new_key = 'val_' + key
         full_logs[new_key] = np.double(0)
-      self.create_allreducer(self._logs_as_tensors(full_logs))
+      self._logs_averager.average_logs(self._logs_as_tensors(full_logs))
 
     def _build_tensor_allreducer_if_necessary(self, logs):
       if not self._is_built:
@@ -175,8 +173,8 @@ def _generate_data_parallel_callback(base_type: Type[tf.keras.callbacks.Callback
       if kwargs_copy['logs'] is not None:
         if "loss" in kwargs_copy['logs']:
           self._build_tensor_allreducer_if_necessary(kwargs_copy['logs'])
-          if self.aggregate_logs:
-            kwargs_copy['logs'] = self.average_logs(kwargs_copy['logs'])
+          if self._aggregate_logs:
+            kwargs_copy['logs'] = self._logs_averager.average_logs(kwargs_copy['logs'])
       return kwargs_copy
 
     def _distribute_callback_default(self, callback_func: Callable, **kwargs: Any) -> Any:
