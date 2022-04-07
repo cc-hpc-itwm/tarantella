@@ -129,33 +129,8 @@ def _generate_data_parallel_callback(base_type: Type[tf.keras.callbacks.Callback
     def _(self, keras_callback: tf.keras.callbacks.TensorBoard):
       logger.debug("[DataParallel] TensorBoard callback")
       self._aggregate_logs = None
-
-      if not self.user_defined_callback:
-        # update settings for a TensorBoard callback configured
-        # by setting the environment variable TNT_TENSORBOARD_ON_ALL_DEVICES
-        self._run_on_all_ranks = True
-      else:
-        if self._run_on_all_ranks != tnt.global_tnt_config.tensorboard_on_all_devices:
-          logger.warn("[TensorBoard] Conflicting configurations for the callback "
-                      f"as `run_on_all_ranks={self._run_on_all_ranks}` and"
-                      f"`TNT_TENSORBOARD_ON_ALL_DEVICES={tnt.global_tnt_config.tensorboard_on_all_devices}`. "
-                      f"TensorBoard running on {'all ranks' if self._run_on_all_ranks else 'one rank'}.")
-      if (self.user_defined_callback and self._run_on_all_ranks) or \
-          tnt.global_tnt_config.tensorboard_on_all_devices:
-        self._set_underlying_attribute("log_dir", self.log_dir + f"/rank_{tnt.get_rank()}")
-      else:
-        # disregard any data logging for all ranks except the master rank
-        if not tnt.is_group_master_rank(self.group):
-          self._set_underlying_attribute("histogram_freq", 0)
-          self._set_underlying_attribute("write_graph", False)
-          self._set_underlying_attribute("write_images", False)
-          self._set_underlying_attribute("write_steps_per_second", False)
-          self._set_underlying_attribute("update_freq", False)
-          self._set_underlying_attribute("embeddings_freq", 0)
-          self._set_underlying_attribute("embeddings_metadata", None)
-          self._set_underlying_attribute("profile_batch", None)
-      logger.debug(f"[DataParallel] TensorBoard callback running on "
-                   f"{'all ranks' if self._run_on_all_ranks else 'one rank'}.")
+      utilities._customize_tensorboard_callback(callback = self,
+                tensorboard_on_all_devices_env = tnt.global_tnt_config.tensorboard_on_all_devices)
 
     @customize_callback.register             # type: ignore [no-redef]
     def _(self, keras_callback: tf.keras.callbacks.TerminateOnNaN):
