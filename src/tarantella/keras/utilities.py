@@ -1,12 +1,11 @@
 import tarantella as tnt
-import tarantella.keras.callbacks as tnt_callbacks
 import tarantella.utilities.tf_version as version_utils
-
-import tensorflow.keras.callbacks as tf_callbacks
-import tarantella.strategy.pipelining.pipelining_callbacks
-from enum import Enum
 from tarantella import logger
 
+import tensorflow.keras.callbacks as tf_callbacks
+
+from enum import Enum
+import sys
 
 class TF_verbose(Enum):
   SILENT = 0
@@ -68,3 +67,32 @@ def _to_parallel_callbacks(callbacks, group, parallel_strategy):
     logger.debug(f"[{parallel_strategy}] Preprocessing callback {callback} of type {type(callback)}")
     parallel_callbacks.append(tnt.keras.callbacks.Callback(callback, parallel_strategy, group = group))
   return parallel_callbacks
+
+def _customize_tensorboard_callback(callback, tensorboard_on_all_devices_env):
+  if not callback.user_defined_callback:
+    # update settings for a TensorBoard callback configured
+    # by setting the environment variable TNT_TENSORBOARD_ON_ALL_DEVICES
+    callback._run_on_all_ranks = True
+  else:
+    if callback._run_on_all_ranks != tensorboard_on_all_devices_env:
+      logger.warn("[TensorBoard] Conflicting configurations for the callback "
+                  f"as `run_on_all_ranks={callback._run_on_all_ranks}` and"
+                  f"`TNT_TENSORBOARD_ON_ALL_DEVICES={tensorboard_on_all_devices_env}`. "
+                  f"TensorBoard running on {'all ranks' if callback._run_on_all_ranks else 'one rank'}.")
+  if (callback.user_defined_callback and callback._run_on_all_ranks) or \
+     tensorboard_on_all_devices_env:
+    callback._set_underlying_attribute("log_dir", callback.log_dir + f"/rank_{tnt.get_rank()}")
+  else:
+    # disregard any data logging for all ranks except the master rank
+    if not tnt.is_group_master_rank(callback.group):
+      callback._set_underlying_attribute("histogram_freq", 0)
+      callback._set_underlying_attribute("write_graph", False)
+      callback._set_underlying_attribute("write_images", False)
+      callback._set_underlying_attribute("write_steps_per_second", False)
+      callback._set_underlying_attribute("update_freq", sys.maxsize)
+      callback._set_underlying_attribute("embeddings_freq", 0)
+      callback._set_underlying_attribute("embeddings_metadata", None)
+      callback._set_underlying_attribute("profile_batch", 0)
+  logger.debug(f"[DataParallel] TensorBoard callback running on "
+               f"{'all ranks' if callback._run_on_all_ranks else 'one rank'}.")
+
