@@ -17,7 +17,9 @@ def setup_save_path(request):
   save_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                           "test_callbacks")
   if tnt.is_master_rank():
+    shutil.rmtree(save_dir, ignore_errors=True)
     os.makedirs(save_dir, exist_ok=True)
+  barrier.execute()
   yield save_dir
 
   # clean up
