@@ -254,24 +254,3 @@ class TestTarantellaCallbacks:
     else:
       result = all([tnt_captured.out == "", tnt_captured.err == ""])
     util.assert_on_all_ranks(result)
-
-
-class TestModelCheckpointCallback:
-  @pytest.mark.parametrize("model_config", [base_runner.ModelConfig(mnist.fc_model_generator),
-                                            base_runner.ModelConfig(mnist.subclassed_model_generator)])
-  @pytest.mark.parametrize("number_epochs", [1])
-  def test_model_checkpoint_data_par(self, setup_save_path, model_config, number_epochs):
-    checkpoint_path = os.path.join(setup_save_path, "logs")
-    callbacks = [tf.keras.callbacks.ModelCheckpoint(filepath = checkpoint_path)]
-    callback_utilities.train_tnt_and_ref_models_with_callbacks(callbacks, model_config, number_epochs)
-    # FIXME: assert correct file exists
-    assert True
-
-  @pytest.mark.parametrize("model_config", [base_runner.ModelConfig(mnist.fc_model_generator, tnt.ParallelStrategy.ALL)])
-  @pytest.mark.parametrize("number_epochs", [1])
-  def test_model_checkpoint_pipelining(self, setup_save_path, model_config, number_epochs):
-    checkpoint_path = os.path.join(setup_save_path, "logs")
-    callbacks = [tf.keras.callbacks.ModelCheckpoint(filepath = checkpoint_path)]
-    with pytest.raises(ValueError):
-      callback_utilities.train_tnt_and_ref_models_with_callbacks(callbacks, model_config, number_epochs)
-

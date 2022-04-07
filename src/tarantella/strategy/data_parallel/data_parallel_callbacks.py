@@ -10,6 +10,7 @@ from typing import Any, Callable, Dict, Iterable, Type
 
 import tensorflow as tf
 import numpy as np
+import sys
 
 class LogsAverager:
   def __init__(self, group: tnt.Group = tnt.Group()) -> None:
@@ -103,11 +104,13 @@ def _generate_data_parallel_callback(base_type: Type[tf.keras.callbacks.Callback
       # only master rank should save and thus print messages
       self.verbose = keras_callback.verbose if tnt.is_group_master_rank(self.group) \
                                             else utilities.TF_verbose.SILENT.value
+      self._chief_worker_only = True
       # only one checkpoint is needed (models are identical in a data parallel setting)
       if not tnt.is_group_master_rank(self.group):
         self._supports_tf_logs = False
-        self.save_freq = 1e20 # very large value to avoid triggering checkpointing
+        self.save_freq = sys.maxsize # very large value to avoid triggering checkpointing
         self.epochs_since_last_save = 0
+        self.period = sys.maxsize
 
     @customize_callback.register             # type: ignore [no-redef]
     def _(self, keras_callback: tf.keras.callbacks.ProgbarLogger):
