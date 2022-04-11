@@ -5,6 +5,7 @@ from tarantella import logger
 import tensorflow.keras.callbacks as tf_callbacks
 
 from enum import Enum
+import os
 import sys
 
 class TF_verbose(Enum):
@@ -68,7 +69,33 @@ def _to_parallel_callbacks(callbacks, group, parallel_strategy):
     parallel_callbacks.append(tnt.keras.callbacks.Callback(callback, parallel_strategy, group = group))
   return parallel_callbacks
 
+
 def _customize_tensorboard_callback(callback, tensorboard_on_all_devices_env):
+  def _tnt_get_log_write_dir(callback):
+    return callback.log_dir
+  callback._get_log_write_dir = lambda: _tnt_get_log_write_dir(callback)
+
+  def _tnt_set_model(callback, model):
+    # redefine `set_model` from here https://github.com/keras-team/keras/blob/v2.8.0/keras/callbacks.py#L2264
+    callback.model = model
+    callback._log_write_dir = callback._get_log_write_dir()
+
+    callback._train_dir = os.path.join(callback._log_write_dir, f"train/rank_{tnt.get_rank()}")
+    callback._val_dir = os.path.join(callback._log_write_dir, f"validation/rank_{tnt.get_rank()}")
+
+    callback._train_step = callback.model._train_counter  # pylint: disable=protected-access
+    callback._val_step = callback.model._test_counter  # pylint: disable=protected-access
+
+    callback._writers = {}  # Resets writers.
+
+    callback._should_write_train_graph = False
+    if callback.write_graph:
+      callback._write_keras_model_summary()
+      callback._should_write_train_graph = True
+    if callback.embeddings_freq:
+      callback._configure_embeddings()
+
+
   if not callback.user_defined_callback:
     # update settings for a TensorBoard callback configured
     # by setting the environment variable TNT_TENSORBOARD_ON_ALL_DEVICES
@@ -79,10 +106,19 @@ def _customize_tensorboard_callback(callback, tensorboard_on_all_devices_env):
                   f"as `run_on_all_ranks={callback._run_on_all_ranks}` and"
                   f"`TNT_TENSORBOARD_ON_ALL_DEVICES={tensorboard_on_all_devices_env}`. "
                   f"TensorBoard running on {'all ranks' if callback._run_on_all_ranks else 'one rank'}.")
+
   if (callback.user_defined_callback and callback._run_on_all_ranks) or \
      tensorboard_on_all_devices_env:
-    callback._set_underlying_attribute("log_dir", callback.log_dir + f"/rank_{tnt.get_rank()}")
+    # TF 2.7 (and TF<2.4) hangs when changing the predefined `log_dir` (on train with validation dataset);
+    # thus instead of re-naming each rank's `log_dir`, the output will contain
+    # multiple files, each corresponding to a rank, but having a random, TF-assigned name
+    if version_utils.tf_version_above_equal("2.4") and \
+       not version_utils.tf_version_equal("2.7"):
+      underlying_keras_callback = callback._get_underlying_callback()
+      underlying_keras_callback.set_model = lambda model: _tnt_set_model(underlying_keras_callback, model)
+
   else:
+    callback._run_on_all_ranks = False
     # disregard any data logging for all ranks except the master rank
     if not tnt.is_group_master_rank(callback.group):
       callback._set_underlying_attribute("histogram_freq", 0)
@@ -93,6 +129,6 @@ def _customize_tensorboard_callback(callback, tensorboard_on_all_devices_env):
       callback._set_underlying_attribute("embeddings_freq", 0)
       callback._set_underlying_attribute("embeddings_metadata", None)
       callback._set_underlying_attribute("profile_batch", 0)
-  logger.debug(f"[DataParallel] TensorBoard callback running on "
+  logger.debug(f"[TensorBoard] Callback running on "
                f"{'all ranks' if callback._run_on_all_ranks else 'one rank'}.")
 
