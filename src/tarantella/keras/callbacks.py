@@ -70,11 +70,17 @@ def _generate_default_callback_with_type(tf_callback_type: Type[tf.keras.callbac
                                         attribute_value: Any) -> None:
       # ensures that attributes set on nested `tnt.callbacks` go all the way down to the original `keras.callback
       # e.g., `TensorboardCallback` needs to use a modified logging directory for each rank
-      setattr(self, attribute_name, attribute_value)
+      setattr(self, attribute_name, copy.deepcopy(attribute_value))
       if hasattr(self.keras_callback, "_set_underlying_attribute"):
-        self.keras_callback._set_underlying_attribute(attribute_name, attribute_value)
+        self.keras_callback._set_underlying_attribute(attribute_name, copy.deepcopy(attribute_value))
       else:
         setattr(self.keras_callback, attribute_name, copy.deepcopy(attribute_value))
+
+    def _get_underlying_callback(self) -> tf.keras.callbacks.Callback:
+      cb = self
+      while hasattr(cb, "keras_callback"):
+        cb = cb.keras_callback
+      return cb
 
     def _distribute_callback(self, callback_func, **kwargs):
       if self._run_on_all_ranks or tnt.is_group_master_rank(self.group):
