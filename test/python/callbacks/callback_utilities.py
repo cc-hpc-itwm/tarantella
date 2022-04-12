@@ -4,6 +4,7 @@ import training_runner as base_runner
 import utilities as util
 import tarantella as tnt
 
+import copy
 import numpy as np
 import os
 import pytest
@@ -54,7 +55,7 @@ def train_tnt_and_ref_models_with_callbacks(callbacks, model_config, number_epoc
   param_dict = { 'epochs' : number_epochs,
                   'verbose' : 0,
                   'shuffle' : False,
-                  'callbacks' : callbacks }
+                  'callbacks' : copy.deepcopy(callbacks) }
   tnt_history = tnt_model_runner.model.fit(train_dataset,
                                             validation_data=val_dataset,
                                             **param_dict)
