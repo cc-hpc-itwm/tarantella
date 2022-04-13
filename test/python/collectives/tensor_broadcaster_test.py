@@ -42,3 +42,25 @@ class TestTensorBroadcaster:
     result = all((array == expected_output_array).all() for array in outputs)
     assert isinstance(outputs, list)
     assert result
+
+  @pytest.mark.parametrize("list_length", [3])
+  @pytest.mark.parametrize("array_shape", [(1,1,3,4)])
+  def test_list_of_list(self, array_shape, list_length):
+    np.random.seed(42)
+    last_element = 35
+    input_array = np.random.random_sample(array_shape).astype('float32')
+    inputs = list_length * [ list_length * [input_array] ] + [last_element]
+    rank = tnt.get_rank()
+    root_rank = 0
+    broadcaster = tnt.TensorBroadcaster(inputs, root_rank)
+
+    expected_output_array = input_array
+    if rank == root_rank:
+      outputs = broadcaster.broadcast(inputs)
+    else:
+      outputs = broadcaster.broadcast()
+
+    result = all((array == expected_output_array).all() for array in outputs[:-1])
+    assert isinstance(outputs, list)
+    assert result
+    assert outputs[-1] == last_element
