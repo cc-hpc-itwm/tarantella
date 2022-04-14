@@ -16,6 +16,12 @@ def _construct_from_keras_object(obj: tf.keras.callbacks.Callback,
   for k, v in keras_callback.__dict__.items():
     setattr(obj, k, copy.deepcopy(v))
 
+def _get_underlying_callback(callback: tf.keras.callbacks.Callback) -> tf.keras.callbacks.Callback:
+  cb = callback
+  while hasattr(cb, "keras_callback"):
+    cb = cb.keras_callback
+  return cb
+
 def _generate_default_callback_with_type(tf_callback_type: Type[tf.keras.callbacks.Callback],
                                          parallel_strategy: tnt.ParallelStrategy,
                                          group: tnt.Group,
@@ -31,6 +37,7 @@ def _generate_default_callback_with_type(tf_callback_type: Type[tf.keras.callbac
       self.tnt_parallel_strategy = parallel_strategy
       self._group = group
       if hasattr(self.keras_callback, "_user_defined_callback"):
+         # initialize with an already wrapped callback
         self._user_defined_callback = self.keras_callback._user_defined_callback
         self._aggregate_logs = self.keras_callback._aggregate_logs
         self._run_on_all_ranks = self.keras_callback._run_on_all_ranks
@@ -47,7 +54,7 @@ def _generate_default_callback_with_type(tf_callback_type: Type[tf.keras.callbac
         self._user_defined_callback = user_defined_callback
         self._aggregate_logs = aggregate_logs
         self._run_on_all_ranks = run_on_all_ranks
-      logger.debug(f"[Callback] Configuration: `is_user_defined={self.user_defined_callback}` "
+      logger.debug(f"[Callback] Initial configuration: `is_user_defined={self.user_defined_callback}` "
                    f"and `run_on_all_ranks={run_on_all_ranks}`")
 
     @property
@@ -75,12 +82,6 @@ def _generate_default_callback_with_type(tf_callback_type: Type[tf.keras.callbac
         self.keras_callback._set_underlying_attribute(attribute_name, copy.deepcopy(attribute_value))
       else:
         setattr(self.keras_callback, attribute_name, copy.deepcopy(attribute_value))
-
-    def _get_underlying_callback(self) -> tf.keras.callbacks.Callback:
-      cb = self
-      while hasattr(cb, "keras_callback"):
-        cb = cb.keras_callback
-      return cb
 
     def _distribute_callback(self, callback_func, **kwargs):
       if self._run_on_all_ranks or tnt.is_group_master_rank(self.group):
@@ -144,6 +145,30 @@ def _generate_default_callback_with_type(tf_callback_type: Type[tf.keras.callbac
       return self.keras_callback._implements_predict_batch_hooks()
   return DistributedCallback
 
+def _validate_user_defined_config(keras_callback: tf.keras.callbacks.Callback,
+                                  parallel_strategy: tnt.ParallelStrategy,
+                                  aggregate_logs: bool,
+                                  run_on_all_ranks: bool) -> None:
+  if isinstance(keras_callback, (tf.keras.callbacks.EarlyStopping,
+                                 tf.keras.callbacks.LearningRateScheduler,
+                                 tf.keras.callbacks.ReduceLROnPlateau,
+                                 tf.keras.callbacks.TerminateOnNaN)):
+    if run_on_all_ranks == False:
+      raise ValueError(f"[callbackFactory] Cannot run callback of type {type(keras_callback)} on a single rank.")
+  elif isinstance(keras_callback, (tf.keras.callbacks.BackupAndRestore,
+                                   tf.keras.callbacks.BaseLogger)):
+    raise ValueError(f"[callbackFactory] Callback type {type(keras_callback)} not supported.")
+
+  if parallel_strategy == tnt.ParallelStrategy.PIPELINING:
+    if not aggregate_logs is None:
+      raise ValueError(f"[callbackFactory] Pipelining strategy does not support "
+                        "`aggregate_logs` in a custom callback.")
+
+  if not run_on_all_ranks and aggregate_logs:
+    raise ValueError("[callbackFactory] Cannot aggregate callback logs if callback runs on a single rank")
+
+
+
 def callbackFactory(keras_callback: tf.keras.callbacks.Callback,
                     keras_callback_type: Type,
                     parallel_strategy: tnt.ParallelStrategy,
@@ -173,8 +198,10 @@ def callbackFactory(keras_callback: tf.keras.callbacks.Callback,
     # i.e., it is executed on all nodes independently, without any logs aggregation
     aggregate_logs = aggregate_logs if (aggregate_logs is not None) else False
     run_on_all_ranks = run_on_all_ranks if (run_on_all_ranks is not None) else False
-    if not run_on_all_ranks and aggregate_logs:
-      raise ValueError("[callbackFactory] Cannot aggregate callback logs if callback runs on a single rank")
+    _validate_user_defined_config(keras_callback = keras_callback,
+                                  parallel_strategy = parallel_strategy,
+                                  aggregate_logs = aggregate_logs,
+                                  run_on_all_ranks = run_on_all_ranks)
     return BaseCallback(keras_callback = keras_callback,
                         aggregate_logs = aggregate_logs,
                         run_on_all_ranks = run_on_all_ranks)
@@ -186,10 +213,7 @@ class CallbackMeta(type):
                     group: tnt.Group = tnt.Group(),
                     aggregate_logs: bool = None,
                     run_on_all_ranks: bool = None) -> tf.keras.callbacks.Callback:
-    if hasattr(callback, "tnt_parallel_strategy"):
-      keras_callback_type = type(callback.keras_callback)
-    else:
-      keras_callback_type = type(callback)
+    keras_callback_type = type(_get_underlying_callback(callback))
     return callbackFactory(callback,
                            keras_callback_type = keras_callback_type,
                            parallel_strategy = parallel_strategy,
