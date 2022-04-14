@@ -1,8 +1,11 @@
 import re
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 def is_real_loss_or_metric(name):
   return "real" in name
+
+def is_pipeline_related_loss_or_metric(name):
+  return "real" in name or "edge" in name or "seq" in name
 
 def get_element_from_log_name(name, element):
   # name structure: {train_or_validation}p_{partition_id}_m_{micro_batch_id}_{real/edge/seq}_output_{output_id}_{metric_name}
@@ -15,6 +18,13 @@ def get_element_from_log_name(name, element):
 class OutputInfo(NamedTuple):
   is_validation: bool
   output_id: str
+
+def remove_user_visible_metrics(metrics_name_and_info):
+  remaining_metrics : dict[str, Any] = {}
+  for name, info in metrics_name_and_info.items():
+    if not is_pipeline_related_loss_or_metric(name):
+      remaining_metrics[name] = info
+  return remaining_metrics
 
 def extract_user_visible_metrics(metrics_name_and_info):
   metrics_per_output : dict[OutputInfo, dict] = {}
