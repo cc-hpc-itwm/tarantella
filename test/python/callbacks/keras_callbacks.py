@@ -12,6 +12,7 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras.callbacks import LambdaCallback
 
+import logging
 import numpy as np
 import os
 import pytest
@@ -42,8 +43,12 @@ class CustomLearningRateScheduler(keras.callbacks.Callback):
     # Set the value back to the optimizer before this epoch starts
     tf.keras.backend.set_value(self.model.optimizer.lr, scheduled_lr)
 
-@pytest.mark.parametrize("model_config", [base_runner.ModelConfig(mnist.fc_model_generator),
-                                          base_runner.ModelConfig(mnist.subclassed_model_generator),
+@pytest.mark.parametrize("model_config", [#base_runner.ModelConfig(mnist.fc_model_generator),
+                                          #base_runner.ModelConfig(mnist.subclassed_model_generator),
+                                          pytest.param(base_runner.ModelConfig(mnist.fc_model_generator_four_partitions,
+                                                                               tnt.ParallelStrategy.PIPELINING),
+                                                       marks=pytest.mark.skipif(tnt.get_size() != 4,
+                                                                                reason="Can only run on 4 ranks, model has 4 partitions")),
                                           pytest.param(base_runner.ModelConfig(mnist.fc_model_generator,
                                                                                tnt.ParallelStrategy.PIPELINING),
                                                        marks=pytest.mark.skipif(tnt.get_size() != 1,
@@ -52,20 +57,12 @@ class CustomLearningRateScheduler(keras.callbacks.Callback):
 class TestTarantellaCallbacks:
   @pytest.mark.parametrize("number_epochs", [5])
   def test_learning_rate_scheduler_callback(self, model_config, number_epochs):
-    callbacks = [tf.keras.callbacks.LearningRateScheduler(schedule=(lambda epoch, lr: 0.1 * lr),
-                                                          verbose=1)]
+    schedule = (lambda epoch, lr: 0.1 * lr)
+    tnt_callbacks = [tf.keras.callbacks.LearningRateScheduler(schedule, verbose=0)]
+    ref_callbacks = [tf.keras.callbacks.LearningRateScheduler(schedule, verbose=0)]
     tnt_history, reference_history = callback_utilities.train_tnt_and_ref_models_with_callbacks(
-                                       callbacks, model_config, number_epochs)
+                                       tnt_callbacks, ref_callbacks, model_config, number_epochs)
     callback_utilities.assert_identical_tnt_and_ref_history(tnt_history, reference_history)
-
-
-  @pytest.mark.parametrize("number_epochs", [5])
-  def test_custom_callback(self, model_config, number_epochs):
-    callbacks = [CustomLearningRateScheduler()]
-    tnt_history, reference_history = callback_utilities.train_tnt_and_ref_models_with_callbacks(
-                                       callbacks, model_config, number_epochs)
-    callback_utilities.assert_identical_tnt_and_ref_history(tnt_history, reference_history)
-
 
   @pytest.mark.parametrize("number_epochs", [5])
   def test_lambda_callback(self, model_config, number_epochs):
@@ -102,21 +99,24 @@ class TestTarantellaCallbacks:
   @pytest.mark.parametrize("number_epochs", [1])
   def test_history_callback(self, model_config, number_epochs):
     # history callback is added by default
-    callbacks = []
+    tnt_callbacks = []
+    ref_callbacks = []
     tnt_history, reference_history = callback_utilities.train_tnt_and_ref_models_with_callbacks(
-                                       callbacks, model_config, number_epochs)
+                                       tnt_callbacks, ref_callbacks, model_config, number_epochs)
     callback_utilities.assert_identical_tnt_and_ref_history(tnt_history, reference_history)
 
 
   @pytest.mark.parametrize("number_epochs", [10])
   def test_early_stopping_callback(self, model_config, number_epochs):
     monitor_metric = 'val_loss'
-    callbacks = [tf.keras.callbacks.EarlyStopping(monitor=monitor_metric,
+    tnt_callbacks = [tf.keras.callbacks.EarlyStopping(monitor=monitor_metric,
+                                                  min_delta=0.1,
+                                                  patience=1)]
+    ref_callbacks = [tf.keras.callbacks.EarlyStopping(monitor=monitor_metric,
                                                   min_delta=0.1,
                                                   patience=1)]
     tnt_history, reference_history = callback_utilities.train_tnt_and_ref_models_with_callbacks(
-                                       callbacks, model_config, number_epochs)
-
+                                       tnt_callbacks, ref_callbacks, model_config, number_epochs)
     # Expect both models to run same number of epochs
     result = [True]
     if tnt.is_master_rank():
@@ -157,30 +157,39 @@ class TestTarantellaCallbacks:
   # FIXME: This does not seem to even trigger a `NaN`
   @pytest.mark.parametrize("number_epochs", [1])
   def test_terminate_callback(self, model_config, number_epochs):
-    callbacks = [tf.keras.callbacks.TerminateOnNaN()]
+    tnt_callbacks = [tf.keras.callbacks.TerminateOnNaN()]
+    ref_callbacks = [tf.keras.callbacks.TerminateOnNaN()]
     tnt_history, ref_history = callback_utilities.train_tnt_and_ref_models_with_callbacks(
-                                       callbacks, model_config, number_epochs)
+                                       tnt_callbacks, ref_callbacks, model_config, number_epochs)
     callback_utilities.assert_identical_tnt_and_ref_history(tnt_history, ref_history)
 
 
   @pytest.mark.parametrize("number_epochs", [1])
   def test_base_logger_callback(self, model_config, number_epochs):
-    callbacks = [tf.keras.callbacks.BaseLogger()]
+    tnt_callbacks = [tf.keras.callbacks.BaseLogger()]
     with pytest.raises(ValueError):
-      tnt_history, ref_history = callback_utilities.train_tnt_and_ref_models_with_callbacks(
-                                       callbacks, model_config, number_epochs)
+      callback_utilities.train_tnt_and_ref_models_with_callbacks(tnt_callbacks, [], model_config, number_epochs)
 
 
-  @pytest.mark.parametrize("number_epochs", [3])
+  @pytest.mark.parametrize("number_epochs", [5])
   def test_reduce_lr_on_plateau_callback(self, model_config, number_epochs):
     monitor_metric = 'val_loss'
-    callbacks = [tf.keras.callbacks.ReduceLROnPlateau(monitor=monitor_metric,
-                                                      factor=0.01,
-                                                      min_delta=0.01,
+    tnt_callbacks = [tf.keras.callbacks.ReduceLROnPlateau(monitor=monitor_metric,
+                                                      factor=0.8,
+                                                      min_delta=1,
                                                       patience=1)]
-    tnt_history, reference_history = callback_utilities.train_tnt_and_ref_models_with_callbacks(
-                                       callbacks, model_config, number_epochs)
-    callback_utilities.assert_identical_tnt_and_ref_history(tnt_history, reference_history)
+    ref_callbacks = [tf.keras.callbacks.ReduceLROnPlateau(monitor=monitor_metric,
+                                                      factor=0.8,
+                                                      min_delta=1,
+                                                      patience=1)]
+    tnt_history, ref_history = callback_utilities.train_tnt_and_ref_models_with_callbacks(
+                                       tnt_callbacks, ref_callbacks, model_config, number_epochs)
+    callback_utilities.assert_identical_tnt_and_ref_history(tnt_history, ref_history)
+    # check that LR changes are identical to the reference sequential model
+    result = [True]
+    if tnt.is_group_master_rank(tnt.Group()):
+      result = [all(np.isclose(tnt_history.history['lr'], ref_history.history['lr'], atol=1e-6))]
+    util.assert_on_all_ranks(result)
 
 
   @pytest.mark.min_tfversion('2.4')

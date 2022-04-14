@@ -36,7 +36,7 @@ def gen_model_runners(model_config: base_runner.ModelConfig):
 
 def train_val_dataset_generator():
   micro_batch_size = 64
-  nbatches = 1
+  nbatches = 5
   batch_size = micro_batch_size * tnt.get_size()
   nsamples = nbatches * batch_size
   train_dataset, val_dataset, _ = util.load_dataset(mnist.load_mnist_dataset,
@@ -46,21 +46,23 @@ def train_val_dataset_generator():
                                                     val_batch_size = batch_size)
   return train_dataset, val_dataset
 
-def train_tnt_and_ref_models_with_callbacks(callbacks, model_config, number_epochs):
+def train_tnt_and_ref_models_with_callbacks(tnt_callbacks, ref_callbacks,
+                                            model_config, number_epochs):
   (train_dataset, val_dataset) = train_val_dataset_generator()
   (ref_train_dataset, ref_val_dataset) = train_val_dataset_generator()
 
   tnt_model_runner, reference_model_runner = gen_model_runners(model_config)
 
-  param_dict = { 'epochs' : number_epochs,
-                  'verbose' : 0,
-                  'shuffle' : False,
-                  'callbacks' : copy.deepcopy(callbacks) }
+  param_dict = {'epochs' : number_epochs,
+                'verbose' : 0,
+                'shuffle' : False}
   tnt_history = tnt_model_runner.model.fit(train_dataset,
                                             validation_data=val_dataset,
+                                            callbacks = tnt_callbacks,
                                             **param_dict)
   ref_history = reference_model_runner.model.fit(ref_train_dataset,
                                                  validation_data=ref_val_dataset,
+                                                 callbacks = ref_callbacks,
                                                  **param_dict)
   return (tnt_history, ref_history)
 
