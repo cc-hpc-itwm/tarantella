@@ -143,15 +143,18 @@ def _validate_user_defined_config(keras_callback: tf.keras.callbacks.Callback,
                                   parallel_strategy: tnt.ParallelStrategy,
                                   aggregate_logs: bool,
                                   run_on_all_ranks: bool) -> None:
-  if isinstance(keras_callback, (tf.keras.callbacks.EarlyStopping,
+  unsupported_callback_types = [tf.keras.callbacks.BaseLogger]
+  if hasattr(tf.keras.callbacks, "BackupAndRestore"):
+    unsupported_callback_types += [tf.keras.callbacks.BackupAndRestore]
+
+  if isinstance(keras_callback, tuple(unsupported_callback_types)):
+    raise ValueError(f"[callbackFactory] Callback type {type(keras_callback)} not supported.")
+  elif isinstance(keras_callback, (tf.keras.callbacks.EarlyStopping,
                                  tf.keras.callbacks.LearningRateScheduler,
                                  tf.keras.callbacks.ReduceLROnPlateau,
                                  tf.keras.callbacks.TerminateOnNaN)):
     if run_on_all_ranks == False:
       raise ValueError(f"[callbackFactory] Cannot run callback of type {type(keras_callback)} on a single rank.")
-  elif isinstance(keras_callback, (tf.keras.callbacks.BackupAndRestore,
-                                   tf.keras.callbacks.BaseLogger)):
-    raise ValueError(f"[callbackFactory] Callback type {type(keras_callback)} not supported.")
 
   if parallel_strategy == tnt.ParallelStrategy.PIPELINING:
     if not aggregate_logs is None:
