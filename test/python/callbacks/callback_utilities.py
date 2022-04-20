@@ -1,4 +1,5 @@
 
+import logging
 from models import mnist_models as mnist
 import training_runner as base_runner
 import utilities as util
@@ -36,7 +37,7 @@ def gen_model_runners(model_config: base_runner.ModelConfig):
 
 def train_val_dataset_generator():
   micro_batch_size = 64
-  nbatches = 5
+  nbatches = 3
   batch_size = micro_batch_size * tnt.get_size()
   nsamples = nbatches * batch_size
   train_dataset, val_dataset, _ = util.load_dataset(mnist.load_mnist_dataset,

@@ -43,8 +43,8 @@ class CustomLearningRateScheduler(keras.callbacks.Callback):
     # Set the value back to the optimizer before this epoch starts
     tf.keras.backend.set_value(self.model.optimizer.lr, scheduled_lr)
 
-@pytest.mark.parametrize("model_config", [#base_runner.ModelConfig(mnist.fc_model_generator),
-                                          #base_runner.ModelConfig(mnist.subclassed_model_generator),
+@pytest.mark.parametrize("model_config", [base_runner.ModelConfig(mnist.fc_model_generator),
+                                          base_runner.ModelConfig(mnist.subclassed_model_generator),
                                           pytest.param(base_runner.ModelConfig(mnist.fc_model_generator_four_partitions,
                                                                                tnt.ParallelStrategy.PIPELINING),
                                                        marks=pytest.mark.skipif(tnt.get_size() != 4,
