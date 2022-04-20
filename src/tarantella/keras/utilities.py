@@ -2,6 +2,7 @@ import tarantella as tnt
 import tarantella.utilities.tf_version as version_utils
 from tarantella import logger
 
+import tensorflow as tf
 import tensorflow.keras.callbacks as tf_callbacks
 
 from enum import Enum
@@ -114,7 +115,7 @@ def _customize_tensorboard_callback(callback, tensorboard_on_all_devices_env):
     # multiple files, each corresponding to a rank, but having a random, TF-assigned name
     if version_utils.tf_version_above_equal("2.4") and \
        not version_utils.tf_version_equal("2.7"):
-      underlying_keras_callback = callback._get_underlying_callback()
+      underlying_keras_callback = _get_underlying_callback(callback)
       underlying_keras_callback.set_model = lambda model: _tnt_set_model(underlying_keras_callback, model)
 
   else:
@@ -132,3 +133,9 @@ def _customize_tensorboard_callback(callback, tensorboard_on_all_devices_env):
   logger.debug(f"[TensorBoard] Callback running on "
                f"{'all ranks' if callback._run_on_all_ranks else 'one rank'}.")
 
+
+def _get_underlying_callback(callback: tf.keras.callbacks.Callback) -> tf.keras.callbacks.Callback:
+  cb = callback
+  while hasattr(cb, "keras_callback"):
+    cb = cb.keras_callback
+  return cb

@@ -1,7 +1,7 @@
-from cProfile import run
 import tarantella as tnt
 import tarantella.strategy.pipelining.pipelining_callbacks as pipecallbacks
 import tarantella.strategy.data_parallel.data_parallel_callbacks as dpcallbacks
+import tarantella.keras.utilities as utilities
 from tarantella import logger
 
 import copy
@@ -15,12 +15,6 @@ def _construct_from_keras_object(obj: tf.keras.callbacks.Callback,
     keras_callback = callback.keras_callback
   for k, v in keras_callback.__dict__.items():
     setattr(obj, k, copy.deepcopy(v))
-
-def _get_underlying_callback(callback: tf.keras.callbacks.Callback) -> tf.keras.callbacks.Callback:
-  cb = callback
-  while hasattr(cb, "keras_callback"):
-    cb = cb.keras_callback
-  return cb
 
 def _generate_default_callback_with_type(tf_callback_type: Type[tf.keras.callbacks.Callback],
                                          parallel_strategy: tnt.ParallelStrategy,
@@ -213,7 +207,7 @@ class CallbackMeta(type):
                     group: tnt.Group = tnt.Group(),
                     aggregate_logs: bool = None,
                     run_on_all_ranks: bool = None) -> tf.keras.callbacks.Callback:
-    keras_callback_type = type(_get_underlying_callback(callback))
+    keras_callback_type = type(utilities._get_underlying_callback(callback))
     return callbackFactory(callback,
                            keras_callback_type = keras_callback_type,
                            parallel_strategy = parallel_strategy,
