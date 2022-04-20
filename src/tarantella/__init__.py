@@ -45,6 +45,7 @@ from tarantella.strategy.parallel_strategy import ParallelStrategy
 from tarantella.strategy.SynchCommunicator import SynchCommunicator
 from tarantella.strategy.PipelineCommunicator import PipelineCommunicator
 
+from tarantella.keras import callbacks
 from tarantella.keras import models
 from tarantella.keras.model import Model
 from tarantella.keras.sequential import Sequential

@@ -57,6 +57,20 @@ def fc_model_generator_two_partitions():
   logging.getLogger().info("Initialized FC model with one `SplitLayer` (two partitions)")
   return model
 
+def fc_model_generator_four_partitions():
+  util.set_tf_random_seed()
+  inputs = keras.Input(shape=(28,28,1,), name='input')
+  x = layers.Flatten()(inputs)
+  x = tnt.keras.layers.SplitLayer(name="split1")(x)
+  x = layers.Dense(80, activation='relu', name='FC1')(x)
+  x = tnt.keras.layers.SplitLayer(name="split2")(x)
+  x = layers.Dense(80, activation='relu', name='FC2')(x)
+  x = tnt.keras.layers.SplitLayer(name="split3")(x)
+  outputs = layers.Dense(10, activation='softmax', name='softmax')(x)
+  model = keras.Model(inputs=inputs, outputs=outputs)
+  logging.getLogger().info("Initialized FC model with three `SplitLayer`s (four partitions)")
+  return model
+
 def lenet5_model_generator():
   util.set_tf_random_seed()
   inputs = keras.Input(shape=(28,28,1,), name='input')
