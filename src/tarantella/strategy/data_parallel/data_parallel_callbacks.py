@@ -56,6 +56,8 @@ def _generate_data_parallel_callback(base_type: Type[tf.keras.callbacks.Callback
       self._is_built = False
       self._distribute_callback = self._distribute_callback_default
       self.customize_callback(keras_callback)
+      logger.debug(f"[DataParallelCallback] Configuration: `is_user_defined={self.user_defined_callback}` "
+                   f"and `run_on_all_ranks={run_on_all_ranks}`")
 
     @singledispatchmethod
     def customize_callback(self, keras_callback: tf.keras.callbacks.Callback) -> None:
@@ -152,6 +154,7 @@ def _generate_data_parallel_callback(base_type: Type[tf.keras.callbacks.Callback
         new_key = 'val_' + key
         full_logs[new_key] = np.double(0)
       self._logs_averager.average_logs(self._logs_as_tensors(full_logs))
+      self.all_keys = full_logs.keys()
 
     def _build_tensor_allreducer_if_necessary(self, logs):
       if not self._is_built:
@@ -165,20 +168,19 @@ def _generate_data_parallel_callback(base_type: Type[tf.keras.callbacks.Callback
         if "loss" in kwargs_copy['logs']:
           self._build_tensor_allreducer_if_necessary(kwargs_copy['logs'])
           if self._aggregate_logs:
-            kwargs_copy['logs'] = self._logs_averager.average_logs(kwargs_copy['logs'])
+            kwargs_copy['logs'] = self._logs_averager.average_specific_metrics(kwargs_copy['logs'], self.all_keys)
       return kwargs_copy
 
     def _distribute_callback_default(self, callback_func: Callable, **kwargs: Any) -> Any:
       if self._run_on_all_ranks:
-        kwargs_copy = self._average_callback_logs(kwargs)    
-        return callback_func(**kwargs_copy)
+        kwargs_copy = self._average_callback_logs(kwargs)
+        kwargs['logs'].update(kwargs_copy['logs'])
+        return callback_func(**kwargs)
       else:
         if tnt.is_group_master_rank(self.group):
           return callback_func(**kwargs)
 
   return DataParallelCallback
-
-
 
 def _customize_progbar_logger(progbar_logger: tf.keras.callbacks.ProgbarLogger) -> None:
   if version_utils.tf_version_below_equal('2.2'):
@@ -190,7 +192,7 @@ def _customize_progbar_logger(progbar_logger: tf.keras.callbacks.ProgbarLogger) 
   def progbar_logger_distribute_callback(callback_func: Callable,
                                          **kwargs: Any) -> Any:
     if progbar_logger._run_on_all_ranks:
-      kwargs_copy = progbar_logger._average_callback_logs(kwargs)    
+      kwargs_copy = progbar_logger._average_callback_logs(kwargs)
       if progbar_logger.should_print_progbar:
         return callback_func(**kwargs_copy)
     else:
