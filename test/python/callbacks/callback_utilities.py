@@ -5,7 +5,6 @@ import training_runner as base_runner
 import utilities as util
 import tarantella as tnt
 
-import copy
 import numpy as np
 import os
 import pytest
