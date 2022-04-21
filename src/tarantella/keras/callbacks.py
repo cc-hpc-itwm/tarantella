@@ -150,9 +150,9 @@ def _validate_user_defined_config(keras_callback: tf.keras.callbacks.Callback,
   if isinstance(keras_callback, tuple(unsupported_callback_types)):
     raise ValueError(f"[callbackFactory] Callback type {type(keras_callback)} not supported.")
   elif isinstance(keras_callback, (tf.keras.callbacks.EarlyStopping,
-                                 tf.keras.callbacks.LearningRateScheduler,
-                                 tf.keras.callbacks.ReduceLROnPlateau,
-                                 tf.keras.callbacks.TerminateOnNaN)):
+                                   tf.keras.callbacks.LearningRateScheduler,
+                                   tf.keras.callbacks.ReduceLROnPlateau,
+                                   tf.keras.callbacks.TerminateOnNaN)):
     if run_on_all_ranks == False:
       raise ValueError(f"[callbackFactory] Cannot run callback of type {type(keras_callback)} on a single rank.")
 
@@ -192,7 +192,8 @@ def callbackFactory(keras_callback: tf.keras.callbacks.Callback,
                                 run_on_all_ranks = True)
   else:
     # unspecified settings lead to the callback behaving like a regular Keras callback,
-    # i.e., it is executed on all nodes independently, without any logs aggregation
+    # i.e., it is executed only on a single node (last partition for pipelining),
+    # without any logs aggregation
     aggregate_logs = aggregate_logs if (aggregate_logs is not None) else False
     run_on_all_ranks = run_on_all_ranks if (run_on_all_ranks is not None) else False
     _validate_user_defined_config(keras_callback = keras_callback,
