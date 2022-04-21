@@ -19,6 +19,7 @@ class TensorAllreducer:
   def create_allreduces(self, scalar):
     if not utils.is_scalar(scalar):
       self._raise_input_error()
+    self.shape = ()
     self.allreducer = tnt.Allreduce(group = self.group,
                                     nelems = 1,
                                     op = self.reduction_op,
