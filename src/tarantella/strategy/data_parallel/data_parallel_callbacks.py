@@ -6,43 +6,63 @@ from tarantella import logger
 import atexit
 import copy
 from functools import singledispatchmethod
-from typing import Any, Callable, Dict, Iterable, Type
+from typing import Any, Callable, Dict, List, Type
 
 import tensorflow as tf
-import numpy as np
 import sys
+
+def _get_train_metrics_from_logs(logs: Dict[str, Any]) -> Dict[str, Any]:
+  train_metrics = {key: val for key, val in logs.items() if not key.startswith('val_')}
+  return train_metrics
+
+def _get_val_metrics_from_logs(logs: Dict[str, Any]) -> Dict[str, Any]:
+  val_metrics = {key: val for key, val in logs.items() if key.startswith('val_')}
+  return val_metrics
 
 class LogsAverager:
   def __init__(self, group: tnt.Group = tnt.Group()) -> None:
     self.group = group
     self.num_ranks = group.size
-    self.allreducer = None
-    atexit.register(self.close)
-
-  def create_allreducer(self, logs: Dict[str, Any]) -> None:
-    self.allreducer = tnt.TensorAllreducer(logs, group = self.group)
+    self.initial_metrics = list()
+    self.metrics_allreducer = None
+    self.val_metrics_allreducer = None
+    atexit.register(self._close)
 
   def average_logs(self, logs: Dict[str, Any]) -> Dict[str, Any]:
-    if self.allreducer is None:
-      self.create_allreducer(logs)
-    sum_logs = self.allreducer.allreduce(logs)             # type: ignore [attr-defined]
+    if self.metrics_allreducer is None:
+      self._setup_tensor_allreducers(logs)
+
+    # remove additional metrics that did not belong to the initial list used to set up the Allreducer's
+    clean_logs = {k : v for k,v in logs.items() if k in self.initial_metrics}
+
+    train_metrics = _get_train_metrics_from_logs(clean_logs)
+    sum_logs = self.metrics_allreducer.allreduce(train_metrics)         # type: ignore [attr-defined]
+
+    val_metrics = _get_val_metrics_from_logs(clean_logs)
+    if len(val_metrics) > 0:
+      sum_val_logs = self.val_metrics_allreducer.allreduce(val_metrics) # type: ignore [attr-defined]
+      sum_logs.update(sum_val_logs)
+
     average_logs = { k : v / self.num_ranks for k, v in sum_logs.items() }
     return average_logs
 
-  def average_specific_metrics(self, logs: Dict[str, Any],
-                                     metric_names: Iterable[str]) -> Dict[str, Any]:
-    log_values = dict()
-    for k in metric_names:
-      if k in logs:
-        log_values[k] = logs[k]
+  def _setup_tensor_allreducers(self, logs: Dict[str, Any]) -> None:
+    # separate metrics for training and validation by key
+    # use the same initial values for both types of metrics (they should have the same value data types)
+    train_metrics = _get_train_metrics_from_logs(logs)
+    val_metrics = {f"val_{key}": val for key, val in train_metrics.items()}
+    self.initial_metrics = list(train_metrics.keys()) + list(val_metrics.keys())
 
-    averaged_logs = self.average_logs(log_values)
-    for k in averaged_logs:
-      logs[k] = averaged_logs[k]
-    return logs
+    self.metrics_allreducer = tnt.TensorAllreducer(train_metrics, group = self.group)
+    self.val_metrics_allreducer = tnt.TensorAllreducer(val_metrics, group = self.group)
 
-  def close(self) -> None:
-    del self.allreducer
+    # one initial allreduce operation is necessary to set up TensorAllreducer's for each value in the logs
+    self.metrics_allreducer.allreduce(train_metrics)
+    self.val_metrics_allreducer.allreduce(val_metrics)
+
+  def _close(self) -> None:
+    del self.metrics_allreducer
+    del self.val_metrics_allreducer
 
 
 def _generate_data_parallel_callback(base_type: Type[tf.keras.callbacks.Callback]) -> Type[tf.keras.callbacks.Callback]:
@@ -141,40 +161,25 @@ def _generate_data_parallel_callback(base_type: Type[tf.keras.callbacks.Callback
     def _(self, keras_callback: tf.keras.callbacks.TerminateOnNaN):
       logger.debug("[DataParallel] TerminateOnNaN callback")
 
-    def _logs_as_tensors(self, logs):
-      logs_as_tensors = copy.deepcopy(logs)
-      for key in logs_as_tensors.keys():
-        if not tf.is_tensor(logs_as_tensors[key]):
-          logs_as_tensors[key] = tf.constant(logs_as_tensors[key])
-      return logs_as_tensors
-
-    def _setup_tensor_allreducer(self, logs):
-      full_logs = copy.deepcopy(logs)
-      for key in list(logs):
-        new_key = 'val_' + key
-        full_logs[new_key] = np.double(0)
-      self._logs_averager.average_logs(self._logs_as_tensors(full_logs))
-      self.all_keys = full_logs.keys()
-
     def _build_tensor_allreducer_if_necessary(self, logs):
       if not self._is_built:
-        self._setup_tensor_allreducer(logs)
+        self._logs_averager._setup_tensor_allreducers(logs)
         self._is_built = True
 
-    def _average_callback_logs(self, callback_params: Dict[str, Any]) -> Dict[str, Any]:
-      kwargs_copy = copy.deepcopy(callback_params)
+    def _average_callback_logs(self, logs: Dict[str, Any]) -> Dict[str, Any]:
+      logs_copy = copy.deepcopy(logs)
       # Check if logs do not contain None (for tf versions older than 2.1)
-      if kwargs_copy['logs'] is not None:
-        if "loss" in kwargs_copy['logs']:
-          self._build_tensor_allreducer_if_necessary(kwargs_copy['logs'])
+      if logs_copy is not None:
+        if "loss" in logs_copy:
           if self._aggregate_logs:
-            kwargs_copy['logs'] = self._logs_averager.average_specific_metrics(kwargs_copy['logs'], self.all_keys)
-      return kwargs_copy
+            self._build_tensor_allreducer_if_necessary(logs_copy)
+            logs_copy = self._logs_averager.average_logs(logs_copy)
+      return logs_copy
 
     def _distribute_callback_default(self, callback_func: Callable, **kwargs: Any) -> Any:
       if self._run_on_all_ranks:
-        kwargs_copy = self._average_callback_logs(kwargs)
-        kwargs['logs'].update(kwargs_copy['logs'])
+        averaged_logs = self._average_callback_logs(kwargs['logs'])
+        kwargs['logs'].update(averaged_logs)
         return callback_func(**kwargs)
       else:
         if tnt.is_group_master_rank(self.group):
@@ -192,9 +197,10 @@ def _customize_progbar_logger(progbar_logger: tf.keras.callbacks.ProgbarLogger) 
   def progbar_logger_distribute_callback(callback_func: Callable,
                                          **kwargs: Any) -> Any:
     if progbar_logger._run_on_all_ranks:
-      kwargs_copy = progbar_logger._average_callback_logs(kwargs)
+      averaged_logs = progbar_logger._average_callback_logs(kwargs['logs'])
+      kwargs['logs'].update(averaged_logs)
       if progbar_logger.should_print_progbar:
-        return callback_func(**kwargs_copy)
+        return callback_func(**kwargs)
     else:
       if progbar_logger.should_print_progbar:
         return callback_func(**kwargs)
