@@ -9,8 +9,6 @@ import utilities as util
 import tarantella as tnt
 
 import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras.callbacks import LambdaCallback
 
 import logging
 import numpy as np
@@ -19,7 +17,7 @@ import pytest
 
 setup_save_path = callback_utilities.setup_save_path
 
-class CustomLearningRateScheduler(keras.callbacks.Callback):
+class CustomLearningRateScheduler(tf.keras.callbacks.Callback):
   # Learning rate scheduler to update the learning rate according to a schedule.
   def __init__(self, model = None):
     super().__init__()
@@ -72,11 +70,11 @@ class TestTarantellaCallbacks:
     tnt_model_runner, reference_model_runner = callback_utilities.gen_model_runners(model_config)
 
     lr_callback = CustomLearningRateScheduler(reference_model_runner.model)
-    lr_lambda_callback = LambdaCallback(
+    lr_lambda_callback = tf.keras.callbacks.LambdaCallback(
       on_epoch_begin=lambda epoch,logs: lr_callback.on_epoch_begin(epoch, logs))
 
     lr_tnt_callback = CustomLearningRateScheduler(tnt_model_runner.model.model)
-    lr_tnt_lambda_callback = LambdaCallback(
+    lr_tnt_lambda_callback = tf.keras.callbacks.LambdaCallback(
       on_epoch_begin=lambda epoch,logs: lr_tnt_callback.on_epoch_begin(epoch, logs))
 
     callbacks = [lr_lambda_callback]

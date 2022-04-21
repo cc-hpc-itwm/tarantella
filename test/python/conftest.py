@@ -1,5 +1,4 @@
 import pytest
-import logging
 import os
 
 import tensorflow as tf
