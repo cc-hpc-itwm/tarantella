@@ -192,7 +192,7 @@ class TestTarantellaCallbacks:
     util.assert_on_all_ranks(result)
 
 
-  @pytest.mark.min_tfversion('2.4')
+  @pytest.mark.min_tfversion('2.5')
   @pytest.mark.parametrize("number_epochs", [2])
   @pytest.mark.parametrize("use_explicit_progbarlogger", [True, False])
   @pytest.mark.parametrize("verbose", [0, 2]) # FIXME: verbose = 1 does not issue the same values for accuracy (with Pipelining)
@@ -228,7 +228,7 @@ class TestTarantellaCallbacks:
       result = all([tnt_captured.out == "", tnt_captured.err == ""])
     util.assert_on_all_ranks(result)
 
-  @pytest.mark.min_tfversion('2.4')
+  @pytest.mark.min_tfversion('2.5')
   @pytest.mark.parametrize("use_explicit_progbarlogger", [True, False])
   @pytest.mark.parametrize("verbose", [2])  # FIXME: verbose = 1 does not issue the same values as the reference model
                                             # (becuse it processes micro-batches instead of batches)
