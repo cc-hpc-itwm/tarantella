@@ -8,9 +8,10 @@ import numpy as np
 
 class TensorBroadcaster():
   # Broadcast an array or a list of tensors within a `group` starting from the *local* `root_rank`
+  # within the group
   # e.g. root_rank = 0 represents rank 0 within the group
-  def __init__(self, inputs, root_rank = tnt.get_master_rank(), group = tnt.Group()):
-    self.root_global_rank = group.to_global_rank(root_rank)
+  def __init__(self, inputs, root_rank = 0, group = tnt.Group()):
+    self.root_rank_local = root_rank
     self.group = group
     self.input_type = type(inputs)
     self.shapes = list()
@@ -22,26 +23,26 @@ class TensorBroadcaster():
       self._raise_input_error()
     self.broadcaster = tnt.Broadcast(group = self.group,
                                      nelems = 1,
-                                     root = self.root_global_rank,
+                                     root = self.root_rank_local,
                                      dtype = type(scalar))
   @create_broadcast.register
   def _(self, tensor: np.ndarray):
     self.shape = tensor.shape
     self.broadcaster = tnt.Broadcast(group = self.group,
                                      nelems = int(np.prod(tensor.shape)),
-                                     root = self.root_global_rank,
+                                     root = self.root_rank_local,
                                      dtype = tensor.dtype)
   @create_broadcast.register
   def _(self, tensor: tf.Tensor):
     self.shape = tensor.shape
     self.broadcaster = tnt.Broadcast(group = self.group,
                                      nelems = int(np.prod(tensor.shape)),
-                                     root = self.root_global_rank,
+                                     root = self.root_rank_local,
                                      dtype = tensor.numpy().dtype)
   @create_broadcast.register
   def _(self, inputs: list):
     self.broadcaster = [ TensorBroadcaster(element,
-                                           root_rank = self.root_global_rank,
+                                           root_rank = self.root_rank_local,
                                            group = self.group) for element in inputs ]
 
   @singledispatchmethod
