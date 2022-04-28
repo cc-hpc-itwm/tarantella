@@ -1,8 +1,6 @@
 import tarantella.strategy.pipelining.partition_info as pinfo
 
-import numpy as np
 import tensorflow as tf
-from enum import Enum
 
 PREFETCH_NBATCHES = tf.data.AUTOTUNE if hasattr(tf.data, "AUTOTUNE") else 1
 

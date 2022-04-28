@@ -1,5 +1,4 @@
 
-import logging
 from models import mnist_models as mnist
 import training_runner as base_runner
 import utilities as util
