@@ -150,12 +150,14 @@ def _generate_pipelining_callback(base_type: Type[tf.keras.callbacks.Callback]) 
     def _setup_tensor_broadcaster_if_necessary(self) -> None:
       if self._tensor_broadcaster is None:
          # FIXME: only float values supported
-        self._tensor_broadcaster = tnt.TensorBroadcaster(0., root_rank=tnt.get_group_master_rank(self.group),
+        root_rank_local = self.group.to_group_rank(tnt.get_group_master_rank(self.group))
+        self._tensor_broadcaster = tnt.TensorBroadcaster(0., root_rank=root_rank_local,
                                                          group = self.group)
 
     def _setup_flag_broadcaster_if_necessary(self) -> None:
       if self._flag_broadcaster is None:
-        self._flag_broadcaster = tnt.TensorBroadcaster(True, root_rank=tnt.get_group_master_rank(self.group),
+        root_rank_local = self.group.to_group_rank(tnt.get_group_master_rank(self.group))
+        self._flag_broadcaster = tnt.TensorBroadcaster(True, root_rank=root_rank_local,
                                                        group = self.group)
 
     def _broadcast_if_necessary(self, value: Any = None) -> Any:
