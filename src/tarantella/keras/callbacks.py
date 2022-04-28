@@ -30,7 +30,8 @@ def _generate_default_callback_with_type(tf_callback_type: Type[tf.keras.callbac
       _construct_from_keras_object(self, keras_callback)
       self.tnt_parallel_strategy = parallel_strategy
       self._group = group
-      if hasattr(self.keras_callback, "_user_defined_callback"):
+      if hasattr(self.keras_callback, "_user_defined_callback") and \
+         self.keras_callback._user_defined_callback:
          # initialize with an already wrapped callback
         self._user_defined_callback = self.keras_callback._user_defined_callback
         self._aggregate_logs = self.keras_callback._aggregate_logs

@@ -47,7 +47,7 @@ def _generate_pipelining_callback(base_type: Type[tf.keras.callbacks.Callback]) 
       self._tensor_broadcaster = None
       self.customize_callback(keras_callback)
       logger.debug(f"[PipeliningParallelCallback] Configuration: `is_user_defined={self.user_defined_callback}` "
-                   f"and `run_on_all_ranks={run_on_all_ranks}`")
+                   f"and `run_on_all_ranks={self._run_on_all_ranks}`")
 
     @singledispatchmethod
     def customize_callback(self, keras_callback: tf.keras.callbacks.Callback) -> None:
@@ -85,7 +85,7 @@ def _generate_pipelining_callback(base_type: Type[tf.keras.callbacks.Callback]) 
       logger.debug("[PipeliningParallel] LearningRateScheduler callback")
       if not tnt.global_tnt_config.output_on_all_devices:
         if not tnt.is_group_master_rank(self.group):
-          self.verbose = 0
+          self.verbose = utilities.TF_verbose.SILENT.value
       self._distribute_callback = self._distribute_callback_identity
 
     @customize_callback.register             # type: ignore [no-redef]

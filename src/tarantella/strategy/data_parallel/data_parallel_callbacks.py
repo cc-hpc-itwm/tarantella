@@ -77,7 +77,7 @@ def _generate_data_parallel_callback(base_type: Type[tf.keras.callbacks.Callback
       self._distribute_callback = self._distribute_callback_default
       self.customize_callback(keras_callback)
       logger.debug(f"[DataParallelCallback] Configuration: `is_user_defined={self.user_defined_callback}` "
-                   f"and `run_on_all_ranks={run_on_all_ranks}`")
+                   f"and `run_on_all_ranks={self._run_on_all_ranks}`")
 
     @singledispatchmethod
     def customize_callback(self, keras_callback: tf.keras.callbacks.Callback) -> None:
