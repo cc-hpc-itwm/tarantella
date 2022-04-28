@@ -4,7 +4,6 @@ import tarantella as tnt
 import tarantella.keras.utilities as utilities
 import tarantella.strategy.parallel_model as parallel_model
 import tarantella.utilities.tf_version as version_utils
-import tarantella.optimizers.synchronous_distributed_optimizer as distributed_optimizers
 from tarantella import logger
 
 class DataParallelModel(parallel_model.ParallelModel):
