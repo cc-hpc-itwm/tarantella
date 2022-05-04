@@ -314,7 +314,7 @@ class PartitionedModel(parallel_model.ParallelModel):
     micro_batch_size = dist_dataset.micro_batch_size
     self.nano_batch_size = micro_batch_size // self.num_pipeline_stages
     if self.nano_batch_size * self.num_pipeline_stages != micro_batch_size:
-      logger.warn(f"[PartitionedModel] The micro-batch size {self.micro_batch_size} is not a multiple of "
+      logger.warn(f"[PartitionedModel] The micro-batch size {micro_batch_size} is not a multiple of "
                   f" the number of pipeline stages ({self.num_pipeline_stages}); removing the remainder.")
 
 
