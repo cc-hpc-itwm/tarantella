@@ -28,8 +28,9 @@ def create_parser():
                                help="path to the list of nodes (hostnames) on which to execute the SCRIPT",
                                default = None)
   multinode_group.add_argument("--n-per-node", "--devices-per-node",
-                               help="number of devices (i.e., either GPUs or processes on CPUs) to be " \
-                                    "used on each node",
+                               help="""number of devices (i.e., either GPUs or processes on CPUs) to be
+                                       used on each node
+                                    """,
                                dest = "npernode",
                                type = int,
                                default = None)
@@ -38,55 +39,76 @@ def create_parser():
                       dest = "use_gpus",
                       action='store_false',
                       default = True)
-  parser.add_argument("--output-on-all-devices",
-                      help="enable output on all devices (e.g., training info)",
-                      dest = "output_all",
-                      action='store_true',
-                      default = False)
+  log_levels = ('DEBUG', 'INFO', 'WARNING', 'ERROR')
+  parser.add_argument('--log-level', default='WARNING', choices=log_levels,
+                      help = "logging level for library messages")
   parser.add_argument("--log-on-all-devices",
                       help="enable library logging messages on all devices",
                       dest = "log_all",
                       action='store_true',
                       default = False)
-  log_levels = ('DEBUG', 'INFO', 'WARNING', 'ERROR')
-  parser.add_argument('--log-level', default='WARNING', choices=log_levels,
-                      help = "logging level for library messages")
-  parser.add_argument("--fusion-threshold",
-                      help="tensor fusion threshold [kilobytes]",
-                      dest = "fusion_threshold_kb",
-                      type = int,
-                      default = None)
-  parser.add_argument("--dry-run",
-                      help="print generated files and execution command",
-                      dest = "dry_run",
+  parser.add_argument("--output-on-all-devices",
+                      help="enable output on all devices (e.g., training info)",
+                      dest = "output_all",
                       action='store_true',
                       default = False)
   parser.add_argument("-x",
-                      help = "list of space-separated KEY=VALUE environment variables to be " \
-                            "set on all ranks. " \
-                            "Example: `-x DATASET=/scratch/data TF_CPP_MIN_LOG_LEVEL=1`",
+                      help = """list of space-separated KEY=VALUE environment variables to be
+                                set on all ranks.
+                                Example: `-x DATASET=/scratch/data TF_CPP_MIN_LOG_LEVEL=1`
+                             """,
                       dest = "setenv",
                       type = str,
                       nargs="+",
                       default=[])
-  parser.add_argument("--pin-to-socket",
-                      help="pin each rank to a socket based on rank id using `numactl`",
-                      dest = "pin_to_socket",
+  perf_group = parser.add_argument_group('Performance tuning')
+  perf_group.add_argument("--fusion-threshold",
+                          help="tensor fusion threshold [kilobytes]; use 0 to disable tensor fusion",
+                          dest = "fusion_threshold_kb",
+                          type = int,
+                          default = None)
+  perf_group.add_argument("--pin-to-socket",
+                          help="pin each rank to a socket using `numactl`, based on rank id",
+                          dest = "pin_to_socket",
+                          action='store_true',
+                          default=False)
+  perf_group.add_argument("--pin-memory-to-socket",
+                          help="""pin memory allocation for each rank to a socket using `numactl`,
+                                  based on rank id [default: False - memory will only be
+                                  preferentially allocated from the current socket
+                                  (`numactl --preferred`)]
+                               """,
+                          dest = "pin_mem_to_socket",
+                          action='store_true',
+                          default=False)
+  perf_group.add_argument("--python-interpreter",
+                          help="""use a specific Python interpreter instead of the default
+                                  `python` found in $PATH.
+                                  Pass an empty string to this option to run your SCRIPT without an
+                                  intepreter.
+                               """,
+                          dest = "python_interpreter",
+                          type = str,
+                          default = "python")
+  cleanup_group = parser.add_argument_group('Cleanup')
+  cleanup_group.add_argument("--cleanup",
+                             help = "clean up remaining processes after an abnormal termination",
+                             dest = "cleanup",
+                             action = 'store_true',
+                             default = False)
+  cleanup_group.add_argument("--force",
+                             help = "force termination of cleaned up processes",
+                             dest = "force",
+                             action = 'store_true',
+                             default = False)
+  parser.add_argument("--dry-run",
+                      help = "print generated files and execution command",
+                      dest = "dry_run",
                       action='store_true',
-                      default=False)
-  parser.add_argument("--cleanup",
-                      help="clean up remaining processes after an abnormal termination",
-                      dest = "cleanup",
-                      action='store_true',
-                      default=False)
-  parser.add_argument("--force",
-                      help="force termination of cleaned up processes",
-                      dest = "force",
-                      action='store_true',
-                      default=False)
+                      default = False)
   parser.add_argument("--version",
-                      action='version',
-                      version=generate_version_message())
+                      action = 'version',
+                      version = generate_version_message())
   parser.add_argument('script', nargs='+', metavar='-- SCRIPT')
   return parser
 
