@@ -174,7 +174,23 @@ def get_numa_nodes_count():
   out = out.split('\n')[0].split()[1]
   return int(out) if out.isdigit() else 0
 
-def get_numa_prefix(npernode):
+def cpu_pinning_option(pin_to_socket: bool) -> str:
+  cpu_pinning = "--cpunodebind=$socket" if pin_to_socket else ""
+  return cpu_pinning
+
+def mem_pinning_option(pin_mem_to_socket: bool) -> str:
+  mem_pinning = "--membind=$socket" if pin_mem_to_socket else "--preferred=$socket"
+  return mem_pinning
+
+def validate_command(command: str) -> None:
+  if command is not None:
+    path_to_command = shutil.which(command.split(' ')[0])
+    if path_to_command is None:
+      raise FileNotFoundError(f"[TNT_CLI] Cannot execute `{command}`; make sure that `{command}` " \
+                              "exists and has been added to the current `PATH`.")
+
+
+def get_numa_prefix(npernode: int, pin_to_socket: bool, pin_mem_to_socket: bool):
   node_count = get_numa_nodes_count()
   if node_count == 0 or npernode == 0 or node_count < npernode:
     raise ValueError(f"[TNT_CLI] Cannot pin {npernode} ranks to {node_count} NUMA nodes. " \
@@ -184,8 +200,11 @@ def get_numa_prefix(npernode):
     if node_count != npernode:
       logger.warn(f"Pinning {npernode} ranks to NUMA nodes on each host " \
                   f"(available NUMA nodes: {node_count}).")
+    cpu_pinning = cpu_pinning_option(pin_to_socket)
+    mem_pinning = mem_pinning_option(pin_mem_to_socket)
+
     command = f"socket=$(( $GASPI_RANK % {npernode} ))\n"
-    command += f"numactl --cpunodebind=$socket --membind=$socket"
+    command += f"numactl {cpu_pinning} {mem_pinning}"
   return command
 
 class TarantellaCLI:
@@ -210,17 +229,13 @@ class TarantellaCLI:
                 len(hostlist), self.npernode, device_type))
 
   def generate_interpreter(self):
-    interpreter = "python"
-
-    if self.args.pin_to_socket:
-      path_to_numa = shutil.which("numactl")
-      if path_to_numa is None:
-        raise FileNotFoundError("[TNT_CLI] Cannot execute `numactl` as required by " \
-                                "the `--pin-to-socket` flag; make sure that `numactl` " \
-                                "is installed and has been added to the current `PATH`.")
-      interpreter = f"{get_numa_prefix(self.npernode)} {interpreter}"
-
-    return interpreter
+    interpreter = self.args.python_interpreter
+    if self.args.pin_to_socket or self.args.pin_mem_to_socket:
+      numactl_prefix = get_numa_prefix(self.npernode,
+                                       pin_to_socket = self.args.pin_to_socket,
+                                       pin_mem_to_socket = self.args.pin_mem_to_socket)
+      interpreter = f"{numactl_prefix} {interpreter}"
+    return interpreter.strip()
 
   def get_absolute_path(self, module):
     return module.__file__
@@ -237,7 +252,7 @@ class TarantellaCLI:
                   env_config.gen_exports_from_dict(env_config.get_environment_vars_from_args(self.args))
 
     command = f"{self.generate_interpreter()} {' '.join(self.command_list)}"
-    return file_man.GPIScriptFile(header, environment, command, dir = os.getcwd())
+    return file_man.GPIScriptFile(header, environment, command.strip(), dir = os.getcwd())
   
   def generate_cleanup_script(self):
     header = "#!/bin/bash\n"
@@ -259,7 +274,7 @@ class TarantellaCLI:
 
   def normal_run(self):
     self.execute_with_gaspi_run(self.nranks, self.hostfile, self.executable_script,
-                              self.args.dry_run)
+                                self.args.dry_run)
 
   def clean_up_run(self):
     cleanup_script = self.generate_cleanup_script()
@@ -278,6 +293,10 @@ class TarantellaCLI:
                                        executable_script.filename))
         return
 
+      if self.args.python_interpreter:
+        validate_command(self.args.python_interpreter)
+      if self.args.pin_to_socket or self.args.pin_mem_to_socket:
+        validate_command('numactl')
       try:
         subprocess.run(command_list,
                        check = True,
