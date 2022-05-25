@@ -20,7 +20,12 @@ def get_incoming_edges_per_layer(model):
   for index, layer_info in enumerate(model.get_config()['layers']):
     if len(layer_info['inbound_nodes']) > 0:
       # inbound_nodes = [[['dense1', 0, 0, {}], ['dense2', 0, 0, {}]]]
-      edges_list[layer_info['name']] = [info[0] for info in layer_info['inbound_nodes'][0]]
+      # or
+      # inbound_nodes = [['dense1', 0, 0, {}], ['dense2', 0, 0, {}]]
+      info_list = layer_info['inbound_nodes'][0]
+      if not isinstance(layer_info['inbound_nodes'][0][0], list):
+       info_list = layer_info['inbound_nodes']
+      edges_list[layer_info['name']] = [info[0] for info in info_list]
   return edges_list
 
 # Extract input/output names from `keras.Model` configuration:
