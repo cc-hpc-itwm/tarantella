@@ -24,3 +24,9 @@ tarantella_generate_python_gpi_test(NAME DataParallel_TF_Models_SaveLoad_Configu
                                     TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/model_save_load_configuration.py
                                     LOCALRANKS_LIST "${localranks_list}"
                                     TIMEOUT 60)
+
+set(localranks_list 1 2)
+tarantella_generate_python_gpi_test(NAME Keras_API_multi_input_models
+                                    TEST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/model_inputs.py
+                                    LOCALRANKS_LIST "${localranks_list}"
+                                    TIMEOUT 60)
