@@ -46,9 +46,9 @@ the [technical docs](https://tarantella.readthedocs.io/en/latest/quick_start.htm
 To build Tarantella from source, check out the [installation guide](https://tarantella.readthedocs.io/en/latest/installation.html).
 
 Tarantella relies on the following dependencies:
-* [TensorFlow](https://www.tensorflow.org/install) (supported versions 2.0-2.7)
-* [GaspiCxx](https://github.com/cc-hpc-itwm/GaspiCxx) (version 1.1.0)
-* [GPI-2](https://github.com/cc-hpc-itwm/GPI-2) (from version 1.4.0)
+* [TensorFlow](https://www.tensorflow.org/install) (starting with version 2.4)
+* [GaspiCxx](https://github.com/cc-hpc-itwm/GaspiCxx) (version 1.2.0)
+* [GPI-2](https://github.com/cc-hpc-itwm/GPI-2) (from version 1.5.0)
 
 ## Resources
 
