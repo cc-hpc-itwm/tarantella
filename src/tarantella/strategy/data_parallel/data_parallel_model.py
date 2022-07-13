@@ -273,6 +273,8 @@ class DataParallelModel(parallel_model.ParallelModel):
       self.input_shapes = dataset.element_spec.shape
     elif isinstance(dataset.element_spec[0], tf.TensorSpec): # (input, outputs)
       self.input_shapes = dataset.element_spec[0].shape
+    elif isinstance(dataset.element_spec[0], dict): # ({name0: input0, ..., name_n: input_n}, outputs)
+      self.input_shapes = [elem_spec.shape for elem_spec in dataset.element_spec[0].values()]
     else: # ((input0, ..., input_n), outputs)
       self.input_shapes = [elem_spec.shape for elem_spec in dataset.element_spec[0]]
 
