@@ -9,18 +9,21 @@ state-of-the-art models for two widely-used applications in Deep Learning:
 * Image classification: ResNet-50
 * Machine translation: Transformer
 
-The models shown here are adapted from the
+The image classification model architectures are imported through the
+`tf.keras.applications <https://www.tensorflow.org/api_docs/python/tf/keras/applications>`_
+module, available in recent TensorFlow releases.
+
+The Transformer model presented in this tutorial is adapted from the
 `TensorFlow Model Garden <https://github.com/tensorflow/models/tree/master/official>`_.
 While the model implementations and hyperparameters are unchanged to preserve
 compatibility with the TensorFlow official models, we provide simplified training
 schemes that allow for a seamless transition from basic serial training to distributed
 data parallelism using Tarantella.
 
-
 Prerequisites
 -------------
 
-The tutorial models can be downloaded from the
+The model can be downloaded from the
 `Tnt Models repository <https://github.com/cc-hpc-itwm/tarantella_models>`_.
 
 .. code-block:: bash
@@ -31,23 +34,12 @@ The tutorial models can be downloaded from the
   cd tarantella_models/src
   export TNT_MODELS_PATH=`pwd`
 
-To use these models, install the the following dependencies:
+This tutorial assumes the following dependencies are installed:
 
-* TensorFlow 2.7
-* Tarantella 0.8.0
+* TensorFlow 2.9.1
+* Tarantella 0.9.0
 
 For a step-by-step installation, follow the :ref:`installation-label` guide.
-In the following we will assume that TensorFlow was installed in a ``conda`` 
-environment called ``tarantella``.
-
-Now we can install the final dependency,
-`TensorFlow official Model Garden <https://github.com/tensorflow/models>`__:
-
-.. code-block:: bash
-
-    conda activate tarantella
-    pip install tf-models-official==2.7
-
 
 .. _resnet50-label:
 
@@ -66,7 +58,7 @@ Before running the model, we need to add it to the existing ``PYTHONPATH``.
 
 .. code-block:: bash
 
-    export PYTHONPATH=${TNT_MODELS_PATH}/models/resnet:${PYTHONPATH}
+    export PYTHONPATH=${TNT_MODELS_PATH}:${PYTHONPATH}
 
 Furthermore, the ``ImageNet`` dataset needs to be installed and available on
 all the nodes that we want to use for training.
@@ -89,14 +81,16 @@ We can now simply run the ResNet-50 as follows:
 .. code-block:: bash
 
     tarantella --hostfile ./hostfile --devices-per-node 4 \
-    -- ${TNT_MODELS_PATH}/models/resnet/resnet50_tnt.py --data_dir=${TNT_DATASETS_PATH} \
-                                                        --batch_size=512 \
-                                                        --train_epochs=90 \
-                                                        --epochs_between_evals=10
+    -- ${TNT_MODELS_PATH}/models/image_classification/train_imagenet_main.py --data_dir=${TNT_DATASETS_PATH} \
+                                                                             --model_arch=resnet50 \
+                                                                             --strategy=data \
+                                                                             --batch_size=512 \
+                                                                             --train_epochs=90 \
+                                                                             --epochs_between_evals=10
 
 The above command will train a ResNet-50 models on the 8 devices available in parallel
 for ``90`` epochs, as suggested in [Goyal]_ to achieve convergence.
-The ``--epochs_between_evals`` parameter specifies the frequency of evaluations of the
+The ``--val_freq`` parameter specifies the frequency of evaluations of the
 *validation dataset* performed in between training epochs.
 
 Note the ``--batch_size`` parameter, which specifies the global batch size used in training.
@@ -104,15 +98,22 @@ Note the ``--batch_size`` parameter, which specifies the global batch size used 
 Implementation overview
 ^^^^^^^^^^^^^^^^^^^^^^^
 We will now look closer into the implementation of the ResNet-50 training scheme.
-The main training steps reside in the ``models/resnet/resnet50_tnt.py`` file.
+The main training steps reside in the ``models/image_classification/train_imagenet_main.py`` file.
 
 The most important step in enabling data parallelism with Tarantella is
-to wrap the Keras model:
+to wrap the Keras model into a Tarantella model that uses data parallelism for speeding up training.
+
+This is summarized below for the `ResNet50` model:
 
 .. code-block:: python
 
-    model = resnet_model.resnet50(num_classes = imagenet_preprocessing.NUM_CLASSES)
-    model = tnt.Model(model)
+  model = tf.keras.applications.resnet50.ResNet50(include_top=True, weights=None, classes=1000,
+                                                  input_shape=(224, 224, 3), input_tensor=None,
+                                                  pooling=None, classifier_activation='softmax')
+  ...
+  if args.distribute == ParallelMethods.TNT:
+    model = tnt.Model(model,
+                      parallel_strategy = tnt.ParallelStrategy.DATA)
 
 Next, the training procedure can simply be written down as it would be for a
 standard, TensorFlow-only model. No further changes are required to train the
@@ -122,15 +123,15 @@ In particular, the ImageNet dataset is loaded and preprocessed as follows:
 
 .. code-block:: python
 
-    train_dataset = imagenet_preprocessing.input_fn(is_training = True,
-                                                    data_dir = flags_obj.data_dir,
-                                                    batch_size = flags_obj.batch_size,
-                                                    shuffle_seed = 42,
-                                                    drop_remainder = True)
+  train_input_dataset = load_dataset(dataset_type='train',
+                                     data_dir=args.data_dir, num_samples = args.train_num_samples,
+                                     batch_size=args.batch_size, dtype=tf.float32,
+                                     drop_remainder=args.drop_remainder,
+                                     shuffle_seed=args.shuffle_seed)
 
 The
-`imagenet_preprocessing.input_fn
-<https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/resnet/imagenet_preprocessing.py#L31>`_
+`load_dataset
+<https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/image_classification/train_imagenet_main.py#L120>`_
 function reads the input files in ``data_dir``, loads the training samples, and processes
 them into TensorFlow datasets.
 
@@ -145,24 +146,20 @@ such that:
     will be equally distributed among the participating ranks, such that some ranks
     will use a micro-batch of ``(batch_size / num_devices) + 1``.
   * each device will apply the same set of transformations to its input samples as
-    specified in the ``input_fn`` function.
+    specified in the ``load_dataset`` function.
 
 The advantage of using the *automatic dataset distribution* mechanism of Tarantella
 is that users can reason about their I/O pipeline without taking care of the details
 about how to distribute it.
-To disable the *automatic dataset distribution* and ensure each rank will use the
-same micro-batch size equal to ``batch_size / num_devices``, run the code with the
-following flag: ``--auto_distributed=False``. Make sure the provided ``batch_size``
-is a multiple of the number of ranks in this case.
 
 Before starting the training, the model is compiled using a standard Keras optimizer
 and loss.
 
 .. code-block:: python
 
-    model.compile(optimizer = optimizer,
-                  loss = 'sparse_categorical_crossentropy',
-                  metrics = (['sparse_categorical_accuracy']))
+  model.compile('optimizer' : tf.keras.optimizers.SGD(learning_rate=lr_schedule, momentum=0.9),
+                'loss' : tf.keras.losses.SparseCategoricalCrossentropy(),
+                'metrics' : [tf.keras.metrics.SparseCategoricalAccuracy()])
 
 We provide flags to enable the most commonly used Keras ``callbacks``, such as
 the ``TensorBoard`` profiler, which can simply be passed to the ``fit`` function
@@ -170,28 +167,27 @@ of the Tarantella model.
 
 .. code-block:: python
 
-    callbacks.append(tf.keras.callbacks.TensorBoard(log_dir = flags_obj.model_dir,
-                                                    profile_batch = 2))
+  callbacks.append(tf.keras.callbacks.TensorBoard(log_dir = flags_obj.model_dir,
+                                                  profile_batch = 2))
 
 If model checkpointing is required, it can be enabled through the ``ModelCheckpoint``
 callback as usual (cf. :ref:`checkpointing models with Tarantella <checkpointing-via-callbacks-label>`).
 
 .. code-block:: python
 
-    callbacks.append(tf.keras.callbacks.ModelCheckpoint(ckpt_full_path, save_weights_only=True))
+  callbacks.append(tf.keras.callbacks.ModelCheckpoint(ckpt_full_path, save_weights_only=True))
 
 
 There is no need for any further changes to proceed with distributed training:
 
 .. code-block:: python
 
-    history = model.fit(train_dataset,
-                        epochs = flags_obj.train_epochs,
-                        callbacks = callbacks,
-                        validation_data = validation_dataset,
-                        validation_freq = flags_obj.epochs_between_evals,
-                        verbose = 1)
-
+  history = model.fit(train_dataset,
+                      validation_data = val_dataset,
+                      validation_freq=args.val_freq,
+                      epochs=args.train_epochs,
+                      callbacks=callbacks,
+                      verbose=args.verbose)
 
 Advanced topics
 ^^^^^^^^^^^^^^^
@@ -231,23 +227,25 @@ The scaled-up learning rate is set up at the begining of training, after which t
 learning rate evolves over the training steps based on a so-called
 *learning rate schedule*.
 
-In our ResNet-50 example, we use the
-`PiecewiseConstantDecayWithWarmup <https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/resnet/resnet50_tnt.py#L20>`__
-schedule provided by the TensorFlow Models implementation, which is similar to the schedule
-introduced by [Goyal]_.
-When training starts, the learning rate is initialized to
-a large value that allows to explore more of the search space. The learning rate will
-then monotonically decay the closer the algorithm gets to convergence.
+In our ResNet-50 example, we use a
+`ExpDecayWithWarmupSchedule
+<https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/image_classification/lr_scheduler.py#L83>`__.
 
-The initial learning rate here is scaled up by a factor computed as:
+Another type of schedule that we have implemented is the
+`PiecewiseConstantDecayWithWarmup
+<https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/image_classification/lr_scheduler.py#L10>`__
+schedule, which is similar to the schedule introduced by [Goyal]_.
+
+In both schedules, when training starts, the learning rate is initialized to
+a large value that allows to explore more of the search space. The learning rate will
+then decay the closer the algorithm gets to convergence.
+
+The initial learning rate in the `ExpDecayWithWarmupSchedule` is scaled linearly with the
+number of devices used as follows:
 
 .. code-block:: bash
 
-  self.rescaled_lr = BASE_LEARNING_RATE * batch_size / base_lr_batch_size
-
-Here ``batch_size`` is the global batch size and ``base_lr_batch_size`` is the predefined batch size
-(set to ``256``) that corresponds to single-device training. This effectively scales the
-``BASE_LEARNING_RATE`` linearly with the number of devices used.
+  initial_learning_rate = base_learning_rate * num_ranks
 
 Learning rate warm-up
 """""""""""""""""""""
@@ -257,10 +255,10 @@ rate might degrade the stability of the optimization algorithm, especially in ea
 A technique to mitigate this limitation is to *warm-up* the learning rate during the first
 epochs, particularly when using large batches [Goyal]_.
 
-In our ResNet-50 example, the `PiecewiseConstantDecayWithWarmup` schedule
+In our ResNet-50 example, the `ExpDecayWithWarmupSchedule` schedule
 starts with a small value for the learning rate, which then increases at every step
 (i.e., iteration), for a number of initial
-`warmup_steps <https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/resnet/common.py#L30>`_.
+`warmup_steps <https://github.com/cc-hpc-itwm/tarantella_models/blob/master/src/models/image_classification/lr_scheduler.py#L95>`_.
 
 The ``warmup_steps`` value defaults to the number of iterations of the first five epochs,
 matching the schedule proposed by [Goyal]_.
@@ -269,9 +267,10 @@ learning rate* introduced above.
 
 .. code-block:: python
 
-  def warmup_lr(step):
-    return self.rescaled_lr * (
-        tf.cast(step, tf.float32) / tf.cast(self.warmup_steps, tf.float32))
+  def warmup():
+    # Learning rate increases linearly per step.
+    multiplier = self.warmup_rate * (step / self.warmup_steps)
+    return tf.multiply(self.initial_learning_rate, multiplier)
 
 .. _transformer-label:
 
@@ -281,6 +280,20 @@ Transformers
 The Transformer is a Deep Neural Network widely used in the field of natural language
 processing (NLP), in particular for tasks such as machine translation.
 It was first proposed by [Vaswani]_.
+
+Prerequisites
+^^^^^^^^^^^^^
+In the following we will assume that TensorFlow was installed in a ``conda`` 
+environment called ``tarantella``.
+
+The Transformer model architecture can be obtained from the
+`TensorFlow official Model Garden <https://github.com/tensorflow/models>`__:
+
+.. code-block:: bash
+
+    conda activate tarantella
+    pip install tf-models-official==2.9.1
+
 
 Run the Transformer with Tarantella
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

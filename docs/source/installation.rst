@@ -29,10 +29,9 @@ Installing TensorFlow
 ^^^^^^^^^^^^^^^^^^^^^
 
 First you will need to install TensorFlow.
-Tarantella supports TensorFlow versions ``2.0`` to ``2.7`` (some features are only available
-in versions above ``2.2``).
-Either version can be installed in a conda environment using pip,
-as recommended on the `TensorFlow website <https://www.tensorflow.org/install>`_.
+Supported versions start at ``Tensorflow 2.4``, and they can be installed in a conda
+environment using pip, as recommended on the
+`TensorFlow website <https://www.tensorflow.org/install>`_.
 
 In order to do that, first install `conda <https://docs.conda.io/en/latest/>`_ on your system.
 Then, create and activate an environment for Tarantella:
@@ -47,7 +46,7 @@ Now, you can install the latest supported TensorFlow version with:
 .. code-block:: bash
 
   conda install python=3.9
-  pip install --upgrade tensorflow==2.7.*
+  pip install --upgrade tensorflow==2.9.*
 
 Tarantella requires at least Python ``3.7``. Make sure the selected version also matches
 the `TensorFlow requirements <https://www.tensorflow.org/install>`_.
@@ -77,8 +76,7 @@ GPI-2 is an API for high-performance, asynchronous communication for large scale
 applications, based on the
 `GASPI (Global Address Space Programming Interface) standard <http://www.gaspi.de>`_.
 
-
-The currently supported versions are ``v1.4-1.5``, which need to be built with
+The currently supported versions start with ``1.5``, and they need to be built with
 position independent flags (``-fPIC``).
 To download the required version, clone the
 `GPI-2 git repository <https://github.com/cc-hpc-itwm/GPI-2.git>`_
@@ -98,7 +96,7 @@ Now, use `autotools <https://www.gnu.org/software/automake/>`_ to configure and 
   ./autogen.sh 
   export GPI2_INSTALLATION_PATH=/your/gpi2/installation/path
   CFLAGS="-fPIC" CPPFLAGS="-fPIC" ./configure --with-ethernet --prefix=${GPI2_INSTALLATION_PATH}
-  make
+  make -j$(nproc)
 
 where ``${GPI2_INSTALLATION_PATH}`` needs to be replaced with the path where you want to install
 GPI-2. Note the ``--with-ethernet`` option, which will use standard TCP sockets for communication.
@@ -126,8 +124,8 @@ Installing GaspiCxx
 on top of the GPI-2 library, designed to provide easy-to-use point-to-point and collective
 communication primitives.
 Tarantella's communication layer is based on GaspiCxx and its
-`PyGPI <https://github.com/cc-hpc-itwm/GaspiCxx/blob/v1.1.0/src/python/README.md>`_ API for Python.
-Currently we support GaspiCxx version v1.1.0.
+`PyGPI <https://github.com/cc-hpc-itwm/GaspiCxx/blob/v1.2.0/src/python/README.md>`_ API for Python.
+Currently we support GaspiCxx version v1.2.0.
 
 To install GaspiCxx and PyGPI, first download the latest release from the
 `git repository <https://github.com/cc-hpc-itwm/GaspiCxx>`_:
@@ -137,7 +135,7 @@ To install GaspiCxx and PyGPI, first download the latest release from the
   git clone https://github.com/cc-hpc-itwm/GaspiCxx.git
   cd GaspiCxx
   git fetch --tags
-  git checkout -b v1.1.0 v1.1.0
+  git checkout -b v1.2.0 v1.2.0
 
 GaspiCxx requires an already installed version of GPI-2, which should be detected at
 configuration time (as long as ``${GPI2_INSTALLATION_PATH}/bin`` is added to the current
@@ -155,7 +153,7 @@ environment is activated:
   cmake -DBUILD_PYTHON_BINDINGS=ON    \
         -DBUILD_SHARED_LIBS=ON        \
         -DCMAKE_INSTALL_PREFIX=${GASPICXX_INSTALLATION_PATH} ../
-  make install
+  make -j$(nproc) install
 
 where ``${GASPICXX_INSTALLATION_PATH}`` needs to be set to the path where you want to install
 the library.
@@ -179,7 +177,7 @@ To download the source code, simply clone the
 
   git clone https://github.com/cc-hpc-itwm/tarantella.git
   cd tarantella
-  git checkout tags/v0.8.0 -b v0.8.0
+  git checkout tags/v0.9.0 -b v0.9.0
 
 Next, we need to configure the build system using CMake.
 For a standard out-of-source build, we create a separate ``build`` folder and run ``cmake``
@@ -204,8 +202,7 @@ Now, we can compile and install Tarantella to ``TARANTELLA_INSTALLATION_PATH``:
 
 .. code-block:: bash
 
-  make
-  make install
+  make -j$(nproc) install
   export PATH=${TARANTELLA_INSTALLATION_PATH}/bin:${PATH}
 
 
@@ -258,7 +255,7 @@ Now you can compile Tarantella and run its tests in the ``build`` directory:
 
 .. code-block:: bash
 
-  make
+  make -j$(nproc)
   ctest
 
 [Optional] Building documentation
