@@ -29,9 +29,9 @@ Installing TensorFlow
 ^^^^^^^^^^^^^^^^^^^^^
 
 First you will need to install TensorFlow.
-Tarantella supports TensorFlow, starting with version ``2.4``.
-Either version can be installed in a conda environment using pip,
-as recommended on the `TensorFlow website <https://www.tensorflow.org/install>`_.
+Supported versions start at ``Tensorflow 2.4``, and they can be installed in a conda
+environment using pip, as recommended on the
+`TensorFlow website <https://www.tensorflow.org/install>`_.
 
 In order to do that, first install `conda <https://docs.conda.io/en/latest/>`_ on your system.
 Then, create and activate an environment for Tarantella:
@@ -96,7 +96,7 @@ Now, use `autotools <https://www.gnu.org/software/automake/>`_ to configure and 
   ./autogen.sh 
   export GPI2_INSTALLATION_PATH=/your/gpi2/installation/path
   CFLAGS="-fPIC" CPPFLAGS="-fPIC" ./configure --with-ethernet --prefix=${GPI2_INSTALLATION_PATH}
-  make
+  make -j$(nproc)
 
 where ``${GPI2_INSTALLATION_PATH}`` needs to be replaced with the path where you want to install
 GPI-2. Note the ``--with-ethernet`` option, which will use standard TCP sockets for communication.
@@ -153,7 +153,7 @@ environment is activated:
   cmake -DBUILD_PYTHON_BINDINGS=ON    \
         -DBUILD_SHARED_LIBS=ON        \
         -DCMAKE_INSTALL_PREFIX=${GASPICXX_INSTALLATION_PATH} ../
-  make install
+  make -j$(nproc) install
 
 where ``${GASPICXX_INSTALLATION_PATH}`` needs to be set to the path where you want to install
 the library.
@@ -202,8 +202,7 @@ Now, we can compile and install Tarantella to ``TARANTELLA_INSTALLATION_PATH``:
 
 .. code-block:: bash
 
-  make
-  make install
+  make -j$(nproc) install
   export PATH=${TARANTELLA_INSTALLATION_PATH}/bin:${PATH}
 
 
@@ -256,7 +255,7 @@ Now you can compile Tarantella and run its tests in the ``build`` directory:
 
 .. code-block:: bash
 
-  make
+  make -j$(nproc)
   ctest
 
 [Optional] Building documentation
