@@ -120,17 +120,53 @@ To increase execution performance on CPUs, it is often desirable to bind process
 to physical cores or groups of cores in order to improve data locality and reduce
 context switching.
 
-Tarantella provides a command-line flag to enable rank pinning to physical sockets.
-It uses the `numactl <https://github.com/numactl/numactl>`_ utility to detect existing 
-NUMA domains and pin each Tarantella process deployed on a host to a separate socket.
+Tarantella provides two command-line flags to enable rank pinning to physical sockets.
+They rely on the `numactl <https://github.com/numactl/numactl>`_ utility to detect existing
+NUMA domains and pin processes to them.
 
-The example below illustrates the usage of the ``--pin-to-socket`` flag to start two
-Tarantella ranks on each host listed in ``hostfile``, each of them pinned to a different
-socket.
+Tarantella pinning flags allow users to:
+
+* pin each Tarantella process deployed on a host to a separate socket (through
+  the ``--pin-to-socket`` flag)
+* pin memory alocation for each Tarantella process to the socket memory (through
+  the ``--pin-memory-to-socket`` flag).
+
+Using only ``--pin-to-socket`` will result in memory being only preferentially allocated
+on the socket memory, but potentially using memory from other NUMA domains when necessary.
+
+The example below illustrates the usage of the ``--pin-to-socket`` and
+``--pin-memory-to-socket`` flags to start two Tarantella ranks on each host listed
+in ``hostfile``, each of them pinned to a different socket.
 
 .. code-block:: bash
 
    tarantella --hostfile hostfile --npernode 2 --pin-to-socket -- model.py
+
+
+Python Interpreter
+^^^^^^^^^^^^^^^^^^
+
+The ``tarantella`` CLI can be used as generic tool for executing code on multiple devices simultaneously.
+While usually the executed program is a Python file, Tarantella uses the Python interpreter it finds
+in the current ``$PATH``.
+Changing the interpretor can be easily achieved by using the ``--python-interpreter`` flag:
+
+.. code-block:: bash
+
+   tarantella --hostfile hostfile --npernode 2 --python-interpreter=/path/to/python -- model.py
+
+Additionally, the user can also execute binary files that do not require any Python support by simply
+passing an empty string to the ``--python-interpreter`` flag.
+
+A typical use case for the interpreter is to enable the usage of other tools that can only be enabled
+from the command line, such as checking for memory leaks in a parallel program with ``valgrind``
+
+.. code-block:: bash
+
+  tarantella -n 2 --python-interpreter="valgrind  --leak-check=yes \
+                                        --track-origins=yes --tool=memcheck \
+                                        python" \
+             -- model.py
 
 
 .. _reproducibility-label:
