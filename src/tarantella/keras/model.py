@@ -9,7 +9,7 @@ import tarantella.strategy.pipelining.rank_mapper as rmapper
 
 import tensorflow as tf
 
-# Model parallelism not supportted for TF version < 2.3
+# Model parallelism not supported for TF version < 2.3
 TF_DEFAULT_PIPELINING_FLAG = (version_utils.tf_version_above_equal('2.3'))
 
 class ModelMeta(type):
