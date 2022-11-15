@@ -18,9 +18,19 @@ class TestsTarantellaCLIEnvironmentVariables:
      {'VAR0':'value'}
     ),
     (# CLI args
+     '-x VAR0= -- dummy.py',
+     # expected dictionary of key=values to be exported
+     {'VAR0':''}
+    ),
+    (# CLI args
      '-x env1="value with spaces" -- dummy.py',
      # expected dictionary of key=values to be exported
      {'env1':'value with spaces'}
+    ),
+    (# CLI args
+     '-x env1="value with=equal sign" -- dummy.py',
+     # expected dictionary of key=values to be exported
+     {'env1':'value with=equal sign'}
     ),
     (# CLI args
      '-x ENV0=100 ENV1=value -- dummy.py',
@@ -71,7 +81,11 @@ class TestsTarantellaCLIEnvironmentVariables:
         found_exports += [line]
     assert found_exports == expected_exports_list
 
-  @pytest.mark.parametrize("args_string", ['-x ENV0 100 -- dummy.py'])
+  error_test_cases = ['-x ENV0 -- dummy.py',
+                      '-x ENV0 100 -- dummy.py',
+                      '-x ENV0=100 ENV2 -- dummy.py',
+                      ]
+  @pytest.mark.parametrize("args_string", error_test_cases)
   def test_cli_set_environment_variables_wrong_format(self, args_string):
     parser = cli.create_parser()
     args = parser.parse_args(shlex.split(args_string))
