@@ -27,6 +27,8 @@ This will define the following variables:
   Include directories needed to use Tensorflow.
 ``Tensorflow_LIBRARIES``
   Libraries needed to link to Tensorflow.
+``Tensorflow_VERSION``
+  Version of the TensorFlow library
 
 Cache Variables
 ^^^^^^^^^^^^^^^
@@ -70,6 +72,13 @@ if (Python_EXECUTABLE)
     RESULT_VARIABLE result_tf_abi_flag
     OUTPUT_VARIABLE Tensorflow_CXX11_ABI_FLAG
     ERROR_QUIET)
+
+  execute_process(COMMAND ${Python_EXECUTABLE} -c
+    "import tensorflow as tf; print(tf.__version__)"
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE result_tf_version
+    OUTPUT_VARIABLE Tensorflow_VERSION
+    ERROR_QUIET)
 endif()
 
 set(Tensorflow_LIBRARY_NAME libtensorflow_framework.so.2)
@@ -80,13 +89,18 @@ find_library (Tensorflow_LIBRARY ${Tensorflow_LIBRARY_NAME}
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(Tensorflow DEFAULT_MSG 
                                   Tensorflow_LIBRARY
-                                  Tensorflow_INCLUDE_DIR)
+                                  Tensorflow_INCLUDE_DIR
+                                  Tensorflow_CXX11_ABI_FLAG
+                                  Tensorflow_VERSION)
 
-mark_as_advanced(Tensorflow_INCLUDE_DIR Tensorflow_LIBRARY)
+mark_as_advanced(Tensorflow_INCLUDE_DIR
+                 Tensorflow_LIBRARY
+                 Tensorflow_CXX11_ABI_FLAG
+                 Tensorflow_VERSION)
 set(Tensorflow_INCLUDE_DIRS ${Tensorflow_INCLUDE_DIR} )
 set(Tensorflow_LIBRARIES ${Tensorflow_LIBRARY} )
 
-message(STATUS "Found Tensorflow: " ${Tensorflow_FOUND})
+message(STATUS "Found Tensorflow: " ${Tensorflow_FOUND} " (version " ${Tensorflow_VERSION} ")")
 
 if(Tensorflow_FOUND AND NOT TARGET tensorflow_framework)
     add_library(Tensorflow::Tensorflow SHARED IMPORTED GLOBAL)
@@ -101,6 +115,3 @@ if(Tensorflow_FOUND AND NOT TARGET tensorflow_framework)
       target_compile_definitions(Tensorflow::Tensorflow INTERFACE _GLIBCXX_USE_CXX11_ABI=${Tensorflow_CXX11_ABI_FLAG})
     endif()
 endif()
-
-
-
