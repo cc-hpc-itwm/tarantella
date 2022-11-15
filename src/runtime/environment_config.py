@@ -39,12 +39,15 @@ def get_environment_vars_from_args(args):
   envs = {}
   for env in args.setenv:
     try:
-      env_name = env.split("=")[0]
+      env_name = env.split('=')[0]
+      if len(env_name) >= len(env) or env[len(env_name)] != '=':
+        raise ValueError()
       env_value = env[len(env_name)+1:]
       envs[env_name] = f"\"{env_value}\""
-    except:
-      raise ValueError("Specify environment variables as a space-separated KEY=VALUE list. "+\
-                       "VALUE strings containing spaces must be enclosed in quotes.")
+    except ValueError as err:
+      raise ValueError("Specify environment variables as a space-separated KEY=VALUE list. " \
+                       "VALUE strings containing spaces must be enclosed in quotes.\n" \
+                      f"The incorrectly provided option was `-x {' '.join(args.setenv)}`") from err
   return envs
 
 def add_tnt_to_environment_paths(libraries_path):
