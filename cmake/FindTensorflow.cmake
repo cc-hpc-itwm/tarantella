@@ -87,11 +87,11 @@ find_library (Tensorflow_LIBRARY ${Tensorflow_LIBRARY_NAME}
               PATHS ENV LD_LIBRARY_PATH DYLD_LIBRARY_PATH)
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(Tensorflow DEFAULT_MSG 
-                                  Tensorflow_LIBRARY
-                                  Tensorflow_INCLUDE_DIR
-                                  Tensorflow_CXX11_ABI_FLAG
-                                  Tensorflow_VERSION)
+find_package_handle_standard_args(Tensorflow
+                                  REQUIRED_VARS Tensorflow_LIBRARY
+                                                Tensorflow_INCLUDE_DIR
+                                                Tensorflow_CXX11_ABI_FLAG
+                                  VERSION_VAR Tensorflow_VERSION)
 
 mark_as_advanced(Tensorflow_INCLUDE_DIR
                  Tensorflow_LIBRARY
@@ -99,8 +99,6 @@ mark_as_advanced(Tensorflow_INCLUDE_DIR
                  Tensorflow_VERSION)
 set(Tensorflow_INCLUDE_DIRS ${Tensorflow_INCLUDE_DIR} )
 set(Tensorflow_LIBRARIES ${Tensorflow_LIBRARY} )
-
-message(STATUS "Found Tensorflow: " ${Tensorflow_FOUND} " (version " ${Tensorflow_VERSION} ")")
 
 if(Tensorflow_FOUND AND NOT TARGET tensorflow_framework)
     add_library(Tensorflow::Tensorflow SHARED IMPORTED GLOBAL)
