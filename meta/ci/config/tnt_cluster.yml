@@ -128,10 +128,21 @@
     TNT_TEST_MACHINEFILE: ${CI_PROJECT_DIR}/meta/ci/tnt_cluster/machinefile_1rankspernode
 
 ####### Build dependencies jobs ############
-gaspicxx-gpi1.5.0-ib-python3.10-build:
+gaspicxx-gpi1.5.0-ib-envtf2.10-build:
   stage: build_deps
   variables:
-    CACHE_KEY: gpi1.5.0-ib-python3.10-${GASPICXX_SHA1}
+    CACHE_KEY: gpi1.5.0-ib-envtf2.10-${GASPICXX_SHA1}
+  extends:
+    - .tnt_cluster_tf2.10_job
+    - .tnt_cluster_gcc10.1.0_job
+    - .ib_job
+    - .tnt_cluster_gpi1.5.0_job
+    - .tnt_cluster_dep_build
+
+gaspicxx-gpi1.5.0-ib-envtf2.8-build:
+  stage: build_deps
+  variables:
+    CACHE_KEY: gpi1.5.0-ib-envtf2.8-${GASPICXX_SHA1}
   extends:
     - .tnt_cluster_tf2.8_job
     - .tnt_cluster_gcc10.1.0_job
@@ -139,10 +150,21 @@ gaspicxx-gpi1.5.0-ib-python3.10-build:
     - .tnt_cluster_gpi1.5.0_job
     - .tnt_cluster_dep_build
 
-gaspicxx-gpi1.5.0-ib-python3.8-build:
+gaspicxx-gpi1.5.0-ib-envtf2.7-build:
   stage: build_deps
   variables:
-    CACHE_KEY: gpi1.5.0-ib-${GASPICXX_SHA1}
+    CACHE_KEY: gpi1.5.0-ib-envtf2.7-${GASPICXX_SHA1}
+  extends:
+    - .tnt_cluster_tf2.7_job
+    - .tnt_cluster_gcc10.1.0_job
+    - .ib_job
+    - .tnt_cluster_gpi1.5.0_job
+    - .tnt_cluster_dep_build
+
+gaspicxx-gpi1.5.0-ib-envtf2.4-build:
+  stage: build_deps
+  variables:
+    CACHE_KEY: gpi1.5.0-ib-envtf2.4-${GASPICXX_SHA1}
   extends:
     - .tnt_cluster_tf2.4_job
     - .tnt_cluster_gcc10.1.0_job
@@ -150,10 +172,10 @@ gaspicxx-gpi1.5.0-ib-python3.8-build:
     - .tnt_cluster_gpi1.5.0_job
     - .tnt_cluster_dep_build
 
-gaspicxx-gpi1.5.0-eth-python3.10-build:
+gaspicxx-gpi1.5.0-eth-envtf2.8-build:
   stage: build_deps
   variables:
-    CACHE_KEY: gpi1.5.0-eth-${GASPICXX_SHA1}
+    CACHE_KEY: gpi1.5.0-eth-envtf2.8-${GASPICXX_SHA1}
   extends:
     - .tnt_cluster_tf2.8_job
     - .tnt_cluster_gcc10.1.0_job
@@ -173,7 +195,7 @@ tf2.10-gpu-ib-gcc10.1.0-Release-build:
     - .tnt_cluster_gcc10.1.0_job
     - .tnt_cluster_build
   needs:
-    - job: gaspicxx-gpi1.5.0-ib-python3.10-build
+    - job: gaspicxx-gpi1.5.0-ib-envtf2.10-build
 
 tf2.8-cpu-ib-gcc10.1.0-Release-build:
   extends:
@@ -185,7 +207,19 @@ tf2.8-cpu-ib-gcc10.1.0-Release-build:
     - .tnt_cluster_gcc10.1.0_job
     - .tnt_cluster_build
   needs:
-    - job: gaspicxx-gpi1.5.0-ib-python3.10-build
+    - job: gaspicxx-gpi1.5.0-ib-envtf2.8-build
+
+tf2.8-cpu-eth-gcc10.1.0-Release-build:
+  extends:
+    - .tnt_cluster_tf2.8_job
+    - .release_job
+    - .eth_job
+    - .tnt_cluster_cpu_job
+    - .tnt_cluster_gpi1.5.0_job
+    - .tnt_cluster_gcc10.1.0_job
+    - .tnt_cluster_build
+  needs:
+    - job: gaspicxx-gpi1.5.0-eth-envtf2.8-build
 
 tf2.7-gpu-ib-gcc10.1.0-Release-build:
   extends:
@@ -197,7 +231,7 @@ tf2.7-gpu-ib-gcc10.1.0-Release-build:
     - .tnt_cluster_gcc10.1.0_job
     - .tnt_cluster_build
   needs:
-    - job: gaspicxx-gpi1.5.0-ib-python3.8-build
+    - job: gaspicxx-gpi1.5.0-ib-envtf2.7-build
 
 tf2.4-cpu-ib-gcc10.1.0-Release-build:
   extends:
@@ -209,7 +243,7 @@ tf2.4-cpu-ib-gcc10.1.0-Release-build:
     - .tnt_cluster_gcc10.1.0_job
     - .tnt_cluster_build
   needs:
-    - job: gaspicxx-gpi1.5.0-ib-python3.8-build
+    - job: gaspicxx-gpi1.5.0-ib-envtf2.4-build
 
 # Debug builds
 tf2.4-cpu-ib-gcc10.1.0-Debug-build:
@@ -221,7 +255,7 @@ tf2.4-cpu-ib-gcc10.1.0-Debug-build:
     - .tnt_cluster_gcc10.1.0_job
     - .tnt_cluster_build
   needs:
-    - job: gaspicxx-gpi1.5.0-ib-python3.8-build
+    - job: gaspicxx-gpi1.5.0-ib-envtf2.4-build
 
 ####### Unit tests [C++, do not need to test TF versions or GPUs] ############
 ib-gcc10.1.0-Release-cpp:
@@ -240,7 +274,7 @@ eth-gcc10.1.0-Release-cpp:
     - .tnt_cluster_gpi1.5.0_job
     - .tnt_cluster_run_tests_cpp
   needs:
-    - job: tf2.8-cpu-ib-gcc10.1.0-Release-build
+    - job: tf2.8-cpu-eth-gcc10.1.0-Release-build
 
 ####### Unit tests [Python] ############
 tf2.10-gpu-ib-gcc10.1.0-Release-py:
