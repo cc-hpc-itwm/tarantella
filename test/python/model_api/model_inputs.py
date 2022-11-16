@@ -25,7 +25,7 @@ class InputType(enum.Flag):
   DICT = enum.auto()
 
 def build_dataset(input_type: InputType, ninputs: int) -> tf.data.Dataset:
-  i0 = tf.data.Dataset.from_tensor_slices(np.ones((32,28,28,1)), name = 'i0')
+  i0 = tf.data.Dataset.from_tensor_slices(np.ones((32,28,28,1)))
   labels = tf.data.Dataset.from_tensor_slices(np.ones((32,10)))
 
   if input_type == InputType.UNIQUE:
@@ -33,7 +33,7 @@ def build_dataset(input_type: InputType, ninputs: int) -> tf.data.Dataset:
   else:
     inputs = [i0]
     for i in range(1, ninputs):
-      inputs += [tf.data.Dataset.from_tensor_slices(np.ones((32, 5)), name = f"i{i}")]
+      inputs += [tf.data.Dataset.from_tensor_slices(np.ones((32, 5)))]
 
     inputs = tuple(inputs)
     if input_type == InputType.LIST:
@@ -54,7 +54,7 @@ class TestCloneModel:
   @pytest.mark.parametrize("parallel_strategy", [tnt.ParallelStrategy.DATA,
                                                  pytest.param(tnt.ParallelStrategy.ALL, marks=pytest.mark.skip),
                                                  ])
-  def test_clone_keras_model(self, input_type_and_count, parallel_strategy):
+  def test_multi_input_model(self, input_type_and_count, parallel_strategy):
     input_type, ninputs = input_type_and_count
     metric = 'mean_squared_error'
 
