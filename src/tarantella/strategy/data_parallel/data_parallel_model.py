@@ -46,7 +46,7 @@ class DataParallelModel(parallel_model.ParallelModel):
     elif isinstance(optimizer, str):
       config = {'class_name': optimizer, 'config': {}}
       optimizer = tf.keras.optimizers.deserialize(config)
-    self.dist_optimizer = tnt.Optimizer(optimizer, group = self.group)
+    self.dist_optimizer = tnt.optimizers.Optimizer(optimizer, group = self.group)
 
     kwargs = self._preprocess_compile_kwargs(kwargs)
     return self.model.compile(optimizer = self.dist_optimizer,
