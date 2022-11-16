@@ -23,4 +23,9 @@ extended_add_library(NAME tfops
             INSTALL_DESTINATION
                 ${INSTALL_LIB_DIR}
             POSITION_INDEPENDENT)
-set_property(TARGET tnt-tfops PROPERTY CXX_STANDARD 14)
+
+if ("${Tensorflow_VERSION}" VERSION_LESS 2.10)
+  set_property(TARGET tnt-tfops PROPERTY CXX_STANDARD 14)
+else()
+  set_property(TARGET tnt-tfops PROPERTY CXX_STANDARD 17)
+endif()
