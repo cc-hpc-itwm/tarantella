@@ -90,7 +90,6 @@ include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(Tensorflow
                                   REQUIRED_VARS Tensorflow_LIBRARY
                                                 Tensorflow_INCLUDE_DIR
-                                                Tensorflow_CXX11_ABI_FLAG
                                   VERSION_VAR Tensorflow_VERSION)
 
 mark_as_advanced(Tensorflow_INCLUDE_DIR
