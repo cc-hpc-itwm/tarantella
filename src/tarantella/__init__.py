@@ -55,5 +55,3 @@ from tarantella.collectives.TensorBroadcaster import TensorBroadcaster
 from tarantella.collectives.TensorAllgatherer import TensorAllgatherer
 
 import tarantella.optimizers as optimizers
-from tarantella.optimizers.synchronous_distributed_optimizer import Optimizer
-

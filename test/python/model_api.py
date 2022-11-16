@@ -1,10 +1,7 @@
 from models import mnist_models as mnist
-from tarantella.strategy.parallel_strategy import ParallelStrategy
-import training_runner as base_runner
 import utilities as util
 import tarantella as tnt
 
-import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -168,5 +165,4 @@ class TestsModelAPI:
                       loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
                       metrics=['accuracy'])
     tnt_optimizer = tnt_model.dist_optimizer
-    assert isinstance(tnt_optimizer, tnt.distributed_optimizers.SynchDistributedOptimizer)
-    assert isinstance(tnt_optimizer.underlying_optimizer, optimizer_type)
+    assert isinstance(tnt_optimizer, optimizer_type)

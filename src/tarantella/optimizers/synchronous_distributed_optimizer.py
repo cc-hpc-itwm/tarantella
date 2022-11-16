@@ -22,7 +22,7 @@ def _generate_default_optimizer_with_type(keras_optimizer_type: Type[tf.keras.op
                        name: str = None,
                        group: tnt.Group = None):
       self.keras_optimizer = keras_optimizer
-      logger.debug(f"[SynchDistributedOptimizer] Initializing generic tnt.Optimizer of type={type(keras_optimizer)}")
+      logger.debug(f"[SynchDistributedOptimizer] Initializing generic tnt.optimizers.Optimizer of type={type(keras_optimizer)}")
       _construct_from_keras_object(self, keras_optimizer)
 
       if name is None:
