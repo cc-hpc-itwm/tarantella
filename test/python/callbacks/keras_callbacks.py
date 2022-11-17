@@ -256,7 +256,7 @@ class TestTarantellaCallbacks:
     ref_metrics = util.get_metrics_from_stdout(ref_captured.out, ref_model_runner.model.metrics_names)
 
     if tnt.is_master_rank():
-      result = all(np.isclose(tnt_metrics, ref_metrics, atol=1e-6))
+      result = all(np.isclose(tnt_metrics, ref_metrics, atol=1e-4))
     else:
       result = all([tnt_captured.out == "", tnt_captured.err == ""])
     util.assert_on_all_ranks(result)
