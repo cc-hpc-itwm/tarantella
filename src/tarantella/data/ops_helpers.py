@@ -124,7 +124,10 @@ def _get_transformation_info_take(dataset):
   return (ds.TakeDataset, kwargs)
 
 def _get_transformation_info_restructured(dataset):
-  kwargs = {"structure" : dataset._structure}
+  if hasattr(dataset, '_structure'):
+    kwargs = {"structure" : dataset._structure}
+  else: # TF 2.10
+    kwargs = {"element_spec" : dataset._element_spec}
   return (ds._RestructuredDataset,kwargs)
 
 def _get_transformation_info_unbatch(dataset):
