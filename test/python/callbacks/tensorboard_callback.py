@@ -64,12 +64,7 @@ class TestTensorboardCallbacks:
     tnt_model_runner.model.fit(train_dataset, validation_data=val_dataset,
                                epochs = number_epochs,
                                callbacks = [callback])
-    if version_utils.tf_version_above_equal("2.4") and \
-       not version_utils.tf_version_equal("2.7"):
-      result = [os.path.isdir(os.path.join(setup_save_path, f"train/rank_{tnt.get_rank()}")),
-                os.path.isdir(os.path.join(setup_save_path, f"validation/rank_{tnt.get_rank()}"))]
-    else: # default Tensorboard directory names
-      result = [os.path.isdir(os.path.join(setup_save_path, f"train")),
-                os.path.isdir(os.path.join(setup_save_path, f"validation"))]
+    result = [os.path.isdir(os.path.join(setup_save_path, f"train")),
+              os.path.isdir(os.path.join(setup_save_path, f"validation"))]
     result = [all(result)]
     util.assert_on_all_ranks(result)
