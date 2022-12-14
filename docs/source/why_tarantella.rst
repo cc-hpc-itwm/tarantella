@@ -96,13 +96,13 @@ properties of all models used in the experiments.
 ================ ================== ======== ======== ================
 Model class       Model              #Params  FLOPs   Micro-batch size
 ================ ================== ======== ======== ================
-Computer Vision   Resnet-50           25.5 M 7.7 G    64
+Computer Vision   Resnet-50             25 M      7 G               64
 
-                  Resnet-152          60 M   3.2 G    64
+                  Resnet-152            60 M      3 G               64
 
-                  EfficientNet-B3     14.4 M 22.5 G   128
+                  EfficientNet-B3       14 M     22 G              128
 
-NLP               Transformer (big)   213 M  4 T      4096
+NLP               Transformer (big)    213 M      4 T             4096
 ================ ================== ======== ======== ================
 
 
